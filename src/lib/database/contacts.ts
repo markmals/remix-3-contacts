@@ -71,6 +71,10 @@ export function deleteContact(id: string): true {
 const fakeCache = new Map<string, boolean>();
 
 export async function fakeNetwork(key?: string) {
+    if (process.env.NODE_ENV === "test") {
+        return;
+    }
+
     if (!key || !fakeCache.get(key)) {
         if (key) fakeCache.set(key, true);
         // Fake network slowdown between 1-3 seconds

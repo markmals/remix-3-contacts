@@ -3,9 +3,9 @@ import { createRoutes, resource, route } from "remix/fetch-router/routes";
 export const routes = createRoutes({
     home: "/",
     contacts: resource("/contacts"),
-    frame: route("/frame", {
+    frame: route("/_frame", {
         sidebar: "sidebar",
-        index: "index",
+        zero: "zero",
         show: "show",
         edit: "edit",
     }),
