@@ -1,22 +1,17 @@
 import type { Handle } from "remix/component";
-import { buildShowHref } from "~/lib/contact-links.ts";
+import { CancelButton } from "~/assets/CancelButton.tsx";
 import type { Contact } from "~/lib/database/contacts.ts";
 import { routes } from "~/routes.ts";
 
-export function EditContact(
-    _handle: Handle,
-    setup: {
-        contact: Contact;
-        query: string | null;
-    },
-) {
-    const showHref = buildShowHref(setup.contact.id, setup.query);
-
+export function EditContact(_handle: Handle, setup: { contact: Contact }) {
     return () => (
         <div id="detail">
-            <form action={routes.contacts.show.href()} id="contact-form" method="post">
+            <form
+                action={routes.contacts.update.href({ id: setup.contact.id })}
+                id="contact-form"
+                method="POST"
+            >
                 <input name="_method" type="hidden" value="PUT" />
-                <input name="id" type="hidden" value={setup.contact.id} />
 
                 <p>
                     <span>Name</span>
@@ -68,7 +63,7 @@ export function EditContact(
 
                 <p>
                     <button type="submit">Save</button>
-                    <a href={showHref}>Cancel</a>
+                    <CancelButton />
                 </p>
             </form>
         </div>

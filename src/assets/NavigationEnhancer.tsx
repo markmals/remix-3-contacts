@@ -1,5 +1,5 @@
 import { clientEntry, type Handle } from "remix/component";
-import { isCanonicalPathname, reloadFrames } from "~/lib/navigation.ts";
+import { isCanonicalPathname, reloadFrames } from "~/lib/frame-utils.ts";
 
 declare global {
     interface Navigation {

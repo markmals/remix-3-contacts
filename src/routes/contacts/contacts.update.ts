@@ -1,6 +1,5 @@
 import type { BuildAction } from "remix/fetch-router";
 import { createRedirectResponse as redirect } from "remix/response/redirect";
-import { buildShowHref } from "~/lib/contact-links.ts";
 import { getContact, updateContact } from "~/lib/database/contacts.ts";
 import { routes } from "~/routes.ts";
 
@@ -35,5 +34,5 @@ export const update: BuildAction<"PUT", typeof routes.contacts.update> = async (
 
     await updateContact(contactIdValue, updates);
 
-    return redirect(buildShowHref(contactIdValue, null));
+    return redirect(routes.contacts.show.href({ id: contactIdValue }));
 };

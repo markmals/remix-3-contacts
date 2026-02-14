@@ -5,11 +5,10 @@ import { getContact } from "~/lib/database/contacts.ts";
 import { html } from "~/lib/responses/html.tsx";
 import type { routes } from "~/routes.ts";
 
-export const show: BuildAction<"ANY", typeof routes.frame.show> = async ({ request }) => {
+export const show: BuildAction<"ANY", typeof routes.frame.show> = async ({ request, params }) => {
     const url = new URL(request.url);
-    const contactId = url.searchParams.get("id") ?? undefined;
     const query = url.searchParams.get("q");
-    const contact = await getContact(contactId);
+    const contact = await getContact(params.id);
 
     if (!contact) {
         return html(<ZeroState />);

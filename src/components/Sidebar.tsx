@@ -1,6 +1,5 @@
 import type { Handle } from "remix/component";
-import { LiveSearch } from "~/assets/LiveSearch.tsx";
-import { buildShowHref } from "~/lib/contact-links.ts";
+import { Search } from "~/assets/Search.tsx";
 import type { Contact } from "~/lib/database/contacts.ts";
 import { routes } from "~/routes.ts";
 
@@ -10,14 +9,13 @@ export function Sidebar(
         contacts: Contact[];
         query: string | null;
         selectedId: string | null;
-        activePath: string;
     },
 ) {
     return () => (
         <div id="sidebar">
             <h1>Remix 3 Contacts</h1>
             <div>
-                <LiveSearch setup={{ path: setup.activePath, query: setup.query }} />
+                <Search setup={{ query: setup.query }} />
                 <form action={routes.contacts.create.href()} method="post">
                     <button type="submit">New</button>
                 </form>
@@ -26,7 +24,10 @@ export function Sidebar(
                 {setup.contacts.length ? (
                     <ul>
                         {setup.contacts.map(contact => {
-                            const href = buildShowHref(contact.id, setup.query);
+                            const href = routes.contacts.show.href(
+                                { id: contact.id },
+                                { q: setup.query },
+                            );
                             const isActive = setup.selectedId === contact.id;
                             const className = isActive ? "active" : "";
 

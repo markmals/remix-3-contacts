@@ -1,8 +1,8 @@
 import type { Handle } from "remix/component";
 import { DeleteConfirm } from "~/assets/DeleteConfirm.tsx";
 import { Favorite } from "~/assets/Favorite.tsx";
-import { buildEditHref } from "~/lib/contact-links.ts";
 import type { Contact } from "~/lib/database/contacts.ts";
+import { routes } from "~/routes.ts";
 
 const AVATAR_PLACEHOLDER =
     "https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png";
@@ -57,7 +57,14 @@ export function ShowContact(
                     {setup.contact.notes ? <p>{setup.contact.notes}</p> : null}
 
                     <div>
-                        <a href={buildEditHref(setup.contact.id, setup.query)}>Edit</a>
+                        <form
+                            action={routes.contacts.edit.href(
+                                { id: setup.contact.id },
+                                { q: setup.query },
+                            )}
+                        >
+                            <button type="submit">Edit</button>
+                        </form>
                         <DeleteConfirm contactId={setup.contact.id} />
                     </div>
                 </div>

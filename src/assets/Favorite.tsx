@@ -1,5 +1,5 @@
 import { clientEntry, type Handle } from "remix/component";
-import { reloadFrames } from "~/lib/navigation.ts";
+import { reloadFrames } from "~/lib/frame-utils.ts";
 import { routes } from "~/routes.ts";
 
 export const Favorite = clientEntry(
@@ -13,8 +13,8 @@ export const Favorite = clientEntry(
 
             return (
                 <form
-                    action={routes.contacts.show.href()}
-                    method="post"
+                    action={routes.contacts.favorite.href({ id: props.contactId })}
+                    method="POST"
                     on={{
                         async submit(event) {
                             event.preventDefault();
@@ -25,16 +25,16 @@ export const Favorite = clientEntry(
 
                             try {
                                 const response = await fetch(event.currentTarget.action, {
-                                    method: "POST",
+                                    method: event.currentTarget.method,
                                     body: new FormData(event.currentTarget),
-                                    headers: { accept: "text/html" },
                                 });
 
                                 if (!response.ok && !response.redirected) {
                                     favorite = !favorite;
                                 }
 
-                                await reloadFrames(handle, new URL(window.location.href));
+                                const url = new URL(window.location.href);
+                                await reloadFrames(handle, url);
                             } catch {
                                 favorite = !favorite;
                             }

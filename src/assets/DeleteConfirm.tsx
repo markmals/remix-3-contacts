@@ -8,8 +8,8 @@ export const DeleteConfirm = clientEntry(
 
         return (props: { contactId: string }) => (
             <form
-                action={routes.contacts.show.href()}
-                method="post"
+                action={routes.contacts.destroy.href({ id: props.contactId })}
+                method="POST"
                 on={{
                     async submit(event) {
                         if (!window.confirm("Please confirm you want to delete this record.")) {
@@ -23,9 +23,8 @@ export const DeleteConfirm = clientEntry(
                         await handle.update();
 
                         await fetch(event.currentTarget.action, {
-                            method: "POST",
+                            method: event.currentTarget.method,
                             body: new FormData(event.currentTarget),
-                            headers: { accept: "text/html" },
                         });
 
                         await window.navigation.navigate(routes.home.href(), { history: "push" })
@@ -37,7 +36,6 @@ export const DeleteConfirm = clientEntry(
                 }}
             >
                 <input name="_method" type="hidden" value="DELETE" />
-                <input name="id" type="hidden" value={props.contactId} />
                 <button disabled={submitting} type="submit">
                     Delete
                 </button>

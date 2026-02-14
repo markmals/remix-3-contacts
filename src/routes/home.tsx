@@ -3,5 +3,4 @@ import { Document } from "~/components/Document.tsx";
 import { render } from "~/lib/responses/render.tsx";
 import type { routes } from "~/routes.ts";
 
-export const home: BuildAction<"ANY", typeof routes.home> = ({ request }) =>
-    render(<Document setup={{ url: new URL(request.url) }} />);
+export const home: BuildAction<"ANY", typeof routes.home> = () => render(<Document />);

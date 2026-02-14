@@ -1,13 +1,13 @@
 import { clientEntry, type Handle } from "remix/component";
 
-export const LiveSearch = clientEntry(
+export const Search = clientEntry(
     "/assets/LiveSearch.js#LiveSearch",
-    function LiveSearch(handle: Handle, setup: { path: string; query: string | null }) {
+    function Search(handle: Handle, setup: { query: string | null }) {
         let searching = false;
         let didSearch = Boolean(setup.query);
 
         return () => (
-            <form action={setup.path} id="search-form" method="get">
+            <form id="search-form" method="GET">
                 <input
                     aria-label="Search contacts"
                     class={searching ? "loading" : ""}

@@ -1,10 +1,12 @@
-import { Frame, type Handle } from "remix/component";
+import { getContext } from "remix/async-context-middleware";
+import { Frame } from "remix/component";
 import { NavigationEnhancer } from "~/assets/NavigationEnhancer.tsx";
-import { buildDetailFrameSrc, buildSidebarFrameSrc } from "~/lib/frame-urls.ts";
+import { getFrameUrls } from "~/lib/frame-utils.ts";
 
-export function Document(_handle: Handle, setup: { url: URL }) {
-    const sidebarSrc = buildSidebarFrameSrc(setup.url);
-    const detailSrc = buildDetailFrameSrc(setup.url);
+export function Document() {
+    const ctx = getContext();
+    const url = new URL(ctx.request.url);
+    const [sidebar, detail] = getFrameUrls(url);
 
     return () => (
         <html lang="en">
@@ -18,8 +20,8 @@ export function Document(_handle: Handle, setup: { url: URL }) {
             </head>
             <body>
                 <div id="root">
-                    <Frame name="sidebar" src={sidebarSrc} />
-                    <Frame name="detail" src={detailSrc} />
+                    <Frame name="sidebar" src={sidebar} />
+                    <Frame name="detail" src={detail} />
                 </div>
                 <NavigationEnhancer />
             </body>

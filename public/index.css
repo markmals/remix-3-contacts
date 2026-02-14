@@ -85,7 +85,7 @@ button:active {
     color: #eeb004;
 }
 
-form[action$="destroy"] button {
+form:has(input[value="DELETE"]) button {
     color: #f44250;
 }
 

@@ -3,12 +3,7 @@ import { createRedirectResponse as redirect } from "remix/response/redirect";
 import { deleteContact } from "~/lib/database/contacts.ts";
 import { routes } from "~/routes.ts";
 
-export const destroy: BuildAction<"DELETE", typeof routes.contacts.destroy> = ({ formData }) => {
-    const contactIdValue = formData.get("id");
-
-    if (typeof contactIdValue === "string" && contactIdValue.length > 0) {
-        deleteContact(contactIdValue);
-    }
-
+export const destroy: BuildAction<"DELETE", typeof routes.contacts.destroy> = ({ params }) => {
+    deleteContact(params.id);
     return redirect(routes.home.href());
 };
