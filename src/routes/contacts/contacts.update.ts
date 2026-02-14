@@ -3,14 +3,11 @@ import { createRedirectResponse as redirect } from "remix/response/redirect";
 import { getContact, updateContact } from "~/lib/database/contacts.ts";
 import { routes } from "~/routes.ts";
 
-export const update: BuildAction<"PUT", typeof routes.contacts.update> = async ({ formData }) => {
-    const contactIdValue = formData.get("id");
-
-    if (typeof contactIdValue !== "string" || contactIdValue.length === 0) {
-        return redirect(routes.home.href());
-    }
-
-    const contact = await getContact(contactIdValue);
+export const update: BuildAction<"PUT", typeof routes.contacts.update> = async ({
+    formData,
+    params,
+}) => {
+    const contact = await getContact(params.id);
 
     if (!contact) {
         return redirect(routes.home.href());
@@ -32,7 +29,7 @@ export const update: BuildAction<"PUT", typeof routes.contacts.update> = async (
     if (typeof notes === "string") updates.notes = notes;
     if (typeof favorite === "string") updates.favorite = favorite === "true";
 
-    await updateContact(contactIdValue, updates);
+    await updateContact(params.id, updates);
 
-    return redirect(routes.contacts.show.href({ id: contactIdValue }));
+    return redirect(routes.contacts.show.href({ id: params.id }));
 };

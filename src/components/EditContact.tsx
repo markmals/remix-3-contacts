@@ -17,27 +17,27 @@ export function EditContact(_handle: Handle, setup: { contact: Contact }) {
                     <span>Name</span>
                     <input
                         aria-label="First name"
-                        defaultValue={setup.contact.first || undefined}
                         name="first"
                         placeholder="First"
                         type="text"
+                        value={setup.contact.first || undefined}
                     />
                     <input
                         aria-label="Last name"
-                        defaultValue={setup.contact.last || undefined}
                         name="last"
                         placeholder="Last"
                         type="text"
+                        value={setup.contact.last || undefined}
                     />
                 </p>
 
                 <label>
                     <span>Bluesky</span>
                     <input
-                        defaultValue={setup.contact.bsky || undefined}
                         name="bsky"
                         placeholder="jay.bsky.team"
                         type="text"
+                        value={setup.contact.bsky || undefined}
                     />
                 </label>
 
@@ -45,20 +45,16 @@ export function EditContact(_handle: Handle, setup: { contact: Contact }) {
                     <span>Avatar URL</span>
                     <input
                         aria-label="Avatar URL"
-                        defaultValue={setup.contact.avatar || undefined}
                         name="avatar"
                         placeholder="https://example.com/avatar.jpg"
                         type="text"
+                        value={setup.contact.avatar || undefined}
                     />
                 </label>
 
                 <label>
                     <span>Notes</span>
-                    <textarea
-                        defaultValue={setup.contact.notes || undefined}
-                        name="notes"
-                        rows={6}
-                    />
+                    <textarea name="notes" rows={6} value={setup.contact.notes || undefined} />
                 </label>
 
                 <p>
