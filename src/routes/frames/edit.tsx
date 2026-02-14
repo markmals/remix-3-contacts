@@ -12,5 +12,5 @@ export const edit: BuildAction<"ANY", typeof routes.frame.edit> = async ({ param
         return html(<ZeroState />);
     }
 
-    return html(<EditContact setup={{ contact }} />);
+    return html(<EditContact contact={contact} />);
 };

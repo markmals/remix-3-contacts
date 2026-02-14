@@ -1,13 +1,12 @@
-import type { Handle } from "remix/component";
 import { CancelButton } from "~/assets/CancelButton.tsx";
 import type { Contact } from "~/lib/database/contacts.ts";
 import { routes } from "~/routes.ts";
 
-export function EditContact(_handle: Handle, setup: { contact: Contact }) {
-    return () => (
+export function EditContact() {
+    return (props: { contact: Contact }) => (
         <div id="detail">
             <form
-                action={routes.contacts.update.href({ id: setup.contact.id })}
+                action={routes.contacts.update.href({ id: props.contact.id })}
                 id="contact-form"
                 method="POST"
             >
@@ -20,14 +19,14 @@ export function EditContact(_handle: Handle, setup: { contact: Contact }) {
                         name="first"
                         placeholder="First"
                         type="text"
-                        value={setup.contact.first || undefined}
+                        value={props.contact.first || undefined}
                     />
                     <input
                         aria-label="Last name"
                         name="last"
                         placeholder="Last"
                         type="text"
-                        value={setup.contact.last || undefined}
+                        value={props.contact.last || undefined}
                     />
                 </p>
 
@@ -37,7 +36,7 @@ export function EditContact(_handle: Handle, setup: { contact: Contact }) {
                         name="bsky"
                         placeholder="jay.bsky.team"
                         type="text"
-                        value={setup.contact.bsky || undefined}
+                        value={props.contact.bsky || undefined}
                     />
                 </label>
 
@@ -48,13 +47,13 @@ export function EditContact(_handle: Handle, setup: { contact: Contact }) {
                         name="avatar"
                         placeholder="https://example.com/avatar.jpg"
                         type="text"
-                        value={setup.contact.avatar || undefined}
+                        value={props.contact.avatar || undefined}
                     />
                 </label>
 
                 <label>
                     <span>Notes</span>
-                    <textarea name="notes" rows={6} value={setup.contact.notes || undefined} />
+                    <textarea name="notes" rows={6} value={props.contact.notes || undefined} />
                 </label>
 
                 <p>

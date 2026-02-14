@@ -14,5 +14,5 @@ export const show: BuildAction<"ANY", typeof routes.frame.show> = async ({ reque
         return html(<ZeroState />);
     }
 
-    return html(<ShowContact setup={{ contact, query }} />);
+    return html(<ShowContact contact={contact} query={query} />);
 };

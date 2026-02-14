@@ -10,13 +10,5 @@ export const sidebar: BuildAction<"ANY", typeof routes.frame.sidebar> = async ({
     const selected = url.searchParams.get("selected");
     const contacts = await getContacts(query);
 
-    return html(
-        <Sidebar
-            setup={{
-                contacts,
-                query,
-                selectedId: selected,
-            }}
-        />,
-    );
+    return html(<Sidebar contacts={contacts} query={query} selectedId={selected} />);
 };
