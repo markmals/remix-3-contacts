@@ -8,7 +8,6 @@ const AVATAR_PLACEHOLDER =
 
 export function ShowContact() {
     return (props: { contact: Contact; query: string | null }) => {
-        const hasAvatar = Boolean(props.contact.avatar);
         return (
             <div id="detail">
                 <div id="contact">
@@ -16,7 +15,7 @@ export function ShowContact() {
                         <img
                             alt=""
                             key={props.contact.avatar}
-                            src={hasAvatar ? props.contact.avatar : AVATAR_PLACEHOLDER}
+                            src={props.contact.avatar ? props.contact.avatar : AVATAR_PLACEHOLDER}
                         />
                     </div>
 

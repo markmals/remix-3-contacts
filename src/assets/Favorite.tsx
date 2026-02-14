@@ -8,7 +8,7 @@ export const Favorite = clientEntry(
         let favorite = setup.favorite;
         let submitting = false;
 
-        return (props: { contactId: string }) => {
+        return (props: { contactId: number }) => {
             const nextFavorite = favorite ? "false" : "true";
 
             return (

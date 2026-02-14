@@ -105,7 +105,7 @@ describe("router", () => {
         assert.equal(updateResponse.status, 302);
         assert.equal(getLocation(updateResponse), `/contacts?id=${contactId}`);
 
-        const contact = await getContact(contactId);
+        const contact = await getContact(Number(contactId));
         assert.equal(contact?.first, "Updated");
         assert.equal(contact?.last, "Contact");
     });
@@ -128,7 +128,7 @@ describe("router", () => {
 
         assert.equal(destroyResponse.status, 302);
         assert.equal(getLocation(destroyResponse), "/");
-        assert.equal(await getContact(contactId), null);
+        assert.equal(await getContact(Number(contactId)), null);
     });
 
     it("search q filters sidebar frame", async () => {

@@ -1,30 +1,57 @@
-import { DatabaseSync } from "node:sqlite";
 import { setTimeout } from "node:timers/promises";
+import Database from "better-sqlite3";
 import { matchSorter } from "match-sorter";
+import * as schema from "remix/data-schema";
+import * as checks from "remix/data-schema/checks";
+import { createDatabase, createTable, type TableRow } from "remix/data-table";
+import { createSqliteDatabaseAdapter } from "remix/data-table-sqlite";
 import sortBy from "sort-by";
-import { createStore } from "./db.ts";
 import { seed } from "./seed.ts";
 
-export interface Contact {
-    id: string; // SQLite integer id serialized as string
-    first: string;
-    last: string;
-    avatar: string;
-    bsky: string;
-    notes: string;
-    favorite?: boolean;
-    createdAt: Date;
-}
+export const Contacts = createTable({
+    name: "contacts",
+    columns: {
+        id: schema.number(),
+        first: schema.string(),
+        last: schema.string(),
+        avatar: schema.nullable(schema.string().pipe(checks.url())),
+        bsky: schema.string(),
+        notes: schema.string(),
+        favorite: schema.boolean(),
+        createdAt: schema.number(),
+    },
+});
 
-const db = new DatabaseSync(":memory:");
-const store = createStore(db);
+export type Contact = TableRow<typeof Contacts>;
+
+const sqlite = new Database(":memory:");
+const db = createDatabase(createSqliteDatabaseAdapter(sqlite));
 
 await seed(db);
 
-export async function getContacts(query: string | null) {
+export function initializeContactTable() {
+    sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS contacts (
+    id        INTEGER PRIMARY KEY,
+    first     TEXT NOT NULL,
+    last      TEXT NOT NULL,
+    avatar    TEXT,
+    bsky      TEXT NOT NULL,
+    notes     TEXT NOT NULL,
+    favorite  INTEGER NOT NULL DEFAULT 0
+              CHECK (favorite IN (0, 1)),
+    createdAt INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_contacts_last_createdAt
+        ON contacts (last, createdAt);  
+    `);
+}
+
+export async function getContacts(query: string | null): Promise<Contact[]> {
     await fakeNetwork(`getContacts:${query}`);
 
-    let contacts = store.all();
+    let contacts = await db.findMany(Contacts);
 
     if (query) {
         contacts = matchSorter(contacts, query, { keys: ["first", "last"] });
@@ -33,38 +60,57 @@ export async function getContacts(query: string | null) {
     return contacts.toSorted(sortBy("last", "createdAt"));
 }
 
-export function createContact() {
-    return store.insert();
+export async function createContact(): Promise<number> {
+    const contact = await db.create(
+        Contacts,
+        {
+            first: "",
+            last: "",
+            avatar: null,
+            bsky: "",
+            notes: "",
+            favorite: false,
+            createdAt: Date.now(),
+        },
+        { returnRow: true },
+    );
+
+    return contact.id;
 }
 
-export async function getContact(id?: string) {
+export async function getContact(id?: number): Promise<Contact | null> {
     if (!id) return null;
     await fakeNetwork(`contact:${id}`);
-    return store.get(id);
+    return await db.find(Contacts, id);
 }
 
 const AT = /^@+/;
 
-export async function updateContact(id: string, updates: Partial<Contact>) {
+export async function updateContact(id: number, updates: Partial<Contact>) {
     await fakeNetwork();
 
-    const contact = store.get(id);
+    let contact = await db.find(Contacts, id);
     if (!contact) throw new Error(`Contact with id ${id} not found`);
+
+    // Never allow id/createdAt to be updated via patch
+    const { id: _id, createdAt: _createdAt, ...patch } = updates;
+    if (Object.keys(patch).length === 0) return contact;
 
     // Trim any leading @'s off of bsky handle
     if (typeof updates.bsky === "string") {
         updates.bsky = updates.bsky.replace(AT, "");
     }
 
-    const updated = store.update(id, updates);
-    if (!updated) throw new Error(`Contact with id ${id} not found`);
-
-    return updated;
+    return await db.update(Contacts, id, patch);
 }
 
-export function deleteContact(id: string): true {
-    store.delete(id);
-    return true;
+export async function deleteContact(id: number): Promise<boolean> {
+    try {
+        await db.delete(Contacts, id);
+        return true;
+    } catch {
+        return false;
+    }
 }
 
 // fake a cache so we don't slow down stuff we've already seen

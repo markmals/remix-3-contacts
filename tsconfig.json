@@ -1,5 +1,6 @@
 {
     "include": ["**/*"],
+    "exclude": ["public/assets/*"],
     "compilerOptions": {
         "lib": ["DOM", "DOM.Iterable", "ESNext", "ESNext.Decorators"],
         "target": "ESNext",

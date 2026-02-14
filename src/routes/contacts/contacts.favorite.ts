@@ -6,7 +6,7 @@ export const favorite: BuildAction<"PATCH", typeof routes.contacts.favorite> = a
     formData,
     params,
 }) => {
-    const update = await updateContact(params.id, {
+    const update = await updateContact(Number(params.id), {
         favorite: formData.get("favorite") === "true",
     });
     return Response.json(update);

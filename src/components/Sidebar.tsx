@@ -3,7 +3,7 @@ import type { Contact } from "~/lib/database/contacts.ts";
 import { routes } from "~/routes.ts";
 
 export function Sidebar() {
-    return (props: { contacts: Contact[]; query: string | null; selectedId: string | null }) => {
+    return (props: { contacts: Contact[]; query: string | null; selectedId: number | null }) => {
         return (
             <div id="sidebar">
                 <h1>Remix 3 Contacts</h1>

@@ -6,7 +6,7 @@ export const DeleteConfirm = clientEntry(
     function DeleteConfirm(handle: Handle) {
         let submitting = false;
 
-        return (props: { contactId: string }) => (
+        return (props: { contactId: number }) => (
             <form
                 action={routes.contacts.destroy.href({ id: props.contactId })}
                 method="POST"

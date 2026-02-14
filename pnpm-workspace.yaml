@@ -29,5 +29,6 @@ onlyBuiltDependencies:
   - '@remix-run/session-middleware'
   - '@remix-run/static-middleware'
   - '@remix-run/tar-parser'
+  - better-sqlite3
   - esbuild
   - remix

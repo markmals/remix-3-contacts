@@ -1,5 +1,5 @@
-import type { DatabaseSync } from "node:sqlite";
-import { createStore } from "./db.ts";
+import type { Database } from "remix/data-table";
+import { Contacts, initializeContactTable } from "./contacts.ts";
 
 const contacts = [
     {
@@ -34,12 +34,22 @@ const contacts = [
     },
 ];
 
-export async function seed(db: DatabaseSync) {
-    const store = createStore(db);
+export async function seed(db: Database) {
+    initializeContactTable();
 
-    store.clear();
+    await db.deleteMany(Contacts, {
+        where: {},
+    });
 
-    for (const c of contacts) {
-        store.insertSeed(c);
+    for (const contact of contacts) {
+        await db.create(Contacts, {
+            first: contact.first,
+            last: contact.last,
+            avatar: contact.avatar,
+            bsky: contact.bsky,
+            notes: "",
+            favorite: false,
+            createdAt: Date.now(),
+        });
     }
 }

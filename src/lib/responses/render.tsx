@@ -1,29 +1,36 @@
 import { getContext } from "remix/async-context-middleware";
 import type { RemixNode } from "remix/component/jsx-runtime";
 import { renderToStream } from "remix/component/server";
-import { createHtmlResponse as html } from "remix/response/html";
+import { createHtmlResponse } from "remix/response/html";
 import { router } from "~/router.tsx";
 
-export async function render(node: RemixNode): Promise<Response> {
-    const ctx = getContext();
+// Using createHtmlResponse inserts DOCTYPE at the beginning of the document
+// For frame partials, we don't want to include DOCTYPE
+export function renderFrame(node: JSX.Element): Response {
+    return new Response(renderToStream(node), {
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+    });
+}
 
-    return html(
+export async function renderDoc(node: RemixNode): Promise<Response> {
+    return createHtmlResponse(
         renderToStream(node, {
             async resolveFrame(src) {
-                const location = new URL(src, ctx.request.url);
-                const frame = await router.fetch(
-                    new Request(location, { headers: { accept: "text/html" } }),
+                const ctx = getContext();
+                const url = new URL(src, ctx.request.url);
+                const response = await router.fetch(
+                    new Request(url, { headers: { accept: "text/html" } }),
                 );
 
-                if (!frame.ok) {
-                    throw new Error(`Failed to resolve frame ${location.pathname}`);
+                if (!response.ok) {
+                    throw new Error(`Failed to resolve frame ${url.pathname}`);
                 }
 
-                if (frame.body) {
-                    return frame.body;
+                if (response.body) {
+                    return response.body;
                 }
 
-                return await frame.text();
+                return await response.text();
             },
         }),
     );
