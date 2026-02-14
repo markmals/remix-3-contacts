@@ -15,7 +15,11 @@ export function Document() {
                 <meta content="width=device-width, initial-scale=1" name="viewport" />
                 <title>Remix 3 Contacts</title>
                 <link href="/index.css" rel="stylesheet" />
-                <link href="/favicon.ico" rel="icon" />
+                <link href="/favicon-32.png" rel="icon" sizes="32x32" />
+                <link href="/favicon-128.png" rel="icon" sizes="128x128" />
+                <link href="/favicon-180.png" rel="icon" sizes="180x180" />
+                <link href="/favicon-192.png" rel="icon" sizes="192x192" />
+                <link href="/favicon-180.png" rel="apple-touch-icon" sizes="180x180" />
                 <script async src="/assets/entry.js" type="module" />
             </head>
             <body>
