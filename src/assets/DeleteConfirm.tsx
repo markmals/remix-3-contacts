@@ -12,7 +12,7 @@ export const DeleteConfirm = clientEntry(
                 method="POST"
                 on={{
                     async submit(event) {
-                        if (!window.confirm("Please confirm you want to delete this record.")) {
+                        if (!confirm("Please confirm you want to delete this record.")) {
                             event.preventDefault();
                             return;
                         }
@@ -27,8 +27,7 @@ export const DeleteConfirm = clientEntry(
                             body: new FormData(event.currentTarget),
                         });
 
-                        await window.navigation.navigate(routes.home.href(), { history: "push" })
-                            .finished;
+                        await navigation.navigate(routes.home.href(), { history: "push" }).finished;
 
                         submitting = false;
                         await handle.update();

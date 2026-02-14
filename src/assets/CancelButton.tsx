@@ -7,7 +7,7 @@ export const CancelButton = clientEntry(
             <button
                 on={{
                     click() {
-                        window.navigation.back();
+                        navigation.back();
                     },
                 }}
                 type="button"

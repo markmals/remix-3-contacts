@@ -20,6 +20,12 @@
     "[tsx]": {
         "editor.defaultFormatter": "biomejs.biome"
     },
+    "[javascript]": {
+        "editor.defaultFormatter": "biomejs.biome"
+    },
+    "[jsx]": {
+        "editor.defaultFormatter": "biomejs.biome"
+    },
     "[css]": {
         "editor.defaultFormatter": "biomejs.biome"
     },

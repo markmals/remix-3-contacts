@@ -21,7 +21,7 @@ export const Search = clientEntry(
                             }
 
                             const value = event.currentTarget.value.trim();
-                            const nextUrl = new URL(window.location.href);
+                            const nextUrl = new URL(location.href);
 
                             if (value.length === 0) {
                                 nextUrl.searchParams.delete("q");
@@ -29,7 +29,7 @@ export const Search = clientEntry(
                                 searching = true;
                                 await handle.update();
 
-                                await window.navigation.navigate(nextUrl.toString(), {
+                                await navigation.navigate(nextUrl.toString(), {
                                     history: "push",
                                 }).finished;
 
@@ -48,8 +48,7 @@ export const Search = clientEntry(
                             searching = true;
                             await handle.update();
 
-                            await window.navigation.navigate(nextUrl.toString(), { history })
-                                .finished;
+                            await navigation.navigate(nextUrl.toString(), { history }).finished;
 
                             searching = false;
                             await handle.update();
