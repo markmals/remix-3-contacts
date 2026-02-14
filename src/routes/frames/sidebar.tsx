@@ -1,7 +1,7 @@
 import type { BuildAction } from "remix/fetch-router";
 import { Sidebar } from "~/components/Sidebar.tsx";
 import { getContacts } from "~/lib/database/contacts.ts";
-import { renderFrame } from "~/lib/responses/render.tsx";
+import { renderFrame } from "~/lib/render.tsx";
 import type { routes } from "~/routes.ts";
 
 export const sidebar: BuildAction<"ANY", typeof routes.frame.sidebar> = async ({ request }) => {

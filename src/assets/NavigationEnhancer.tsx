@@ -11,19 +11,19 @@ export const NavigationEnhancer = clientEntry(
                         return;
                     }
 
-                    const destinationUrl = new URL(event.destination.url);
+                    const url = new URL(event.destination.url);
 
-                    if (destinationUrl.origin !== location.origin) {
+                    if (url.origin !== location.origin) {
                         return;
                     }
 
-                    if (!isCanonicalPathname(destinationUrl.pathname)) {
+                    if (!isCanonicalPathname(url.pathname)) {
                         return;
                     }
 
                     event.intercept({
                         async handler() {
-                            await reloadFrames(handle, destinationUrl);
+                            await reloadFrames(handle, url);
                         },
                     });
                 },
