@@ -14,7 +14,7 @@ const server = http.createServer(
     }),
 );
 
-const port = process.env.PORT ? Number.parseInt(process.env.PORT, 10) : 44100;
+const port = process.env.PORT ? Number.parseInt(process.env.PORT, 10) : 1612;
 
 server.listen(port, () => {
     console.log(`Contacts demo is running on http://localhost:${port}`);
