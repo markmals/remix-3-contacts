@@ -17,7 +17,7 @@ export async function renderDoc(node: RemixNode): Promise<Response> {
         renderToStream(node, {
             async resolveFrame(src) {
                 const ctx = getContext();
-                const url = new URL(src, ctx.request.url);
+                const url = new URL(src, ctx.url);
                 const response = await router.fetch(
                     new Request(url, { headers: { accept: "text/html" } }),
                 );

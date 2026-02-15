@@ -5,8 +5,7 @@ import { getFrameUrls } from "~/lib/frame-utils.ts";
 
 export function Document() {
     const ctx = getContext();
-    const url = new URL(ctx.request.url);
-    const [sidebar, detail] = getFrameUrls(url);
+    const [sidebar, detail] = getFrameUrls(ctx.url);
 
     return () => (
         <html lang="en">

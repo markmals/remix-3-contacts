@@ -21,15 +21,15 @@ export const Search = clientEntry(
                             }
 
                             const value = event.currentTarget.value.trim();
-                            const nextUrl = new URL(location.href);
+                            const url = new URL(location.href);
 
                             if (value.length === 0) {
-                                nextUrl.searchParams.delete("q");
+                                url.searchParams.delete("q");
 
                                 searching = true;
                                 await handle.update();
 
-                                await navigation.navigate(nextUrl.toString(), {
+                                await navigation.navigate(url.toString(), {
                                     history: "push",
                                 }).finished;
 
@@ -40,7 +40,7 @@ export const Search = clientEntry(
                                 return;
                             }
 
-                            nextUrl.searchParams.set("q", value);
+                            url.searchParams.set("q", value);
 
                             const history = didSearch ? "replace" : "push";
                             didSearch = true;
@@ -48,7 +48,7 @@ export const Search = clientEntry(
                             searching = true;
                             await handle.update();
 
-                            await navigation.navigate(nextUrl.toString(), { history }).finished;
+                            await navigation.navigate(url.toString(), { history }).finished;
 
                             searching = false;
                             await handle.update();

@@ -4,8 +4,7 @@ import { getContacts } from "~/lib/database/contacts.ts";
 import { renderFrame } from "~/lib/render.tsx";
 import type { routes } from "~/routes.ts";
 
-export const sidebar: BuildAction<"ANY", typeof routes.frame.sidebar> = async ({ request }) => {
-    const url = new URL(request.url);
+export const sidebar: BuildAction<"ANY", typeof routes.frame.sidebar> = async ({ url }) => {
     const query = url.searchParams.get("q");
     const selected = url.searchParams.get("selected");
     const contacts = await getContacts(query);

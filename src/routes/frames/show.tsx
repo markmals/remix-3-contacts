@@ -5,14 +5,12 @@ import { getContact } from "~/lib/database/contacts.ts";
 import { renderFrame } from "~/lib/render.tsx";
 import type { routes } from "~/routes.ts";
 
-export const show: BuildAction<"ANY", typeof routes.frame.show> = async ({ request, params }) => {
-    const url = new URL(request.url);
-    const query = url.searchParams.get("q");
+export const show: BuildAction<"ANY", typeof routes.frame.show> = async ({ url, params }) => {
     const contact = await getContact(Number(params.id));
 
     if (!contact) {
         return renderFrame(<ZeroState />);
     }
 
-    return renderFrame(<ShowContact contact={contact} query={query} />);
+    return renderFrame(<ShowContact contact={contact} query={url.searchParams.get("q")} />);
 };
