@@ -31,7 +31,7 @@ export function isCanonicalPathname(pathname: string): boolean {
     );
 }
 
-export async function reloadFrames(handle: Handle, url: URL): Promise<void> {
+export async function reloadFrames(handle: Handle<unknown>, url: URL): Promise<void> {
     const sidebar = handle.frames.get("sidebar");
     const detail = handle.frames.get("detail");
 
