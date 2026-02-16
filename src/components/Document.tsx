@@ -1,7 +1,7 @@
 import { getContext } from "remix/async-context-middleware";
 import { Frame } from "remix/component";
 import { NavigationEnhancer } from "~/assets/NavigationEnhancer.tsx";
-import { Search } from "~/assets/Search.tsx";
+import { SearchBar } from "~/assets/SearchBar.tsx";
 import { getFrameUrls } from "~/lib/frame-utils.ts";
 import { routes } from "~/routes.ts";
 
@@ -29,7 +29,7 @@ export function Document() {
                     <div id="sidebar">
                         <h1>Remix 3 Contacts</h1>
                         <div>
-                            <Search setup={{ query }} />
+                            <SearchBar setup={{ query }} />
                             <form action={routes.contacts.create.href()} method="post">
                                 <button type="submit">New</button>
                             </form>
