@@ -1,7 +1,7 @@
 import { clientEntry, type Handle } from "remix/component";
 
 export const SearchBar = clientEntry(
-    "/assets/LiveSearch.js#LiveSearch",
+    "/assets/SearchBar.js#SearchBar",
     function SearchBar(handle: Handle, setup: { query: string | null }) {
         let destinationUrl: URL | null = null;
 
@@ -24,7 +24,6 @@ export const SearchBar = clientEntry(
 
         return () => {
             const searching = Boolean(destinationUrl?.searchParams.has("q"));
-
             return (
                 <form id="search-form" method="GET">
                     <input
@@ -35,24 +34,22 @@ export const SearchBar = clientEntry(
                         name="q"
                         on={{
                             async input(event) {
-                                const url = new URL(location.pathname);
+                                const url = new URL(location.href);
 
                                 // Remove empty query params when value is empty
                                 if (!event.currentTarget.value) {
                                     url.searchParams.delete("q");
-                                    navigation.navigate(url.pathname);
+                                    navigation.navigate(url.toString());
                                     return;
                                 }
 
-                                const isFirstSearch = url.searchParams.get("q") === undefined;
+                                const isFirstSearch = url.searchParams.get("q") === null;
 
                                 // Performs a client-side navigation
                                 url.searchParams.set("q", event.currentTarget.value);
-                                navigation.navigate(url.pathname, {
-                                    history: isFirstSearch ? "replace" : "push",
+                                navigation.navigate(url.toString(), {
+                                    history: isFirstSearch ? "replace" : "auto",
                                 });
-
-                                // FIXME: Why do I lose focus from the input every time after a navigation?
                             },
                         }}
                         placeholder="Search"

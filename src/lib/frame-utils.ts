@@ -23,11 +23,11 @@ export function getFrameUrls(url: URL): [string, string] {
     return [sidebar, detail];
 }
 
-export function isCanonicalPathname(pathname: string): boolean {
+export function isCanonicalPathname(url: URL): boolean {
     return (
-        Boolean(routes.home.match(pathname)) ||
-        Boolean(routes.contacts.show.match(pathname)) ||
-        Boolean(routes.contacts.edit.match(pathname))
+        Boolean(routes.home.match(url)) ||
+        Boolean(routes.contacts.show.match(url)) ||
+        Boolean(routes.contacts.edit.match(url))
     );
 }
 

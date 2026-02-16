@@ -17,7 +17,7 @@ export const NavigationEnhancer = clientEntry(
                         return;
                     }
 
-                    if (!isCanonicalPathname(url.pathname)) {
+                    if (!isCanonicalPathname(url)) {
                         return;
                     }
 
@@ -25,6 +25,7 @@ export const NavigationEnhancer = clientEntry(
                         async handler() {
                             await reloadFrames(handle, url);
                         },
+                        focusReset: "manual",
                     });
                 },
             });
