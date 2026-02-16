@@ -77,11 +77,11 @@ button:active {
     font-weight: 400;
     padding: 0;
 }
-#contact h1 form button[value="true"] {
+#contact h1 form button[value="false"] {
     color: #a4a4a4;
 }
-#contact h1 form button[value="true"]:hover,
-#contact h1 form button[value="false"] {
+#contact h1 form button[value="false"]:hover,
+#contact h1 form button[value="true"] {
     color: #eeb004;
 }
 

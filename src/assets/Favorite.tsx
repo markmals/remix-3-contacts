@@ -6,11 +6,8 @@ export const Favorite = clientEntry(
     "/assets/Favorite.js#Favorite",
     function Favorite(handle: Handle, setup: { favorite: boolean }) {
         let favorite = setup.favorite;
-        let submitting = false;
 
         return (props: { contactId: number }) => {
-            const nextFavorite = favorite ? "false" : "true";
-
             return (
                 <form
                     action={routes.contacts.favorite.href({ id: props.contactId })}
@@ -19,14 +16,14 @@ export const Favorite = clientEntry(
                         async submit(event) {
                             event.preventDefault();
 
-                            submitting = true;
                             favorite = !favorite;
-                            await handle.update();
+                            const signal = await handle.update();
 
                             try {
                                 const response = await fetch(event.currentTarget.action, {
                                     method: event.currentTarget.method,
-                                    body: new FormData(event.currentTarget),
+                                    body: new FormData(event.currentTarget, event.submitter),
+                                    signal,
                                 });
 
                                 if (!response.ok && !response.redirected) {
@@ -37,21 +34,18 @@ export const Favorite = clientEntry(
                                 await reloadFrames(handle, url);
                             } catch {
                                 favorite = !favorite;
+                                handle.update();
                             }
-
-                            submitting = false;
-                            await handle.update();
                         },
                     }}
                 >
-                    <input name="_method" type="hidden" value="PUT" />
+                    <input name="_method" type="hidden" value="PATCH" />
                     <input name="id" type="hidden" value={props.contactId} />
-                    <input name="favorite" type="hidden" value={nextFavorite} />
                     <button
                         aria-label={favorite ? "Remove from favorites" : "Add to favorites"}
-                        disabled={submitting}
+                        name="favorite"
                         type="submit"
-                        value={String(favorite)}
+                        value={favorite ? "true" : "false"}
                     >
                         {favorite ? "★" : "☆"}
                     </button>
