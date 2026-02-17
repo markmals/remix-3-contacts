@@ -3,14 +3,12 @@ import type { Contact } from "~/lib/database/contacts.ts";
 import { routes } from "~/routes.ts";
 
 export function EditContact() {
+    const route = routes.contacts.update;
+
     return (props: { contact: Contact }) => (
         <div id="detail">
-            <form
-                action={routes.contacts.update.href({ id: props.contact.id })}
-                id="contact-form"
-                method="POST"
-            >
-                <input name="_method" type="hidden" value="PUT" />
+            <form action={route.href({ id: props.contact.id })} id="contact-form" method="POST">
+                <input name="_method" type="hidden" value={route.method} />
 
                 <p>
                     <span>Name</span>

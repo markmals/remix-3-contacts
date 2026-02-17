@@ -5,6 +5,7 @@ import { routes } from "~/routes.ts";
 export const Favorite = clientEntry(
     "/assets/Favorite.js#Favorite",
     function Favorite(handle: Handle) {
+        const route = routes.contacts.favorite;
         let submitting = false;
         let favorite!: boolean;
 
@@ -15,7 +16,7 @@ export const Favorite = clientEntry(
 
             return (
                 <form
-                    action={routes.contacts.favorite.href({ id: props.contactId })}
+                    action={route.href({ id: props.contactId })}
                     method="POST"
                     on={{
                         async submit(event) {
@@ -47,7 +48,7 @@ export const Favorite = clientEntry(
                         },
                     }}
                 >
-                    <input name="_method" type="hidden" value="PATCH" />
+                    <input name="_method" type="hidden" value={route.method} />
                     <input name="id" type="hidden" value={props.contactId} />
                     <button
                         aria-label={favorite ? "Remove from favorites" : "Add to favorites"}
