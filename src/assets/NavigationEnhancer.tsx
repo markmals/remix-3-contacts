@@ -13,18 +13,30 @@ export const NavigationEnhancer = clientEntry(
                     }
 
                     const url = new URL(event.destination.url);
+                    const isFormSubmission = event.formData !== null;
 
                     if (url.origin !== location.origin) {
                         return;
                     }
 
-                    if (!Matcher.shared.canonical.match(url)) {
+                    if (!isFormSubmission && !Matcher.shared.canonical.match(url)) {
                         return;
                     }
 
                     event.intercept({
                         focusReset: "manual",
                         async precommitHandler() {
+                            if (isFormSubmission) {
+                                const response = await fetch(url, {
+                                    method: "POST",
+                                    body: event.formData,
+                                    signal: event.signal,
+                                });
+
+                                navigation.navigate(response.url);
+                                return;
+                            }
+
                             await frames.reload({ for: url }, handle);
                         },
                     });
