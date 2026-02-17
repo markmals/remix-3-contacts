@@ -4,6 +4,14 @@ declare global {
     interface Navigation {
         __eventMap?: NavigationEventMap;
     }
+
+    interface NavigationInterceptOptions {
+        precommitHandler?: () => Promise<void>;
+    }
+
+    interface NavigateEvent {
+        readonly cancelable: boolean;
+    }
 }
 
 export {};

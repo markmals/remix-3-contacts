@@ -41,8 +41,9 @@ export async function reloadFrames(handle: Handle<unknown>, url: URL): Promise<v
 
     const [sidebarPath, detailPath] = getFrameUrls(url);
 
-    sidebar.src = sidebarPath;
     detail.src = detailPath;
+    await detail.reload();
 
-    await Promise.all([sidebar.reload(), detail.reload()]);
+    sidebar.src = sidebarPath;
+    await sidebar.reload();
 }

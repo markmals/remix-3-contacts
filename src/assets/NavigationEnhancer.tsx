@@ -22,7 +22,7 @@ export const NavigationEnhancer = clientEntry(
                     }
 
                     event.intercept({
-                        async handler() {
+                        async precommitHandler() {
                             await reloadFrames(handle, url);
                         },
                         focusReset: "manual",
