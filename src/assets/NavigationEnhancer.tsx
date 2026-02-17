@@ -1,5 +1,6 @@
 import { clientEntry, type Handle } from "remix/component";
-import { isCanonicalPathname, reloadFrames } from "~/lib/frame-utils.ts";
+import { frames } from "~/lib/frame-utils.ts";
+import { Matcher } from "~/lib/matcher.ts";
 
 export const NavigationEnhancer = clientEntry(
     "/assets/NavigationEnhancer.js#NavigationEnhancer",
@@ -17,15 +18,15 @@ export const NavigationEnhancer = clientEntry(
                         return;
                     }
 
-                    if (!isCanonicalPathname(url)) {
+                    if (!Matcher.shared.canonical.match(url)) {
                         return;
                     }
 
                     event.intercept({
-                        async precommitHandler() {
-                            await reloadFrames(handle, url);
-                        },
                         focusReset: "manual",
+                        async precommitHandler() {
+                            await frames.reload({ for: url }, handle);
+                        },
                     });
                 },
             });

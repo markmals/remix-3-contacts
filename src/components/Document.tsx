@@ -2,13 +2,11 @@ import { getContext } from "remix/async-context-middleware";
 import { Frame } from "remix/component";
 import { NavigationEnhancer } from "~/assets/NavigationEnhancer.tsx";
 import { SearchBar } from "~/assets/SearchBar.tsx";
-import { getFrameUrls } from "~/lib/frame-utils.ts";
+import { frames } from "~/lib/frame-utils.ts";
 import { routes } from "~/routes.ts";
 
 export function Document() {
-    const ctx = getContext();
-    const query = ctx.url.searchParams.get("q");
-    const [sidebar, detail] = getFrameUrls(ctx.url);
+    const { url } = getContext();
 
     return () => (
         <html lang="en">
@@ -29,14 +27,14 @@ export function Document() {
                     <div id="sidebar">
                         <h1>Remix 3 Contacts</h1>
                         <div>
-                            <SearchBar setup={{ query }} />
+                            <SearchBar setup={{ query: url.searchParams.get("q") }} />
                             <form action={routes.contacts.create.href()} method="post">
                                 <button type="submit">New</button>
                             </form>
                         </div>
-                        <Frame name="sidebar" src={sidebar} />
+                        <Frame name="sidebar" src={frames.sidebar({ for: url })} />
                     </div>
-                    <Frame name="detail" src={detail} />
+                    <Frame name="detail" src={frames.detail({ for: url })} />
                 </div>
                 <NavigationEnhancer />
             </body>
