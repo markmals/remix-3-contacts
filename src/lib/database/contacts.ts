@@ -97,8 +97,8 @@ export async function updateContact(id: number, updates: Partial<Contact>) {
     if (Object.keys(patch).length === 0) return contact;
 
     // Trim any leading @'s off of bsky handle
-    if (typeof updates.bsky === "string") {
-        updates.bsky = updates.bsky.replace(AT, "");
+    if (typeof patch.bsky === "string") {
+        patch.bsky = patch.bsky.replace(AT, "");
     }
 
     return await db.update(Contacts, id, patch);

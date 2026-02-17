@@ -13,21 +13,14 @@ export const update: BuildAction<"PUT", typeof routes.contacts.update> = async (
         return redirect(routes.home.href());
     }
 
-    const updates: Partial<Contact> = {};
-
-    const first = formData.get("first");
-    const last = formData.get("last");
-    const avatar = formData.get("avatar");
-    const bsky = formData.get("bsky");
-    const notes = formData.get("notes");
-    const favorite = formData.get("favorite");
-
-    if (typeof first === "string") updates.first = first;
-    if (typeof last === "string") updates.last = last;
-    if (typeof avatar === "string") updates.avatar = avatar || null;
-    if (typeof bsky === "string") updates.bsky = bsky;
-    if (typeof notes === "string") updates.notes = notes;
-    if (typeof favorite === "string") updates.favorite = favorite === "true";
+    const updates: Partial<Contact> = {
+        first: formData.get("first") as string,
+        last: formData.get("last") as string,
+        avatar: formData.get("avatar") as string,
+        bsky: formData.get("bsky") as string,
+        notes: formData.get("notes") as string,
+        favorite: formData.get("favorite") === "true",
+    };
 
     await updateContact(Number(params.id), updates);
 
