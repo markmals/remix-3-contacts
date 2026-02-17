@@ -2,7 +2,7 @@ import type { BuildAction } from "remix/fetch-router";
 import { createRedirectResponse as redirect } from "remix/response/redirect";
 import { Document } from "~/components/Document.tsx";
 import { getContact } from "~/lib/database/contacts.ts";
-import { renderDoc } from "~/lib/render.tsx";
+import { render } from "~/lib/render.tsx";
 import { routes } from "~/routes.ts";
 
 export const show: BuildAction<"GET", typeof routes.contacts.show> = async ({ params }) => {
@@ -16,5 +16,5 @@ export const show: BuildAction<"GET", typeof routes.contacts.show> = async ({ pa
         return redirect(routes.home.href());
     }
 
-    return renderDoc(<Document />);
+    return render.document(<Document />);
 };

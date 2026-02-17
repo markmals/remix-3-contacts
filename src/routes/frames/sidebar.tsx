@@ -2,7 +2,7 @@ import { matchSorter } from "match-sorter";
 import type { BuildAction } from "remix/fetch-router";
 import { Sidebar } from "~/components/Sidebar.tsx";
 import { getContacts } from "~/lib/database/contacts.ts";
-import { renderFrame } from "~/lib/render.tsx";
+import { render } from "~/lib/render.tsx";
 import type { routes } from "~/routes.ts";
 
 export const sidebar: BuildAction<"ANY", typeof routes.frame.sidebar> = async ({ url }) => {
@@ -16,5 +16,5 @@ export const sidebar: BuildAction<"ANY", typeof routes.frame.sidebar> = async ({
         });
     }
 
-    return renderFrame(<Sidebar contacts={contacts} query={query} selected={selected} />);
+    return render.frame(<Sidebar contacts={contacts} query={query} selected={selected} />);
 };
