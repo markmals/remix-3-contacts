@@ -29,11 +29,7 @@ export const SidebarItem = clientEntry(
                     destinationUrl = event.destination.url;
                     handle.update();
                 },
-                navigatesuccess() {
-                    destinationUrl = null;
-                    handle.update();
-                },
-                navigateerror() {
+                currententrychange() {
                     destinationUrl = null;
                     handle.update();
                 },

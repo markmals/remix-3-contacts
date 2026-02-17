@@ -11,11 +11,7 @@ export const SearchBar = clientEntry(
                     destinationUrl = new URL(event.destination.url);
                     handle.update();
                 },
-                navigatesuccess() {
-                    destinationUrl = null;
-                    handle.update();
-                },
-                navigateerror() {
+                currententrychange() {
                     destinationUrl = null;
                     handle.update();
                 },
