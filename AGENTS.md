@@ -31,14 +31,12 @@ This repository contains a comprehensive overview of the Remix Component API, it
 ### Correctness
 
 - **Remove anything that isn’t used** – delete unused imports, function parameters, and private class members.
-- **Exhaust every hook dependency** – always list _all_ external values in React hook dependency arrays.
-- **Keep hooks pure** – call React hooks only at the top level of a component (never in loops, conditions, or nested functions).
 - **Use only real selectors** – in CSS, reference valid pseudo-classes, pseudo-elements, and type selectors only.
 
 ### Suspicious Code
 
 - **Skip the “any” shortcut** – prefer precise TypeScript types.
-- **Hands off `document.cookie`** – manipulating cookies directly is forbidden. Use React Router's cookie utilities instead.
+- **Hands off `document.cookie`** – manipulating cookies directly is forbidden. Use Remix's cookie utilities instead.
 
 ### Performance
 
@@ -61,7 +59,6 @@ This repository contains a comprehensive overview of the Remix Component API, it
 - **No unused template literals** – convert to quotes if you’re not interpolating.
 - **Don’t write `substr`** – use `slice` instead.
 - **Flatten simple `if` chains** – collapse `else { if … }` when feasible.
-- **Export only the component** – in React Router routes, export nothing except the component and the whitelisted helpers (`loader`, `action`, `meta`, etc.).
 - **Keep member access simple** – omit `public`, `private`, or `protected`. Use native JavaScript private properties (e.g. `#property`) when you need to make a property private.
 - **Leverage `as const`** – assert immutability where appropriate.
 - **Kill useless `else` blocks** – when the `if` branch returns or throws, omit the `else`.
