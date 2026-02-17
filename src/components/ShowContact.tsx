@@ -30,7 +30,7 @@ export function ShowContact() {
                             )}{" "}
                             <Favorite
                                 contactId={props.contact.id}
-                                setup={{ favorite: props.contact.favorite ?? false }}
+                                favorite={props.contact.favorite ?? false}
                             />
                         </h1>
 

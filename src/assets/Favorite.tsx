@@ -4,10 +4,15 @@ import { routes } from "~/routes.ts";
 
 export const Favorite = clientEntry(
     "/assets/Favorite.js#Favorite",
-    function Favorite(handle: Handle, setup: { favorite: boolean }) {
-        let favorite = setup.favorite;
+    function Favorite(handle: Handle) {
+        let submitting = false;
+        let favorite!: boolean;
 
-        return (props: { contactId: number }) => {
+        return (props: { contactId: number; favorite: boolean }) => {
+            if (!submitting) {
+                favorite = props.favorite;
+            }
+
             return (
                 <form
                     action={routes.contacts.favorite.href({ id: props.contactId })}
@@ -17,6 +22,7 @@ export const Favorite = clientEntry(
                             event.preventDefault();
 
                             favorite = !favorite;
+                            submitting = true;
                             const signal = await handle.update();
 
                             try {
@@ -30,10 +36,12 @@ export const Favorite = clientEntry(
                                     favorite = !favorite;
                                 }
 
+                                submitting = false;
                                 const url = new URL(window.location.href);
                                 await reloadFrames(handle, url);
                             } catch {
                                 favorite = !favorite;
+                                submitting = false;
                                 handle.update();
                             }
                         },
