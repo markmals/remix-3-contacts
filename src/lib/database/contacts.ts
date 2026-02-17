@@ -1,8 +1,8 @@
 import { setTimeout } from "node:timers/promises";
 import Database from "better-sqlite3";
 import { matchSorter } from "match-sorter";
-import * as schema from "remix/data-schema";
-import * as checks from "remix/data-schema/checks";
+import * as s from "remix/data-schema";
+import * as c from "remix/data-schema/checks";
 import { createDatabase, createTable, type TableRow } from "remix/data-table";
 import { createSqliteDatabaseAdapter } from "remix/data-table-sqlite";
 import sortBy from "sort-by";
@@ -11,14 +11,14 @@ import { seed } from "./seed.ts";
 export const Contacts = createTable({
     name: "contacts",
     columns: {
-        id: schema.number(),
-        first: schema.string(),
-        last: schema.string(),
-        avatar: schema.nullable(schema.string().pipe(checks.url())),
-        bsky: schema.string(),
-        notes: schema.string(),
-        favorite: schema.boolean(),
-        createdAt: schema.number(),
+        id: s.number(),
+        first: s.string(),
+        last: s.string(),
+        avatar: s.nullable(s.string().pipe(c.url())),
+        bsky: s.string(),
+        notes: s.string(),
+        favorite: s.boolean(),
+        createdAt: s.number(),
     },
 });
 
