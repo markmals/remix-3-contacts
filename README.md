@@ -4,10 +4,10 @@ A contacts CRUD app demo, showcasing [Remix 3](https://github.com/remix-run/remi
 
 ## Highlights
 
-- **CRUD routing** – handlers for listing, creating, updating, and deleting contacts
-- **Enhanced forms** – demonstrates POST/PUT/DELETE intercepts with optimistic navigation state
+- **CRUD server routing** – handlers for listing, creating, updating, and deleting contacts
+- [**Navigation API**](https://developer.mozilla.org/en-US/docs/Web/API/Navigation_API) - state-of-the-art web standard client routing
+- **RESTful forms** – demonstrates POST/PUT/PATCH/DELETE intercepts
 - **URL-driven search** – filters contacts through query parameters
-- **Config-driven routing** – handlers in `src/routes/*.ts(x)`
 
 ## Tech Stack
 
