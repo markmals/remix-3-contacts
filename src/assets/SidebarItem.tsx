@@ -1,4 +1,5 @@
 import { clientEntry, type Handle, type SerializableProps } from "remix/component";
+import { matchContactRoute } from "~/lib/frame-utils.ts";
 import { routes } from "~/routes.ts";
 
 export namespace SidebarItem {
@@ -40,12 +41,8 @@ export const SidebarItem = clientEntry(
         }
 
         return ({ selected, query, contact }: SidebarItem.Props) => {
-            const destinationMatch = destinationUrl
-                ? (routes.contacts.show.match(destinationUrl) ??
-                  routes.contacts.edit.match(destinationUrl))
-                : undefined;
-            const isPending = Number(destinationMatch?.params.id) === contact.id;
-
+            const destinationMatch = destinationUrl ? matchContactRoute(destinationUrl) : null;
+            const isPending = Number(destinationMatch?.id) === contact.id;
             const isActive = Number(selected) === contact.id;
 
             return (
