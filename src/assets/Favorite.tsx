@@ -38,7 +38,7 @@ export const Favorite = clientEntry(
                                 }
 
                                 submitting = false;
-                                const url = new URL(window.location.href);
+                                const url = new URL(location.href);
                                 await frames.reload({ for: url }, handle);
                             } catch {
                                 favorite = !favorite;
