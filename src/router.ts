@@ -3,13 +3,20 @@ import { createRouter } from "remix/fetch-router";
 import { formData } from "remix/form-data-middleware";
 import { methodOverride } from "remix/method-override-middleware";
 import { staticFiles } from "remix/static-middleware";
+import { loadDatabase } from "./lib/database/middleware.ts";
 import * as contacts from "./routes/contacts/index.ts";
 import * as frame from "./routes/frames/index.ts";
 import { home } from "./routes/home.tsx";
 import { routes } from "./routes.ts";
 
 export const router = createRouter({
-    middleware: [staticFiles("./public"), formData(), methodOverride(), asyncContext()],
+    middleware: [
+        staticFiles("./public"),
+        formData(),
+        methodOverride(),
+        asyncContext(),
+        await loadDatabase(),
+    ],
 });
 
 router.map(routes, {

@@ -1,12 +1,10 @@
 import { setTimeout } from "node:timers/promises";
-import Database from "better-sqlite3";
 import { matchSorter } from "match-sorter";
+import { getContext } from "remix/async-context-middleware";
 import * as s from "remix/data-schema";
 import * as c from "remix/data-schema/checks";
-import { createDatabase, createTable, type TableRow } from "remix/data-table";
-import { createSqliteDatabaseAdapter } from "remix/data-table-sqlite";
+import { createTable, type TableRow } from "remix/data-table";
 import sortBy from "sort-by";
-import { seed } from "./seed.ts";
 
 export const Contacts = createTable({
     name: "contacts",
@@ -24,31 +22,8 @@ export const Contacts = createTable({
 
 export type Contact = TableRow<typeof Contacts>;
 
-const sqlite = new Database(":memory:");
-const db = createDatabase(createSqliteDatabaseAdapter(sqlite));
-
-await seed(db);
-
-export function initializeContactTable() {
-    sqlite.exec(`
-    CREATE TABLE IF NOT EXISTS contacts (
-    id        INTEGER PRIMARY KEY,
-    first     TEXT NOT NULL,
-    last      TEXT NOT NULL,
-    avatar    TEXT,
-    bsky      TEXT NOT NULL,
-    notes     TEXT NOT NULL,
-    favorite  INTEGER NOT NULL DEFAULT 0
-              CHECK (favorite IN (0, 1)),
-    createdAt INTEGER NOT NULL
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_contacts_last_createdAt
-        ON contacts (last, createdAt);  
-    `);
-}
-
 export async function getContacts(query: string | null): Promise<Contact[]> {
+    const { db } = getContext();
     await fakeNetwork(`getContacts:${query}`);
 
     let contacts = await db.findMany(Contacts);
@@ -61,6 +36,7 @@ export async function getContacts(query: string | null): Promise<Contact[]> {
 }
 
 export async function createContact(): Promise<number> {
+    const { db } = getContext();
     const contact = await db.create(
         Contacts,
         {
@@ -79,6 +55,7 @@ export async function createContact(): Promise<number> {
 }
 
 export async function getContact(id?: number): Promise<Contact | null> {
+    const { db } = getContext();
     if (!id) return null;
     await fakeNetwork(`contact:${id}`);
     return await db.find(Contacts, id);
@@ -87,6 +64,7 @@ export async function getContact(id?: number): Promise<Contact | null> {
 const AT = /^@+/;
 
 export async function updateContact(id: number, updates: Partial<Contact>) {
+    const { db } = getContext();
     await fakeNetwork();
 
     let contact = await db.find(Contacts, id);
@@ -105,6 +83,8 @@ export async function updateContact(id: number, updates: Partial<Contact>) {
 }
 
 export async function deleteContact(id: number): Promise<boolean> {
+    const { db } = getContext();
+
     try {
         await db.delete(Contacts, id);
         return true;
