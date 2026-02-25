@@ -1,5 +1,6 @@
 {
     "typescript.preferences.importModuleSpecifierEnding": "js",
+    "typescript.experimental.useTsgo": true,
 
     "biome.enabled": true,
 

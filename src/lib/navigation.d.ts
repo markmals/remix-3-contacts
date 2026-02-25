@@ -1,17 +1,5 @@
+import type { TypedEventTarget } from "remix/interaction";
+
 declare global {
-    const navigation: Navigation;
-
-    interface Navigation {
-        __eventMap?: NavigationEventMap;
-    }
-
-    interface NavigationInterceptOptions {
-        precommitHandler?: () => Promise<void>;
-    }
-
-    interface NavigateEvent {
-        readonly cancelable: boolean;
-    }
+    interface Navigation extends TypedEventTarget<NavigationEventMap> {}
 }
-
-export {};

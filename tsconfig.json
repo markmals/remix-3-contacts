@@ -2,10 +2,10 @@
     "include": ["**/*"],
     "exclude": ["public/assets/*"],
     "compilerOptions": {
-        "lib": ["DOM", "DOM.Iterable", "ESNext", "ESNext.Decorators"],
+        "lib": ["DOM", "DOM.Iterable", "ESNext"],
         "target": "ESNext",
         "module": "ESNext",
-        "types": ["@types/node", "@types/dom-navigation"],
+        "types": ["@types/node"],
         "moduleResolution": "bundler",
         "jsx": "react-jsx",
         "jsxImportSource": "remix/component",
