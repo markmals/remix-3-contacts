@@ -36,7 +36,10 @@ export function Document() {
                         <h1>Remix 3 Contacts</h1>
                         <div>
                             <SearchBar setup={{ query: url.searchParams.get("q") }} />
-                            <form action={routes.contacts.create.href()} method="POST">
+                            <form
+                                action={routes.contacts.create.href()}
+                                method={routes.contacts.create.method}
+                            >
                                 <button type="submit">New</button>
                             </form>
                         </div>

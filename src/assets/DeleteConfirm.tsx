@@ -4,11 +4,11 @@ import { routes } from "~/routes.ts";
 export const DeleteConfirm = clientEntry(
     routes.assets.href({ file: "DeleteConfirm", component: "DeleteConfirm" }),
     function DeleteConfirm() {
-        const route = routes.contacts.destroy;
+        const destroy = routes.contacts.destroy;
 
         return (props: { contactId: number }) => (
             <form
-                action={route.href({ id: props.contactId })}
+                action={destroy.href({ id: props.contactId })}
                 method="POST"
                 on={{
                     async submit(event) {
@@ -18,7 +18,7 @@ export const DeleteConfirm = clientEntry(
                     },
                 }}
             >
-                <input name="_method" type="hidden" value={route.method} />
+                <input name="_method" type="hidden" value={destroy.method} />
                 <button type="submit">Delete</button>
             </form>
         );

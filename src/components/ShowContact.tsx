@@ -54,7 +54,7 @@ export function ShowContact() {
                                     { id: props.contact.id },
                                     { q: props.query },
                                 )}
-                                method="GET"
+                                method={routes.contacts.edit.method}
                             >
                                 <button type="submit">Edit</button>
                             </form>
