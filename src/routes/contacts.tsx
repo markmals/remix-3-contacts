@@ -11,7 +11,7 @@ import {
 import { render } from "~/lib/render.tsx";
 import { routes } from "~/routes.ts";
 
-export const show: BuildAction<"GET", typeof routes.contacts.show> = async ({ params }) => {
+export const contactPage: BuildAction<"GET", typeof routes.contacts.show> = async ({ params }) => {
     if (!params.id) {
         return redirect(routes.home.href());
     }
@@ -26,8 +26,8 @@ export const show: BuildAction<"GET", typeof routes.contacts.show> = async ({ pa
 };
 
 export default {
-    show,
-    edit: show,
+    show: contactPage,
+    edit: contactPage,
     async create() {
         const id = await createContact();
         return redirect(routes.contacts.edit.href({ id }));
