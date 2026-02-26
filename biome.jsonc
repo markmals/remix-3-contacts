@@ -40,7 +40,7 @@
                 "noUnusedPrivateClassMembers": "warn",
                 "useExhaustiveDependencies": "warn",
                 "useHookAtTopLevel": "error",
-                "noEmptyPattern": "warn",
+                "noEmptyPattern": "off",
                 "noUnknownPseudoClass": "error",
                 "noUnknownPseudoElement": "error",
                 "noUnknownTypeSelector": "error",

@@ -1,5 +1,5 @@
 import { clientEntry, type Handle, type SerializableProps } from "remix/component";
-import { Matcher } from "~/lib/matcher.ts";
+import { frames } from "~/frames.ts";
 import { routes } from "~/routes.ts";
 
 export namespace SidebarItem {
@@ -37,8 +37,8 @@ export const SidebarItem = clientEntry(
         }
 
         return ({ selected, query, contact }: SidebarItem.Props) => {
-            const destination = destinationUrl ? Matcher.shared.match(destinationUrl) : null;
-            const isPending = Number(destination?.id) === contact.id;
+            const destination = frames.match(destinationUrl);
+            const isPending = Number(destination?.params.id) === contact.id;
             const isActive = Number(selected) === contact.id;
 
             return (

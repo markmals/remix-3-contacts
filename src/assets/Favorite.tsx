@@ -1,5 +1,5 @@
 import { clientEntry, type Handle } from "remix/component";
-import { frames } from "~/lib/frame-utils.ts";
+import { frames } from "~/frames.ts";
 import { routes } from "~/routes.ts";
 
 export const Favorite = clientEntry(
@@ -39,7 +39,7 @@ export const Favorite = clientEntry(
 
                                 submitting = false;
                                 const url = new URL(location.href);
-                                await frames.reload({ for: url }, handle);
+                                await frames.reloadAll(url, handle);
                             } catch {
                                 favorite = !favorite;
                                 submitting = false;

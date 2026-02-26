@@ -1,6 +1,5 @@
 import { clientEntry, type Handle } from "remix/component";
-import { frames } from "~/lib/frame-utils.ts";
-import { Matcher } from "~/lib/matcher.ts";
+import { frames } from "~/frames.ts";
 
 export const NavigationEnhancer = clientEntry(
     "/assets/NavigationEnhancer.js#NavigationEnhancer",
@@ -19,7 +18,7 @@ export const NavigationEnhancer = clientEntry(
                         return;
                     }
 
-                    if (!isFormSubmission && !Matcher.shared.canonical.match(url)) {
+                    if (!isFormSubmission && !frames.canIntercept(url)) {
                         return;
                     }
 
@@ -37,7 +36,9 @@ export const NavigationEnhancer = clientEntry(
                                 return;
                             }
 
-                            await frames.reload({ for: url }, handle);
+                            // Reload all frames with new URL
+                            await frames.reload.detail(url, handle);
+                            await frames.reload.sidebar(url, handle);
                         },
                     });
                 },

@@ -2,11 +2,15 @@ import { getContext } from "remix/async-context-middleware";
 import { Frame } from "remix/component";
 import { NavigationEnhancer } from "~/assets/NavigationEnhancer.tsx";
 import { SearchBar } from "~/assets/SearchBar.tsx";
-import { frames } from "~/lib/frame-utils.ts";
+import { frames } from "~/frames.ts";
 import { routes } from "~/routes.ts";
 
 export function Document() {
     const { url } = getContext();
+
+    // Resolve frame sources using frame router
+    const sidebarSrc = frames.resolve.sidebar(url);
+    const detailSrc = frames.resolve.detail(url);
 
     return () => (
         <html lang="en">
@@ -32,9 +36,9 @@ export function Document() {
                                 <button type="submit">New</button>
                             </form>
                         </div>
-                        <Frame name="sidebar" src={frames.sidebar({ for: url })} />
+                        {sidebarSrc && <Frame name="sidebar" src={sidebarSrc} />}
                     </div>
-                    <Frame name="detail" src={frames.detail({ for: url })} />
+                    {detailSrc && <Frame name="detail" src={detailSrc} />}
                 </div>
                 <NavigationEnhancer />
             </body>
