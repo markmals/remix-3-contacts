@@ -2,7 +2,7 @@ import { getContext } from "remix/async-context-middleware";
 import type { RemixNode } from "remix/component/jsx-runtime";
 import { renderToStream } from "remix/component/server";
 import { createHtmlResponse } from "remix/response/html";
-import { router } from "~/router.ts";
+import { router } from "~/router.tsx";
 
 export const render = {
     // Using createHtmlResponse inserts DOCTYPE at the beginning of the document

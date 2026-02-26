@@ -21,7 +21,7 @@ export function frame<R extends Route>(
  * The config parameter uses a permissive type to allow flexible input,
  * then the const type parameter preserves the exact structure.
  */
-export function createRouter<const Config>(config: Config): FrameRouter<Config> {
+export function createFrames<const Config>(config: Config): FrameRouter<Config> {
     // Collect all route tuples from nested config
     const allTuples: Array<{ framePath: string[]; tuple: RouteTuple }> = [];
 

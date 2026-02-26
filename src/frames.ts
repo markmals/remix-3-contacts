@@ -1,7 +1,7 @@
-import { createRouter, frame } from "~/lib/frame-router/core.ts";
+import { createFrames, frame } from "~/lib/frame-router/core.ts";
 import { routes } from "~/routes.ts";
 
-export const frames = createRouter({
+export const frames = createFrames({
     sidebar: [
         frame(routes.home, ({}, url) =>
             routes.frame.sidebar.href(null, { q: url.searchParams.get("q") }),
