@@ -55,7 +55,6 @@ export default {
             avatar: formData.get("avatar") as string,
             bsky: formData.get("bsky") as string,
             notes: formData.get("notes") as string,
-            favorite: formData.get("favorite") === "true",
         };
 
         await updateContact(Number(params.id), updates);
