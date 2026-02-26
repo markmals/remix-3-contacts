@@ -1,6 +1,7 @@
+import assert from "node:assert";
 import { getContext } from "remix/async-context-middleware";
 import { Frame } from "remix/component";
-import { NavigationEnhancer } from "~/assets/NavigationEnhancer.tsx";
+import { Navigator } from "~/assets/Navigator.tsx";
 import { SearchBar } from "~/assets/SearchBar.tsx";
 import { frames } from "~/frames.ts";
 import { routes } from "~/routes.ts";
@@ -11,6 +12,9 @@ export function Document() {
     // Resolve frame sources using frame router
     const sidebarSrc = frames.resolve.sidebar(url);
     const detailSrc = frames.resolve.detail(url);
+
+    assert(sidebarSrc);
+    assert(detailSrc);
 
     return () => (
         <html lang="en">
@@ -36,11 +40,11 @@ export function Document() {
                                 <button type="submit">New</button>
                             </form>
                         </div>
-                        {sidebarSrc && <Frame name="sidebar" src={sidebarSrc} />}
+                        <Frame name="sidebar" src={sidebarSrc} />
                     </div>
-                    {detailSrc && <Frame name="detail" src={detailSrc} />}
+                    <Frame name="detail" src={detailSrc} />
                 </div>
-                <NavigationEnhancer />
+                <Navigator />
             </body>
         </html>
     );

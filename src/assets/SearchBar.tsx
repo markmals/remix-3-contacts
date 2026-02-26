@@ -1,26 +1,18 @@
 import { clientEntry, type Handle } from "remix/component";
+import { navigating } from "~/lib/navigation.ts";
 import { routes } from "~/routes.ts";
 
 export const SearchBar = clientEntry(
     routes.assets.href({ file: "SearchBar", component: "SearchBar" }),
     function SearchBar(handle: Handle, setup: { query: string | null }) {
-        let destinationUrl: URL | null = null;
-
-        if (typeof window !== "undefined") {
-            handle.on(navigation, {
-                navigate(event) {
-                    destinationUrl = new URL(event.destination.url);
-                    handle.update();
-                },
-                currententrychange() {
-                    destinationUrl = null;
-                    handle.update();
-                },
-            });
-        }
+        handle.on(navigating, {
+            destinationchange() {
+                handle.update();
+            },
+        });
 
         return () => {
-            const searching = Boolean(destinationUrl?.searchParams.has("q"));
+            const searching = Boolean(navigating.to.url?.searchParams.has("q"));
             return (
                 <form id="search-form" method="GET">
                     <input

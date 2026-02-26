@@ -1,5 +1,6 @@
 import { clientEntry, type Handle, type SerializableProps } from "remix/component";
 import { frames } from "~/frames.ts";
+import { navigating } from "~/lib/navigation.ts";
 import { routes } from "~/routes.ts";
 
 export namespace SidebarItem {
@@ -21,23 +22,14 @@ export namespace SidebarItem {
 export const SidebarItem = clientEntry(
     routes.assets.href({ file: "SidebarItem", component: "SidebarItem" }),
     function SidebarItem(handle: Handle) {
-        let destinationUrl: string | null = null;
-
-        if (typeof window !== "undefined") {
-            handle.on(navigation, {
-                navigate(event) {
-                    destinationUrl = event.destination.url;
-                    handle.update();
-                },
-                currententrychange() {
-                    destinationUrl = null;
-                    handle.update();
-                },
-            });
-        }
+        handle.on(navigating, {
+            destinationchange() {
+                handle.update();
+            },
+        });
 
         return ({ selected, query, contact }: SidebarItem.Props) => {
-            const destination = frames.match(destinationUrl);
+            const destination = frames.match(navigating.to.url);
             const isPending = Number(destination?.params.id) === contact.id;
             const isActive = Number(selected) === contact.id;
 
