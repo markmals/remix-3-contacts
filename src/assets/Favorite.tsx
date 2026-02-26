@@ -3,7 +3,7 @@ import { frames } from "~/frames.ts";
 import { routes } from "~/routes.ts";
 
 export const Favorite = clientEntry(
-    "/assets/Favorite.js#Favorite",
+    routes.assets.href({ file: "Favorite", component: "Favorite" }),
     function Favorite(handle: Handle) {
         const route = routes.contacts.favorite;
         let submitting = false;

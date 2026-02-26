@@ -1,8 +1,9 @@
 import { clientEntry, type Handle } from "remix/component";
 import { frames } from "~/frames.ts";
+import { routes } from "~/routes.ts";
 
 export const NavigationEnhancer = clientEntry(
-    "/assets/NavigationEnhancer.js#NavigationEnhancer",
+    routes.assets.href({ file: "NavigationEnhancer", component: "NavigationEnhancer" }),
     function NavigationEnhancer(handle: Handle) {
         if (typeof window !== "undefined") {
             handle.on(navigation, {

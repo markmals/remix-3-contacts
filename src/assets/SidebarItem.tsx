@@ -19,7 +19,7 @@ export namespace SidebarItem {
 }
 
 export const SidebarItem = clientEntry(
-    "/assets/SidebarItem.js#SidebarItem",
+    routes.assets.href({ file: "SidebarItem", component: "SidebarItem" }),
     function SidebarItem(handle: Handle) {
         let destinationUrl: string | null = null;
 

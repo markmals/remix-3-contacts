@@ -1,7 +1,8 @@
 import { clientEntry } from "remix/component";
+import { routes } from "~/routes.ts";
 
 export const CancelButton = clientEntry(
-    "/assets/CancelButton.js#CancelButton",
+    routes.assets.href({ file: "CancelButton", component: "CancelButton" }),
     function CancelButton() {
         return () => (
             <button

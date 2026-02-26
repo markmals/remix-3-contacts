@@ -1,7 +1,8 @@
 import { clientEntry, type Handle } from "remix/component";
+import { routes } from "~/routes.ts";
 
 export const SearchBar = clientEntry(
-    "/assets/SearchBar.js#SearchBar",
+    routes.assets.href({ file: "SearchBar", component: "SearchBar" }),
     function SearchBar(handle: Handle, setup: { query: string | null }) {
         let destinationUrl: URL | null = null;
 

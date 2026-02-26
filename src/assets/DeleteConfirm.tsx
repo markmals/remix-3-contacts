@@ -2,7 +2,7 @@ import { clientEntry } from "remix/component";
 import { routes } from "~/routes.ts";
 
 export const DeleteConfirm = clientEntry(
-    "/assets/DeleteConfirm.js#DeleteConfirm",
+    routes.assets.href({ file: "DeleteConfirm", component: "DeleteConfirm" }),
     function DeleteConfirm() {
         const route = routes.contacts.destroy;
 
