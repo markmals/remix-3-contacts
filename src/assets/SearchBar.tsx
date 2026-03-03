@@ -26,7 +26,7 @@ export const SearchBar = clientEntry(
                                 const url = new URL(location.href);
 
                                 // Remove empty query params when value is empty
-                                if (!event.currentTarget.value) {
+                                if (!event.currentTarget.value.trim()) {
                                     url.searchParams.delete("q");
                                     navigation.navigate(url.toString());
                                     return;
@@ -34,7 +34,6 @@ export const SearchBar = clientEntry(
 
                                 const isFirstSearch = url.searchParams.get("q") === null;
 
-                                // Performs a client-side navigation
                                 url.searchParams.set("q", event.currentTarget.value);
                                 navigation.navigate(url.toString(), {
                                     history: isFirstSearch ? "replace" : "auto",
