@@ -4,21 +4,21 @@ import { routes } from "~/routes.ts";
 
 export const SearchBar = clientEntry(
     routes.assets.href({ file: "SearchBar", component: "SearchBar" }),
-    function SearchBar(handle: Handle, setup: { query: string | null }) {
+    function SearchBar(handle: Handle) {
         addEventListeners(navigating, handle.signal, {
             destinationchange() {
                 handle.update();
             },
         });
 
-        return () => {
+        return (props: { query: string | null }) => {
             const searching = Boolean(navigating.to.url?.searchParams.has("q"));
             return (
                 <form id="search-form" method="GET">
                     <input
                         aria-label="Search contacts"
                         class={searching ? "loading" : ""}
-                        defaultValue={setup.query ?? undefined}
+                        defaultValue={props.query ?? undefined}
                         id="q"
                         mix={on("input", async event => {
                             const url = new URL(location.href);
