@@ -10,13 +10,11 @@ export const DeleteConfirm = clientEntry(
             <form
                 action={destroy.href({ id: props.contactId })}
                 method="POST"
-                mix={[
-                    on("submit", async event => {
-                        if (!confirm("Please confirm you want to delete this record.")) {
-                            event.preventDefault();
-                        }
-                    }),
-                ]}
+                mix={on("submit", async event => {
+                    if (!confirm("Please confirm you want to delete this record.")) {
+                        event.preventDefault();
+                    }
+                })}
             >
                 <input name="_method" type="hidden" value={destroy.method} />
                 <button type="submit">Delete</button>

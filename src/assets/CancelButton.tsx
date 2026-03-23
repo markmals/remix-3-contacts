@@ -6,11 +6,9 @@ export const CancelButton = clientEntry(
     function CancelButton() {
         return () => (
             <button
-                mix={[
-                    on("click", () => {
-                        navigation.back();
-                    }),
-                ]}
+                mix={on("click", () => {
+                    navigation.back();
+                })}
                 type="button"
             >
                 Cancel

@@ -20,25 +20,23 @@ export const SearchBar = clientEntry(
                         class={searching ? "loading" : ""}
                         defaultValue={setup.query ?? undefined}
                         id="q"
-                        mix={[
-                            on("input", async event => {
-                                const url = new URL(location.href);
+                        mix={on("input", async event => {
+                            const url = new URL(location.href);
 
-                                // Remove empty query params when value is empty
-                                if (!event.currentTarget.value.trim()) {
-                                    url.searchParams.delete("q");
-                                    navigation.navigate(url.toString());
-                                    return;
-                                }
+                            // Remove empty query params when value is empty
+                            if (!event.currentTarget.value.trim()) {
+                                url.searchParams.delete("q");
+                                navigation.navigate(url.toString());
+                                return;
+                            }
 
-                                const isFirstSearch = url.searchParams.get("q") === null;
+                            const isFirstSearch = url.searchParams.get("q") === null;
 
-                                url.searchParams.set("q", event.currentTarget.value);
-                                navigation.navigate(url.toString(), {
-                                    history: isFirstSearch ? "replace" : "auto",
-                                });
-                            }),
-                        ]}
+                            url.searchParams.set("q", event.currentTarget.value);
+                            navigation.navigate(url.toString(), {
+                                history: isFirstSearch ? "replace" : "auto",
+                            });
+                        })}
                         name="q"
                         placeholder="Search"
                         type="search"

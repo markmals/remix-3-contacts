@@ -17,34 +17,32 @@ export const Favorite = clientEntry(
                 <form
                     action={route.href({ id: props.contactId })}
                     method="POST"
-                    mix={[
-                        on("submit", async event => {
-                            event.preventDefault();
+                    mix={on("submit", async event => {
+                        event.preventDefault();
 
-                            favorite = !favorite;
-                            submitting = true;
-                            const signal = await handle.update();
+                        favorite = !favorite;
+                        submitting = true;
+                        const signal = await handle.update();
 
-                            try {
-                                const response = await fetch(event.currentTarget.action, {
-                                    method: event.currentTarget.method,
-                                    body: new FormData(event.currentTarget, event.submitter),
-                                    signal,
-                                });
+                        try {
+                            const response = await fetch(event.currentTarget.action, {
+                                method: event.currentTarget.method,
+                                body: new FormData(event.currentTarget, event.submitter),
+                                signal,
+                            });
 
-                                if (!response.ok && !response.redirected) {
-                                    throw response;
-                                }
-
-                                submitting = false;
-                                navigation.reload();
-                            } catch {
-                                favorite = !favorite;
-                                submitting = false;
-                                handle.update();
+                            if (!response.ok && !response.redirected) {
+                                throw response;
                             }
-                        }),
-                    ]}
+
+                            submitting = false;
+                            navigation.reload();
+                        } catch {
+                            favorite = !favorite;
+                            submitting = false;
+                            handle.update();
+                        }
+                    })}
                 >
                     <input name="_method" type="hidden" value={route.method} />
                     <input name="id" type="hidden" value={props.contactId} />
