@@ -3,7 +3,7 @@ import { matchSorter } from "match-sorter";
 import { getContext } from "remix/async-context-middleware";
 import { column as c, table, type TableRow } from "remix/data-table";
 import sortBy from "sort-by";
-import { DB } from "./middleware.ts";
+import { Database } from "./middleware.ts";
 
 export const Contacts = table({
     name: "contacts",
@@ -22,7 +22,7 @@ export const Contacts = table({
 export type Contact = TableRow<typeof Contacts>;
 
 export async function getContacts(query: string | null): Promise<Contact[]> {
-    const db = getContext().get(DB);
+    const db = getContext().get(Database);
     await fakeNetwork(`getContacts:${query}`);
 
     let contacts = await db.findMany(Contacts);
@@ -35,7 +35,7 @@ export async function getContacts(query: string | null): Promise<Contact[]> {
 }
 
 export async function createContact(): Promise<number> {
-    const db = getContext().get(DB);
+    const db = getContext().get(Database);
     const contact = await db.create(
         Contacts,
         {
@@ -54,7 +54,7 @@ export async function createContact(): Promise<number> {
 }
 
 export async function getContact(id?: number): Promise<Contact | null> {
-    const db = getContext().get(DB);
+    const db = getContext().get(Database);
     if (!id) return null;
     await fakeNetwork(`contact:${id}`);
     return await db.find(Contacts, id);
@@ -63,7 +63,7 @@ export async function getContact(id?: number): Promise<Contact | null> {
 const AT = /^@+/;
 
 export async function updateContact(id: number, updates: Partial<Contact>) {
-    const db = getContext().get(DB);
+    const db = getContext().get(Database);
     await fakeNetwork();
 
     let contact = await db.find(Contacts, id);
@@ -82,7 +82,7 @@ export async function updateContact(id: number, updates: Partial<Contact>) {
 }
 
 export async function deleteContact(id: number): Promise<boolean> {
-    const db = getContext().get(DB);
+    const db = getContext().get(Database);
 
     try {
         await db.delete(Contacts, id);
