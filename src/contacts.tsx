@@ -1,6 +1,9 @@
-import type { BuildAction, Controller } from "remix/fetch-router";
+import type { Controller } from "remix/fetch-router";
+import type { RemixNode } from "remix/component";
 import { redirect } from "remix/response/redirect";
-import { Document } from "~/components/Document.tsx";
+import { EditContact } from "~/components/EditContact.tsx";
+import { ShowContact } from "~/components/ShowContact.tsx";
+import { ZeroState } from "~/components/ZeroState.tsx";
 import {
     type Contact,
     createContact,
@@ -8,27 +11,33 @@ import {
     getContact,
     updateContact,
 } from "~/lib/database/contacts.ts";
-import { render } from "~/lib/render.tsx";
+import { documentWithSidebar, isDetailFrameRequest, render } from "~/lib/render.tsx";
 import { routes } from "~/routes.ts";
 
-const contactPage: BuildAction<"GET", typeof routes.contacts.show> = async context => {
+async function contactPage(
+    context: { params: { id?: string | number }; url: URL },
+    detail: (contact: Contact) => RemixNode,
+) {
     if (!context.params.id) {
         return redirect(routes.home.href());
     }
 
-    const contact = await getContact(Number(context.params.id));
-
-    if (!contact) {
-        return redirect(routes.home.href());
+    if (isDetailFrameRequest()) {
+        const contact = await getContact(Number(context.params.id));
+        if (!contact) return render.frame(<ZeroState />);
+        return render.frame(detail(contact));
     }
 
-    return render.document(<Document />);
-};
+    return documentWithSidebar(context.params.id);
+}
 
 export default {
     actions: {
-        show: contactPage,
-        edit: contactPage,
+        show: context =>
+            contactPage(context, contact => (
+                <ShowContact contact={contact} query={context.url.searchParams.get("q")} />
+            )),
+        edit: context => contactPage(context, contact => <EditContact contact={contact} />),
         async create() {
             const id = await createContact();
             return redirect(routes.contacts.edit.href({ id }));

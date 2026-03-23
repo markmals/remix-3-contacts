@@ -1,4 +1,4 @@
-import { CancelButton } from "~/assets/CancelButton.tsx";
+import { CancelButton } from "~/assets/Buttons.tsx";
 import type { Contact } from "~/lib/database/contacts.ts";
 import { routes } from "~/routes.ts";
 

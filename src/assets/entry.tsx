@@ -13,8 +13,10 @@ run({
 
         return exported;
     },
-    async resolveFrame(src, signal) {
-        const response = await fetch(src, { headers: { accept: "text/html" }, signal });
+    async resolveFrame(src, signal, target) {
+        const headers = new Headers({ accept: "text/html", "x-remix-frame": "true" });
+        if (target) headers.set("x-remix-target", target);
+        const response = await fetch(src, { headers, signal });
         return response.body ?? (await response.text());
     },
 });

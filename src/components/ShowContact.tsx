@@ -1,7 +1,6 @@
-import { DeleteConfirm } from "~/assets/DeleteConfirm.tsx";
+import { DeleteButton, EditButton } from "~/assets/Buttons.tsx";
 import { Favorite } from "~/assets/Favorite.tsx";
 import type { Contact } from "~/lib/database/contacts.ts";
-import { routes } from "~/routes.ts";
 
 const AVATAR_PLACEHOLDER =
     "https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png";
@@ -49,16 +48,8 @@ export function ShowContact() {
                         {props.contact.notes ? <p>{props.contact.notes}</p> : null}
 
                         <div>
-                            <form
-                                action={routes.contacts.edit.href(
-                                    { id: props.contact.id },
-                                    { q: props.query },
-                                )}
-                                method={routes.contacts.edit.method}
-                            >
-                                <button type="submit">Edit</button>
-                            </form>
-                            <DeleteConfirm contactId={props.contact.id} />
+                            <EditButton contactId={props.contact.id} query={props.query} />
+                            <DeleteButton contactId={props.contact.id} />
                         </div>
                     </div>
                 </div>

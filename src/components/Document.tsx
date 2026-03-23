@@ -1,22 +1,14 @@
-import assert from "node:assert";
 import { getContext } from "remix/async-context-middleware";
 import { Frame } from "remix/component";
-import { Navigator } from "~/assets/Navigator.tsx";
+import { NewButton } from "~/assets/Buttons.tsx";
+import { SidebarItem } from "~/assets/SidebarItem.tsx";
 import { SearchBar } from "~/assets/SearchBar.tsx";
-import { frames } from "~/frames.ts";
-import { routes } from "~/routes.ts";
+import type { Contact } from "~/lib/database/contacts.ts";
 
 export function Document() {
     const { url } = getContext();
 
-    // Resolve frame sources using frame router
-    const sidebarSrc = frames.sidebar.resolve(url);
-    const detailSrc = frames.detail.resolve(url);
-
-    assert(sidebarSrc);
-    assert(detailSrc);
-
-    return () => (
+    return (props: { contacts: Contact[]; query: string | null; selected: string }) => (
         <html lang="en">
             <head>
                 <meta charSet="utf-8" />
@@ -35,19 +27,29 @@ export function Document() {
                     <div id="sidebar">
                         <h1>Remix 3 Contacts</h1>
                         <div>
-                            <SearchBar query={url.searchParams.get("q")} />
-                            <form
-                                action={routes.contacts.create.href()}
-                                method={routes.contacts.create.method}
-                            >
-                                <button type="submit">New</button>
-                            </form>
+                            <SearchBar query={props.query} />
+                            <NewButton />
                         </div>
-                        <Frame name={frames.sidebar.name} src={sidebarSrc} />
+                        <nav>
+                            {props.contacts.length ? (
+                                <ul>
+                                    {props.contacts.map(contact => (
+                                        <SidebarItem
+                                            contact={contact}
+                                            query={props.query}
+                                            selected={props.selected}
+                                        />
+                                    ))}
+                                </ul>
+                            ) : (
+                                <p>
+                                    <i>No contacts</i>
+                                </p>
+                            )}
+                        </nav>
                     </div>
-                    <Frame name={frames.detail.name} src={detailSrc} />
+                    <Frame name="detail" src={url.toString()} />
                 </div>
-                <Navigator />
             </body>
         </html>
     );

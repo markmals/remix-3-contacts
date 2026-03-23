@@ -1,4 +1,4 @@
-import { clientEntry, type Handle, on } from "remix/component";
+import { clientEntry, type Handle, navigate, on } from "remix/component";
 import { routes } from "~/routes.ts";
 
 export const Favorite = clientEntry(
@@ -36,7 +36,7 @@ export const Favorite = clientEntry(
                             }
 
                             submitting = false;
-                            navigation.reload();
+                            navigate(window.location.href, { history: "replace" });
                         } catch {
                             favorite = !favorite;
                             submitting = false;

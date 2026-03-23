@@ -1,5 +1,5 @@
-import { addEventListeners, clientEntry, type Handle, on } from "remix/component";
-import { navigating } from "~/lib/navigation.ts";
+import { addEventListeners, clientEntry, type Handle, navigate, on } from "remix/component";
+import { navigating } from "~/lib/navigating.ts";
 import { routes } from "~/routes.ts";
 
 export const SearchBar = clientEntry(
@@ -26,15 +26,15 @@ export const SearchBar = clientEntry(
                             // Remove empty query params when value is empty
                             if (!event.currentTarget.value.trim()) {
                                 url.searchParams.delete("q");
-                                navigation.navigate(url.toString());
+                                navigate(url.toString());
                                 return;
                             }
 
                             const isFirstSearch = url.searchParams.get("q") === null;
 
                             url.searchParams.set("q", event.currentTarget.value);
-                            navigation.navigate(url.toString(), {
-                                history: isFirstSearch ? "replace" : "auto",
+                            navigate(url.toString(), {
+                                history: isFirstSearch ? "replace" : "push",
                             });
                         })}
                         name="q"

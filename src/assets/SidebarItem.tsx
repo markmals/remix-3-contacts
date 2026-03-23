@@ -4,15 +4,17 @@ import {
     type Handle,
     type SerializableProps,
 } from "remix/component";
-import { frames } from "~/frames.ts";
-import { navigating } from "~/lib/navigation.ts";
+import { TrieMatcher } from "remix/route-pattern";
+import { navigating } from "~/lib/navigating.ts";
 import { routes } from "~/routes.ts";
+
+const matcher = new TrieMatcher<true>();
+matcher.add(routes.contacts.show.pattern, true);
+matcher.add(routes.contacts.edit.pattern, true);
 
 export namespace SidebarItem {
     export interface Props extends SerializableProps {
-        // Ideally `selected` and `query` could be derived from context,
-        // but context doesn't seem to be working through Frames yet.
-        selected: string | null;
+        selected: string;
         query: string | null;
 
         contact: {
@@ -34,7 +36,7 @@ export const SidebarItem = clientEntry(
         });
 
         return ({ selected, query, contact }: SidebarItem.Props) => {
-            const destination = frames.$.match(navigating.to.url);
+            const destination = navigating.to.url ? matcher.match(navigating.to.url) : null;
             const isPending = Number(destination?.params.id) === contact.id;
             const isActive = Number(selected) === contact.id;
 
@@ -43,6 +45,7 @@ export const SidebarItem = clientEntry(
                     <a
                         class={isActive ? "active" : isPending ? "pending" : undefined}
                         href={routes.contacts.show.href({ id: contact.id }, { q: query })}
+                        rmx-target="detail"
                     >
                         {contact.first || contact.last ? (
                             <>
@@ -51,7 +54,7 @@ export const SidebarItem = clientEntry(
                         ) : (
                             <i>No Name</i>
                         )}
-                        {contact.favorite ? <span>★</span> : null}
+                        {contact.favorite ? <span>{"\u2605"}</span> : null}
                     </a>
                 </li>
             );
