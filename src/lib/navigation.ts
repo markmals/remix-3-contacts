@@ -97,7 +97,7 @@ export class Navigating extends TypedEventTarget<NavigatingEventMap> {
             },
         });
 
-        signal?.addEventListener("abort", () => controller.abort(), { once: true });
+        signal?.addEventListener("abort", controller.abort, { once: true });
     }
 }
 
@@ -196,6 +196,6 @@ export class NavigationEnhancer extends TypedEventTarget<RouterEventMap> {
             },
         });
 
-        signal?.addEventListener("abort", () => controller.abort(), { once: true });
+        signal?.addEventListener("abort", controller.abort, { once: true });
     }
 }

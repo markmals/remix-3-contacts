@@ -7,7 +7,7 @@ export const Navigator = clientEntry(
     routes.assets.href({ file: "Navigator", component: "Navigator" }),
     function Navigator(handle: Handle) {
         const enhancer = new NavigationEnhancer();
-        enhancer.canIntercept = url => frames.canIntercept(url);
+        enhancer.canIntercept = frames.canIntercept;
 
         addEventListeners(enhancer, handle.signal, {
             navigate(event) {
