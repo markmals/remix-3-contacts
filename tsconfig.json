@@ -19,7 +19,7 @@
         "strict": true,
         "noEmit": true,
         "paths": {
-            "~/*": ["./src/*"]
+            "~/*": ["./app/*"]
         }
     }
 }
