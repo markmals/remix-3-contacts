@@ -25,7 +25,7 @@ Files:
 - `getting-started.md`, `handle.md`, `hydration.md`, `interactions.md`, `patterns.md`
 - `server-rendering.md`, `spring.md`, `styling.md`, `testing.md`, `tween.md`
 
-### Package READMEs (13 files from individual `packages/<name>/README.md`)
+### Package READMEs (12 files from individual `packages/<name>/README.md`)
 
 The `component` package documentation is covered by the 15 component doc files above. All other used packages get their README fetched as `docs/<package-name>.md`:
 
