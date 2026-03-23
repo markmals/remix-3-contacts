@@ -11,7 +11,7 @@ export const SearchBar = clientEntry(
             },
         });
 
-        return (props: { query: string | null }) => {
+        return (props: { query?: string }) => {
             const searching = Boolean(navigating.to.url?.searchParams.has("q"));
             return (
                 <form id="search-form" method="GET">

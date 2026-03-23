@@ -5,13 +5,7 @@ import { methodOverride } from "remix/method-override-middleware";
 import { staticFiles } from "remix/static-middleware";
 import { ZeroState } from "~/components/ZeroState.tsx";
 import { loadDatabase } from "./lib/database/middleware.ts";
-import {
-    documentResponse,
-    isDetailFrameRequest,
-    isSidebarFrameRequest,
-    render,
-    sidebarResponse,
-} from "./lib/render.tsx";
+import { document, isDetailRequest, isSidebarRequest, frame, sidebar } from "./lib/render.tsx";
 import contacts from "./contacts.tsx";
 import { routes } from "./routes.ts";
 
@@ -26,8 +20,8 @@ export const router = createRouter({
 });
 
 router.map(routes.home, async () => {
-    if (isSidebarFrameRequest()) return sidebarResponse();
-    if (isDetailFrameRequest()) return render.frame(<ZeroState />);
-    return documentResponse();
+    if (isSidebarRequest()) return await sidebar();
+    if (isDetailRequest()) return frame(<ZeroState />);
+    return document();
 });
 router.map(routes.contacts, contacts);

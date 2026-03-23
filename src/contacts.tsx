@@ -1,5 +1,6 @@
-import type { Controller } from "remix/fetch-router";
 import type { RemixNode } from "remix/component";
+import type { Controller, RequestContext } from "remix/fetch-router";
+import * as s from "remix/data-schema";
 import { redirect } from "remix/response/redirect";
 import { EditContact } from "~/components/EditContact.tsx";
 import { ShowContact } from "~/components/ShowContact.tsx";
@@ -11,41 +12,40 @@ import {
     getContact,
     updateContact,
 } from "~/lib/database/contacts.ts";
-import {
-    documentResponse,
-    isDetailFrameRequest,
-    isSidebarFrameRequest,
-    render,
-    sidebarResponse,
-} from "~/lib/render.tsx";
+import { document, isDetailRequest, isSidebarRequest, frame, sidebar } from "~/lib/render.tsx";
 import { routes } from "~/routes.ts";
+import { FavoriteContactSchema, QuerySchema, UpdateContactSchema } from "./lib/schemas.ts";
 
 async function contactPage(
-    context: { params: { id?: string | number }; url: URL },
+    context: RequestContext<{ id: string }>,
     detail: (contact: Contact) => RemixNode,
 ) {
     if (!context.params.id) {
         return redirect(routes.home.href());
     }
 
-    if (isSidebarFrameRequest()) return sidebarResponse(context.params.id);
+    if (isSidebarRequest()) return await sidebar(context.params.id);
 
-    if (isDetailFrameRequest()) {
+    if (isDetailRequest()) {
         const contact = await getContact(Number(context.params.id));
-        if (!contact) return render.frame(<ZeroState />);
-        return render.frame(detail(contact));
+        if (!contact) return frame(<ZeroState />);
+        return frame(detail(contact));
     }
 
-    return documentResponse();
+    return document();
 }
 
 export default {
     actions: {
-        show: context =>
-            contactPage(context, contact => (
-                <ShowContact contact={contact} query={context.url.searchParams.get("q")} />
-            )),
-        edit: context => contactPage(context, contact => <EditContact contact={contact} />),
+        async show(context) {
+            const { q } = s.parse(QuerySchema, context.url.searchParams);
+            return await contactPage(context, contact => (
+                <ShowContact contact={contact} query={q} />
+            ));
+        },
+        async edit(context) {
+            return await contactPage(context, contact => <EditContact contact={contact} />);
+        },
         async create() {
             const id = await createContact();
             return redirect(routes.contacts.edit.href({ id }));
@@ -55,9 +55,9 @@ export default {
             return redirect(routes.home.href());
         },
         async favorite(context) {
-            const formData = context.get(FormData);
+            const { favorite } = s.parse(FavoriteContactSchema, context.get(FormData));
             const update = await updateContact(Number(context.params.id), {
-                favorite: formData.get("favorite") === "true",
+                favorite,
             });
             return Response.json(update);
         },
@@ -68,15 +68,7 @@ export default {
                 return redirect(routes.home.href());
             }
 
-            const formData = context.get(FormData);
-            const updates: Partial<Contact> = {
-                first: formData.get("first") as string,
-                last: formData.get("last") as string,
-                avatar: formData.get("avatar") as string,
-                bsky: formData.get("bsky") as string,
-                notes: formData.get("notes") as string,
-            };
-
+            const updates = s.parse(UpdateContactSchema, context.get(FormData));
             await updateContact(Number(context.params.id), updates);
 
             return redirect(routes.contacts.show.href({ id: context.params.id }));

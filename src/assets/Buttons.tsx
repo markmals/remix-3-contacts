@@ -12,7 +12,7 @@ export function NewButton() {
 export const EditButton = clientEntry(
     routes.assets.href({ file: "Buttons", component: "EditButton" }),
     function EditButton() {
-        return (props: { contactId: number; query: string | null }) => (
+        return (props: { contactId: number; query?: string }) => (
             <form
                 action={routes.contacts.edit.href({ id: props.contactId }, { q: props.query })}
                 method="GET"

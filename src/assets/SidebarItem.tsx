@@ -15,7 +15,7 @@ matcher.add(routes.contacts.edit.pattern.source, true);
 export namespace SidebarItem {
     export interface Props extends SerializableProps {
         selected: string;
-        query: string | null;
+        query?: string;
 
         contact: {
             id: number;
@@ -44,8 +44,10 @@ export const SidebarItem = clientEntry(
 
             // Only show pending for contacts that aren't already active
             const destination = navigating.to.url ? matcher.match(navigating.to.url.href) : null;
-            const isPathChange = !isServer && navigating.to.url?.pathname !== window.location.pathname;
-            const isPending = !isActive && isPathChange && Number(destination?.params.id) === contact.id;
+            const isPathChange =
+                !isServer && navigating.to.url?.pathname !== window.location.pathname;
+            const isPending =
+                !isActive && isPathChange && Number(destination?.params.id) === contact.id;
 
             return (
                 <li>

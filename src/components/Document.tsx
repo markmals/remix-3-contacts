@@ -1,11 +1,13 @@
 import { getContext } from "remix/async-context-middleware";
 import { Frame } from "remix/component";
+import * as s from "remix/data-schema";
 import { NewButton } from "~/assets/Buttons.tsx";
 import { SearchBar } from "~/assets/SearchBar.tsx";
+import { QuerySchema } from "~/lib/schemas.ts";
 
 export function Document() {
     const { url } = getContext();
-    const query = url.searchParams.get("q");
+    const { q } = s.parse(QuerySchema, url.searchParams);
 
     return () => (
         <html lang="en">
@@ -26,7 +28,7 @@ export function Document() {
                     <div id="sidebar">
                         <h1>Remix 3 Contacts</h1>
                         <div>
-                            <SearchBar query={query} />
+                            <SearchBar query={q} />
                             <NewButton />
                         </div>
                         <Frame name="sidebar" src={url.toString()} />

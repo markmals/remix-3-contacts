@@ -21,7 +21,7 @@ export const Contacts = table({
 
 export type Contact = TableRow<typeof Contacts>;
 
-export async function getContacts(query: string | null): Promise<Contact[]> {
+export async function getContacts(query?: string): Promise<Contact[]> {
     const db = getContext().get(Database);
     await fakeNetwork(`getContacts:${query}`);
 

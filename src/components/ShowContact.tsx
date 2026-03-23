@@ -6,7 +6,7 @@ const AVATAR_PLACEHOLDER =
     "https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png";
 
 export function ShowContact() {
-    return (props: { contact: Contact; query: string | null }) => {
+    return (props: { contact: Contact; query?: string }) => {
         return (
             <div id="detail">
                 <div id="contact">
