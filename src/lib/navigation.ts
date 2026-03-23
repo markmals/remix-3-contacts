@@ -64,6 +64,12 @@ export class Navigating extends TypedEventTarget<NavigatingEventMap> {
     to: NavigationState;
     from: { url?: URL };
 
+    // No events fire on the server, so skip registering listeners entirely
+    override addEventListener(...args: Parameters<EventTarget["addEventListener"]>) {
+        if (isServer) return;
+        super.addEventListener(...args);
+    }
+
     constructor(signal?: AbortSignal) {
         super();
 
