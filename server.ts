@@ -4,13 +4,15 @@ import { createRequestListener } from "remix/node-fetch-server";
 import { router } from "./src/router.tsx";
 
 const server = http.createServer(
-    createRequestListener(async (request: Request) => {
-        try {
-            return await router.fetch(request);
-        } catch (error) {
+    createRequestListener(request => router.fetch(request), {
+        onError(error) {
+            // Client disconnects mid-stream cause AbortErrors — not actionable
+            if (error instanceof DOMException && error.name === "AbortError") {
+                return new Response(null, { status: 499 });
+            }
             console.error(error);
             return new Response("Internal Server Error", { status: 500 });
-        }
+        },
     }),
 );
 
