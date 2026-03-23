@@ -1,4 +1,4 @@
-import { run } from "remix/component";
+import { navigate, run } from "remix/component";
 
 run({
     async loadModule(moduleUrl, exportName) {
@@ -21,12 +21,30 @@ run({
     },
 });
 
-// Prevent the browser from auto-resetting focus on intercepted navigations.
-// The built-in listener uses event.intercept() without focusReset: "manual",
-// so the browser resets focus after each navigation by default. This listener
-// runs after the built-in one (last intercept() call wins for focusReset).
+// Runs after the built-in listener (last intercept() call wins for focusReset).
+// - GET navigations: just set focusReset to prevent browser auto-reset
+// - Form submissions: POST via fetch, then soft-navigate to the redirect URL
 navigation.addEventListener("navigate", event => {
-    if (event.canIntercept) {
+    if (!event.canIntercept) return;
+
+    if (event.formData) {
+        event.intercept({
+            focusReset: "manual",
+            async handler() {
+                const response = await fetch(event.destination.url, {
+                    method: "POST",
+                    body: event.formData,
+                    signal: event.signal,
+                });
+                navigate(response.url);
+            },
+        });
+        return;
+    }
+
+    // Only set focusReset for non-traverse navigations.
+    // Traversals (back/forward) are handled by the built-in listener.
+    if (event.navigationType !== "traverse") {
         event.intercept({ focusReset: "manual" });
     }
 });

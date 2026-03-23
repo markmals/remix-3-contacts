@@ -1,26 +1,13 @@
 import { clientEntry, navigate, on } from "remix/component";
 import { routes } from "~/routes.ts";
 
-export const NewButton = clientEntry(
-    routes.assets.href({ file: "Buttons", component: "NewButton" }),
-    function NewButton() {
-        return () => (
-            <form
-                action={routes.contacts.create.href()}
-                method="POST"
-                mix={on("submit", async event => {
-                    event.preventDefault();
-                    const response = await fetch(event.currentTarget.action, {
-                        method: "POST",
-                    });
-                    navigate(response.url);
-                })}
-            >
-                <button type="submit">New</button>
-            </form>
-        );
-    },
-);
+export function NewButton() {
+    return () => (
+        <form action={routes.contacts.create.href()} method="POST">
+            <button type="submit">New</button>
+        </form>
+    );
+}
 
 export const EditButton = clientEntry(
     routes.assets.href({ file: "Buttons", component: "EditButton" }),
