@@ -34,7 +34,7 @@ export const SidebarItem = clientEntry(
         });
 
         return ({ selected, query, contact }: SidebarItem.Props) => {
-            const destination = frames.match(navigating.to.url);
+            const destination = frames.$.match(navigating.to.url);
             const isPending = Number(destination?.params.id) === contact.id;
             const isActive = Number(selected) === contact.id;
 

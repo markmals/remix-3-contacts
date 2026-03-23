@@ -10,8 +10,8 @@ export function Document() {
     const { url } = getContext();
 
     // Resolve frame sources using frame router
-    const sidebarSrc = frames.resolve.sidebar(url);
-    const detailSrc = frames.resolve.detail(url);
+    const sidebarSrc = frames.sidebar.resolve(url);
+    const detailSrc = frames.detail.resolve(url);
 
     assert(sidebarSrc);
     assert(detailSrc);
@@ -43,9 +43,9 @@ export function Document() {
                                 <button type="submit">New</button>
                             </form>
                         </div>
-                        <Frame name="sidebar" src={sidebarSrc} />
+                        <Frame name={frames.sidebar.name} src={sidebarSrc} />
                     </div>
-                    <Frame name="detail" src={detailSrc} />
+                    <Frame name={frames.detail.name} src={detailSrc} />
                 </div>
                 <Navigator />
             </body>

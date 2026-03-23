@@ -27,12 +27,10 @@ export function createFrames<const Config>(config: Config): FrameRouter<Config> 
 
     function collect(obj: unknown, path: string[] = []) {
         if (Array.isArray(obj)) {
-            // This is a tuple array - store with frame path
             for (const tuple of obj) {
                 allTuples.push({ framePath: path, tuple });
             }
         } else if (typeof obj === "object" && obj !== null) {
-            // Recurse into nested object
             for (const [key, value] of Object.entries(obj)) {
                 collect(value, [...path, key]);
             }
@@ -50,7 +48,6 @@ export function createFrames<const Config>(config: Config): FrameRouter<Config> 
     for (const { framePath, tuple } of allTuples) {
         const [route, resolver] = tuple;
 
-        // Route object must have a pattern property
         if (!route?.pattern) {
             throw new Error(
                 `Route object must have a 'pattern' property: ${JSON.stringify(route)}`,
@@ -60,67 +57,57 @@ export function createFrames<const Config>(config: Config): FrameRouter<Config> 
         matcher.add(route.pattern, { framePath, resolver });
     }
 
-    // Generate nested resolve API
-    const resolve = generateNestedAPI(config, (framePath: string[]) => (url: URL | string) => {
-        const urlObj = typeof url === "string" ? new URL(url, "http://localhost") : url;
+    // Build frame nodes from config
+    const nodes = generateFrameNodes(config, (framePath: string[]) => {
+        const frameName = framePath.join("-");
 
-        // Find all matches for this frame path
-        const matches = matcher.matchAll(urlObj);
-        for (const match of matches) {
-            if (pathEquals(match.data.framePath, framePath)) {
-                return match.data.resolver(match.params, urlObj);
+        function resolve(url: URL | string): string | null {
+            const urlObj = toURL(url);
+            const matches = matcher.matchAll(urlObj);
+            for (const match of matches) {
+                if (pathEquals(match.data.framePath, framePath)) {
+                    return match.data.resolver(match.params, urlObj);
+                }
             }
+            return null;
         }
 
-        return null;
+        return {
+            name: frameName,
+            resolve,
+
+            async reload(url: URL | string, handle: Handle) {
+                const frameSource = resolve(url);
+                if (!frameSource) return;
+
+                const frame = handle.frames.get(frameName);
+                if (!frame) return;
+
+                frame.src = frameSource;
+                await frame.reload();
+            },
+        };
     });
 
-    // Generate nested reload API
-    const reload = generateNestedAPI(
-        config,
-        (framePath: string[]) => async (url: URL | string, handle: Handle) => {
-            // Navigate through nested resolve API to get the resolver function
-            let current = resolve;
-            for (const segment of framePath) {
-                current = current[segment];
-                if (!current) return;
-            }
-
-            const frameSource = typeof current === "function" ? current(url) : null;
-            if (!frameSource) return;
-
-            const frameName = framePath.join(".");
-            const frame = handle.frames.get(frameName);
-            if (!frame) return;
-
-            frame.src = frameSource;
-            await frame.reload();
-        },
-    );
-
-    return {
-        resolve,
-        reload,
-
+    // Attach $ utilities
+    const result = nodes as FrameRouter<Config>;
+    (result as any).$ = {
         async reloadAll(url: URL | string, handle: Handle) {
-            const urlObj = typeof url === "string" ? new URL(url, "http://localhost") : url;
-
-            // Get all matching routes
+            const urlObj = toURL(url);
             const matches = matcher.matchAll(urlObj);
 
-            // Group by frame path to avoid duplicate reloads
+            // Group by frame name to avoid duplicate reloads
             const frameMap = new Map<string, string>();
 
             for (const match of matches) {
                 const { framePath, resolver } = match.data;
-                const frameName = framePath.join(".");
+                const frameName = framePath.join("-");
                 const src = resolver(match.params, urlObj);
                 if (src) {
                     frameMap.set(frameName, src);
                 }
             }
 
-            // Reload all frames
             await Promise.all(
                 Array.from(frameMap.entries()).map(async ([frameName, src]) => {
                     const frame = handle.frames.get(frameName);
@@ -134,42 +121,49 @@ export function createFrames<const Config>(config: Config): FrameRouter<Config> 
 
         match(url: URL | string | null | undefined) {
             if (!url) return null;
-            const urlObj = typeof url === "string" ? new URL(url, "http://localhost") : url;
+            const urlObj = toURL(url);
             const match = matcher.match(urlObj);
             return match ? { params: match.params } : null;
         },
 
         matchAll(url: URL | string | null | undefined) {
             if (!url) return [];
-            const urlObj = typeof url === "string" ? new URL(url, "http://localhost") : url;
+            const urlObj = toURL(url);
             const matches = matcher.matchAll(urlObj);
             return matches.map(m => ({ params: m.params }));
         },
 
         canIntercept(url: URL | string) {
-            const urlObj = typeof url === "string" ? new URL(url, "http://localhost") : url;
+            const urlObj = toURL(url);
             return matcher.match(urlObj) !== null;
         },
     };
+
+    return result;
 }
 
 /**
- * Generate nested API object from config structure
+ * Parse URL input to URL object
  */
-function generateNestedAPI(
+function toURL(url: URL | string): URL {
+    return typeof url === "string" ? new URL(url, "http://localhost") : url;
+}
+
+/**
+ * Build frame node objects from config structure
+ */
+function generateFrameNodes(
     config: any,
     createLeaf: (framePath: string[]) => any,
     path: string[] = [],
-) {
+): any {
     if (Array.isArray(config)) {
-        // Leaf node - create resolver/reload function
         return createLeaf(path);
     }
 
-    // Branch node - recurse
     const result = {} as Record<string, unknown>;
     for (const [key, value] of Object.entries(config)) {
-        result[key] = generateNestedAPI(value, createLeaf, [...path, key]);
+        result[key] = generateFrameNodes(value, createLeaf, [...path, key]);
     }
     return result;
 }

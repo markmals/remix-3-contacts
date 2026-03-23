@@ -35,119 +35,40 @@ export type RouteTuple<R = any> = readonly [R, RouteResolver<ExtractRouteParams<
 export type FrameConfig = readonly RouteTuple[] | { [key: string]: FrameConfig };
 
 /**
- * Extract param type from resolver function
+ * A frame node with resolve, reload, and name
  */
-export type ExtractParams<R> = R extends RouteResolver<infer P> ? P : never;
+export interface FrameNode {
+    resolve(url: URL | string): string | null;
+    reload(url: URL | string, handle: Handle): Promise<void>;
+    name: string;
+}
 
 /**
- * Union all params from array of tuples
+ * Router-wide utility methods
  */
-export type UnionTupleParams<Tuples extends readonly RouteTuple[]> =
-    Tuples[number] extends RouteTuple<infer R> ? ExtractRouteParams<R> : never;
-
-/**
- * Extract all params from a config structure (recursively)
- */
-export type UnionAllParams<Config> = Config extends readonly any[]
-    ? Config[number] extends readonly [infer R, any]
-        ? ExtractRouteParams<R>
-        : never
-    : Config extends object
-      ? { [K in keyof Config]: UnionAllParams<Config[K]> }[keyof Config]
-      : never;
-
-/**
- * Convert a union type to an intersection type
- */
-type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void
-    ? I
-    : never;
-
-/**
- * Strip index signatures from a type to get only known properties
- */
-type StripIndexSignature<T> = {
-    [K in keyof T as string extends K
-        ? never
-        : number extends K
-          ? never
-          : symbol extends K
-            ? never
-            : K]: T[K];
-};
-
-/**
- * Merge all params from union into a single object with optional properties
- * Strips index signatures, filters out empty objects, intersects the rest, makes properties optional
- */
-export type MergedParams<T> = Partial<
-    UnionToIntersection<
-        T extends infer U
-            ? [keyof StripIndexSignature<U>] extends [never]
-                ? never
-                : StripIndexSignature<U>
-            : never
-    >
->;
-
-/**
- * Generate nested resolve API from config
- */
-export type ResolveAPI<Config> = {
-    [K in keyof Config]: Config[K] extends readonly any[]
-        ? (url: URL | string) => string | null
-        : Config[K] extends object
-          ? ResolveAPI<Config[K]>
-          : never;
-};
-
-/**
- * Generate nested reload API from config
- */
-export type ReloadAPI<Config> = {
-    [K in keyof Config]: Config[K] extends readonly any[]
-        ? (url: URL | string, handle: Handle) => Promise<void>
-        : Config[K] extends object
-          ? ReloadAPI<Config[K]>
-          : never;
-};
-
-/**
- * Frame router instance with generated API
- */
-export interface FrameRouter<Config> {
-    /**
-     * Nested resolve API - matches config structure
-     */
-    resolve: ResolveAPI<Config>;
-
-    /**
-     * Nested reload API - matches config structure
-     */
-    reload: ReloadAPI<Config>;
-
-    /**
-     * Reload all frames at once
-     */
+export interface FrameUtils {
     reloadAll(url: URL | string, handle: Handle): Promise<void>;
-
-    /**
-     * Match URL and return first matching params
-     * Returns null if url is null/undefined or if no route matches
-     */
     match(
         url: URL | string | null | undefined,
     ): { params: Record<string, string | undefined> } | null;
-
-    /**
-     * Match URL and return all matching params
-     */
     matchAll(
         url: URL | string | null | undefined,
     ): Array<{ params: Record<string, string | undefined> }>;
-
-    /**
-     * Check if URL matches any configured route
-     */
     canIntercept(url: URL | string): boolean;
 }
+
+/**
+ * Map config structure to frame nodes
+ */
+export type FrameNodeAPI<Config> = {
+    [K in keyof Config]: Config[K] extends readonly any[]
+        ? FrameNode
+        : Config[K] extends object
+          ? FrameNodeAPI<Config[K]>
+          : never;
+};
+
+/**
+ * Frame router instance — frame nodes + $ utilities
+ */
+export type FrameRouter<Config> = FrameNodeAPI<Config> & { $: FrameUtils };
