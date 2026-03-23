@@ -1,4 +1,9 @@
-import { clientEntry, type Handle, type SerializableProps } from "remix/component";
+import {
+    addEventListeners,
+    clientEntry,
+    type Handle,
+    type SerializableProps,
+} from "remix/component";
 import { frames } from "~/frames.ts";
 import { navigating } from "~/lib/navigation.ts";
 import { routes } from "~/routes.ts";
@@ -22,7 +27,7 @@ export namespace SidebarItem {
 export const SidebarItem = clientEntry(
     routes.assets.href({ file: "SidebarItem", component: "SidebarItem" }),
     function SidebarItem(handle: Handle) {
-        handle.on(navigating, {
+        addEventListeners(navigating, handle.signal, {
             destinationchange() {
                 handle.update();
             },

@@ -1,4 +1,4 @@
-import { clientEntry, type Handle } from "remix/component";
+import { addEventListeners, clientEntry, type Handle } from "remix/component";
 import { frames } from "~/frames.ts";
 import { NavigationEnhancer } from "~/lib/navigation.ts";
 import { routes } from "~/routes.ts";
@@ -9,7 +9,7 @@ export const Navigator = clientEntry(
         const enhancer = new NavigationEnhancer();
         enhancer.canIntercept = url => frames.canIntercept(url);
 
-        handle.on(enhancer, {
+        addEventListeners(enhancer, handle.signal, {
             navigate(event) {
                 const url = event.navigating.to.url;
                 event.waitUntil(async () => {

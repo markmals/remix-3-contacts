@@ -13,11 +13,12 @@ export const render = {
         });
     },
     document(node: RemixNode): Response {
+        const ctx = getContext();
         return createHtmlResponse(
             renderToStream(node, {
-                async resolveFrame(src) {
-                    const ctx = getContext();
-                    const url = new URL(src, ctx.url);
+                frameSrc: ctx.url,
+                async resolveFrame(src, _target, context) {
+                    const url = new URL(src, context?.currentFrameSrc ?? ctx.url);
                     const response = await router.fetch(
                         new Request(url, { headers: { accept: "text/html" } }),
                     );

@@ -1,4 +1,4 @@
-import { clientEntry, type Handle } from "remix/component";
+import { clientEntry, type Handle, on } from "remix/component";
 import { routes } from "~/routes.ts";
 
 export const Favorite = clientEntry(
@@ -17,8 +17,8 @@ export const Favorite = clientEntry(
                 <form
                     action={route.href({ id: props.contactId })}
                     method="POST"
-                    on={{
-                        async submit(event) {
+                    mix={[
+                        on("submit", async event => {
                             event.preventDefault();
 
                             favorite = !favorite;
@@ -43,8 +43,8 @@ export const Favorite = clientEntry(
                                 submitting = false;
                                 handle.update();
                             }
-                        },
-                    }}
+                        }),
+                    ]}
                 >
                     <input name="_method" type="hidden" value={route.method} />
                     <input name="id" type="hidden" value={props.contactId} />

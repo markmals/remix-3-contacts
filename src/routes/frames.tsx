@@ -9,38 +9,42 @@ import { render } from "~/lib/render.tsx";
 import type { routes } from "~/routes.ts";
 
 export default {
-    async sidebar({ url }) {
-        const query = url.searchParams.get("q");
-        const selected = url.searchParams.get("selected");
-        let contacts = await getContacts(query);
+    actions: {
+        async sidebar({ url }) {
+            const query = url.searchParams.get("q");
+            const selected = url.searchParams.get("selected");
+            let contacts = await getContacts(query);
 
-        if (query) {
-            contacts = matchSorter(contacts, query, {
-                keys: ["first", "last"],
-            });
-        }
+            if (query) {
+                contacts = matchSorter(contacts, query, {
+                    keys: ["first", "last"],
+                });
+            }
 
-        return render.frame(<Sidebar contacts={contacts} query={query} selected={selected} />);
-    },
-    zero() {
-        return render.frame(<ZeroState />);
-    },
-    async edit({ params }) {
-        const contact = await getContact(Number(params.id));
-
-        if (!contact) {
+            return render.frame(<Sidebar contacts={contacts} query={query} selected={selected} />);
+        },
+        zero() {
             return render.frame(<ZeroState />);
-        }
+        },
+        async edit({ params }) {
+            const contact = await getContact(Number(params.id));
 
-        return render.frame(<EditContact contact={contact} />);
-    },
-    async show({ params, url }) {
-        const contact = await getContact(Number(params.id));
+            if (!contact) {
+                return render.frame(<ZeroState />);
+            }
 
-        if (!contact) {
-            return render.frame(<ZeroState />);
-        }
+            return render.frame(<EditContact contact={contact} />);
+        },
+        async show({ params, url }) {
+            const contact = await getContact(Number(params.id));
 
-        return render.frame(<ShowContact contact={contact} query={url.searchParams.get("q")} />);
+            if (!contact) {
+                return render.frame(<ZeroState />);
+            }
+
+            return render.frame(
+                <ShowContact contact={contact} query={url.searchParams.get("q")} />,
+            );
+        },
     },
 } satisfies Controller<typeof routes.frame>;

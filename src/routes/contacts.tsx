@@ -26,39 +26,43 @@ export const contactPage: BuildAction<"GET", typeof routes.contacts.show> = asyn
 };
 
 export default {
-    show: contactPage,
-    edit: contactPage,
-    async create() {
-        const id = await createContact();
-        return redirect(routes.contacts.edit.href({ id }));
-    },
-    async destroy({ params }) {
-        await deleteContact(Number(params.id));
-        return redirect(routes.home.href());
-    },
-    async favorite({ params, formData }) {
-        const update = await updateContact(Number(params.id), {
-            favorite: formData.get("favorite") === "true",
-        });
-        return Response.json(update);
-    },
-    async update({ params, formData }) {
-        const contact = await getContact(Number(params.id));
-
-        if (!contact) {
+    actions: {
+        show: contactPage,
+        edit: contactPage,
+        async create() {
+            const id = await createContact();
+            return redirect(routes.contacts.edit.href({ id }));
+        },
+        async destroy({ params }) {
+            await deleteContact(Number(params.id));
             return redirect(routes.home.href());
-        }
+        },
+        async favorite({ params, get }) {
+            const formData = get(FormData);
+            const update = await updateContact(Number(params.id), {
+                favorite: formData.get("favorite") === "true",
+            });
+            return Response.json(update);
+        },
+        async update({ params, get }) {
+            const contact = await getContact(Number(params.id));
 
-        const updates: Partial<Contact> = {
-            first: formData.get("first") as string,
-            last: formData.get("last") as string,
-            avatar: formData.get("avatar") as string,
-            bsky: formData.get("bsky") as string,
-            notes: formData.get("notes") as string,
-        };
+            if (!contact) {
+                return redirect(routes.home.href());
+            }
 
-        await updateContact(Number(params.id), updates);
+            const formData = get(FormData);
+            const updates: Partial<Contact> = {
+                first: formData.get("first") as string,
+                last: formData.get("last") as string,
+                avatar: formData.get("avatar") as string,
+                bsky: formData.get("bsky") as string,
+                notes: formData.get("notes") as string,
+            };
 
-        return redirect(routes.contacts.show.href({ id: params.id }));
+            await updateContact(Number(params.id), updates);
+
+            return redirect(routes.contacts.show.href({ id: params.id }));
+        },
     },
 } satisfies Controller<typeof routes.contacts>;

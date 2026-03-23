@@ -1,4 +1,4 @@
-import { on, TypedEventTarget } from "remix/interaction";
+import { addEventListeners, TypedEventTarget } from "remix/component";
 
 declare global {
     interface Navigation extends TypedEventTarget<NavigationEventMap> {}
@@ -72,7 +72,8 @@ export class Navigating extends TypedEventTarget<NavigatingEventMap> {
 
         if (isServer) return;
 
-        const dispose = on(navigation, {
+        const controller = new AbortController();
+        addEventListeners(navigation, controller.signal, {
             navigate: event => {
                 this.to = {
                     state: event.formData ? "submitting" : "loading",
@@ -90,14 +91,7 @@ export class Navigating extends TypedEventTarget<NavigatingEventMap> {
             },
         });
 
-        if (signal) {
-            on(signal, {
-                abort: {
-                    once: true,
-                    listener: dispose,
-                },
-            });
-        }
+        signal?.addEventListener("abort", () => controller.abort(), { once: true });
     }
 }
 
@@ -152,7 +146,8 @@ export class NavigationEnhancer extends TypedEventTarget<RouterEventMap> {
 
         if (isServer) return;
 
-        const dispose = on(navigation, {
+        const controller = new AbortController();
+        addEventListeners(navigation, controller.signal, {
             navigate: event => {
                 if (event.hashChange || !event.canIntercept) {
                     return;
@@ -195,13 +190,6 @@ export class NavigationEnhancer extends TypedEventTarget<RouterEventMap> {
             },
         });
 
-        if (signal) {
-            on(signal, {
-                abort: {
-                    once: true,
-                    listener: dispose,
-                },
-            });
-        }
+        signal?.addEventListener("abort", () => controller.abort(), { once: true });
     }
 }

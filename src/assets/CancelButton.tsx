@@ -1,4 +1,4 @@
-import { clientEntry } from "remix/component";
+import { clientEntry, on } from "remix/component";
 import { routes } from "~/routes.ts";
 
 export const CancelButton = clientEntry(
@@ -6,11 +6,11 @@ export const CancelButton = clientEntry(
     function CancelButton() {
         return () => (
             <button
-                on={{
-                    click() {
+                mix={[
+                    on("click", () => {
                         navigation.back();
-                    },
-                }}
+                    }),
+                ]}
                 type="button"
             >
                 Cancel

@@ -1,4 +1,4 @@
-import { clientEntry } from "remix/component";
+import { clientEntry, on } from "remix/component";
 import { routes } from "~/routes.ts";
 
 export const DeleteConfirm = clientEntry(
@@ -10,13 +10,13 @@ export const DeleteConfirm = clientEntry(
             <form
                 action={destroy.href({ id: props.contactId })}
                 method="POST"
-                on={{
-                    async submit(event) {
+                mix={[
+                    on("submit", async event => {
                         if (!confirm("Please confirm you want to delete this record.")) {
                             event.preventDefault();
                         }
-                    },
-                }}
+                    }),
+                ]}
             >
                 <input name="_method" type="hidden" value={destroy.method} />
                 <button type="submit">Delete</button>

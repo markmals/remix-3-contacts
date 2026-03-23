@@ -1,14 +1,10 @@
 import SQLite from "better-sqlite3";
 import { createDatabase, type Database, sql } from "remix/data-table";
 import { createSqliteDatabaseAdapter } from "remix/data-table-sqlite";
-import type { Middleware } from "remix/fetch-router";
+import { createContextKey, type Middleware } from "remix/fetch-router";
 import { seed } from "./seed.ts";
 
-declare module "remix/fetch-router" {
-    interface RequestContext {
-        db: Database;
-    }
-}
+export const DB = createContextKey<Database>();
 
 export async function loadDatabase(): Promise<Middleware> {
     const sqlite = new SQLite(":memory:");
@@ -36,7 +32,7 @@ export async function loadDatabase(): Promise<Middleware> {
     await seed(db);
 
     return async (context, next) => {
-        context.db = db;
+        context.set(DB, db);
         return next();
     };
 }

@@ -137,14 +137,14 @@ export interface FrameRouter<Config> {
      */
     match(
         url: URL | string | null | undefined,
-    ): { params: MergedParams<UnionAllParams<Config>> } | null;
+    ): { params: Record<string, string | undefined> } | null;
 
     /**
      * Match URL and return all matching params
      */
     matchAll(
         url: URL | string | null | undefined,
-    ): Array<{ params: MergedParams<UnionAllParams<Config>> }>;
+    ): Array<{ params: Record<string, string | undefined> }>;
 
     /**
      * Check if URL matches any configured route

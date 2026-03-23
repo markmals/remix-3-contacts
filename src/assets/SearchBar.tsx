@@ -1,11 +1,11 @@
-import { clientEntry, type Handle } from "remix/component";
+import { addEventListeners, clientEntry, type Handle, on } from "remix/component";
 import { navigating } from "~/lib/navigation.ts";
 import { routes } from "~/routes.ts";
 
 export const SearchBar = clientEntry(
     routes.assets.href({ file: "SearchBar", component: "SearchBar" }),
     function SearchBar(handle: Handle, setup: { query: string | null }) {
-        handle.on(navigating, {
+        addEventListeners(navigating, handle.signal, {
             destinationchange() {
                 handle.update();
             },
@@ -20,9 +20,8 @@ export const SearchBar = clientEntry(
                         class={searching ? "loading" : ""}
                         defaultValue={setup.query ?? undefined}
                         id="q"
-                        name="q"
-                        on={{
-                            async input(event) {
+                        mix={[
+                            on("input", async event => {
                                 const url = new URL(location.href);
 
                                 // Remove empty query params when value is empty
@@ -38,8 +37,9 @@ export const SearchBar = clientEntry(
                                 navigation.navigate(url.toString(), {
                                     history: isFirstSearch ? "replace" : "auto",
                                 });
-                            },
-                        }}
+                            }),
+                        ]}
+                        name="q"
                         placeholder="Search"
                         type="search"
                     />
