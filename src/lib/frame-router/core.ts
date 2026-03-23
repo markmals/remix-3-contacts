@@ -2,7 +2,7 @@
 
 import type { Handle } from "remix/component";
 import type { Route } from "remix/fetch-router/routes";
-import { ArrayMatcher } from "remix/route-pattern";
+import { TrieMatcher } from "remix/route-pattern";
 import type { ExtractRouteParams, FrameRouter, RouteResolver, RouteTuple } from "./types.ts";
 
 /**
@@ -42,7 +42,7 @@ export function createFrames<const Config>(config: Config): FrameRouter<Config> 
     collect(config);
 
     // Build matcher for all routes
-    const matcher = new ArrayMatcher<{
+    const matcher = new TrieMatcher<{
         framePath: string[];
         resolver: RouteResolver;
     }>();
