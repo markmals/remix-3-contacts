@@ -10,9 +10,9 @@ import type { routes } from "~/routes.ts";
 
 export default {
     actions: {
-        async sidebar({ url }) {
-            const query = url.searchParams.get("q");
-            const selected = url.searchParams.get("selected");
+        async sidebar(context) {
+            const query = context.url.searchParams.get("q");
+            const selected = context.url.searchParams.get("selected");
             let contacts = await getContacts(query);
 
             if (query) {
@@ -26,8 +26,8 @@ export default {
         zero() {
             return render.frame(<ZeroState />);
         },
-        async edit({ params }) {
-            const contact = await getContact(Number(params.id));
+        async edit(context) {
+            const contact = await getContact(Number(context.params.id));
 
             if (!contact) {
                 return render.frame(<ZeroState />);
@@ -35,15 +35,15 @@ export default {
 
             return render.frame(<EditContact contact={contact} />);
         },
-        async show({ params, url }) {
-            const contact = await getContact(Number(params.id));
+        async show(context) {
+            const contact = await getContact(Number(context.params.id));
 
             if (!contact) {
                 return render.frame(<ZeroState />);
             }
 
             return render.frame(
-                <ShowContact contact={contact} query={url.searchParams.get("q")} />,
+                <ShowContact contact={contact} query={context.url.searchParams.get("q")} />,
             );
         },
     },

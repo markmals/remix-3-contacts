@@ -11,12 +11,12 @@ import {
 import { render } from "~/lib/render.tsx";
 import { routes } from "~/routes.ts";
 
-export const contactPage: BuildAction<"GET", typeof routes.contacts.show> = async ({ params }) => {
-    if (!params.id) {
+const contactPage: BuildAction<"GET", typeof routes.contacts.show> = async context => {
+    if (!context.params.id) {
         return redirect(routes.home.href());
     }
 
-    const contact = await getContact(Number(params.id));
+    const contact = await getContact(Number(context.params.id));
 
     if (!contact) {
         return redirect(routes.home.href());
@@ -33,25 +33,25 @@ export default {
             const id = await createContact();
             return redirect(routes.contacts.edit.href({ id }));
         },
-        async destroy({ params }) {
-            await deleteContact(Number(params.id));
+        async destroy(context) {
+            await deleteContact(Number(context.params.id));
             return redirect(routes.home.href());
         },
-        async favorite({ params, get }) {
-            const formData = get(FormData);
-            const update = await updateContact(Number(params.id), {
+        async favorite(context) {
+            const formData = context.get(FormData);
+            const update = await updateContact(Number(context.params.id), {
                 favorite: formData.get("favorite") === "true",
             });
             return Response.json(update);
         },
-        async update({ params, get }) {
-            const contact = await getContact(Number(params.id));
+        async update(context) {
+            const contact = await getContact(Number(context.params.id));
 
             if (!contact) {
                 return redirect(routes.home.href());
             }
 
-            const formData = get(FormData);
+            const formData = context.get(FormData);
             const updates: Partial<Contact> = {
                 first: formData.get("first") as string,
                 last: formData.get("last") as string,
@@ -60,9 +60,9 @@ export default {
                 notes: formData.get("notes") as string,
             };
 
-            await updateContact(Number(params.id), updates);
+            await updateContact(Number(context.params.id), updates);
 
-            return redirect(routes.contacts.show.href({ id: params.id }));
+            return redirect(routes.contacts.show.href({ id: context.params.id }));
         },
     },
 } satisfies Controller<typeof routes.contacts>;
