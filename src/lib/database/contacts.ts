@@ -8,14 +8,14 @@ import { DB } from "./middleware.ts";
 export const Contacts = table({
     name: "contacts",
     columns: {
-        id: c.integer(),
-        first: c.text(),
-        last: c.text(),
+        id: c.integer().primaryKey(),
+        first: c.text().notNull(),
+        last: c.text().notNull(),
         avatar: c.text(),
-        bsky: c.text(),
-        notes: c.text(),
-        favorite: c.boolean(),
-        createdAt: c.integer(),
+        bsky: c.text().notNull(),
+        notes: c.text().notNull(),
+        favorite: c.boolean().default(false),
+        createdAt: c.integer().notNull(),
     },
 });
 
