@@ -9,18 +9,26 @@ This project is a Remix 3 contacts demo app using `remix` from `github:remix-run
 
 ## Step 1: Documentation Replacement
 
-Delete all 21 files currently in `docs/`.
+Delete all 21 `.md` files at the top level of `docs/` (do not touch subdirectories such as `docs/superpowers/`).
+
+Fetch all files to a temporary location first, verify all are present and non-empty, then delete originals and move new files into place. Since this is a git repo, `git checkout -- docs/` can restore originals if needed.
 
 ### Component docs (15 files from `packages/component/docs/`)
 
-Fetch via `gh api` and write to `docs/`:
+Fetch via `gh api` and write to `docs/`. Example command:
+```sh
+gh api repos/remix-run/remix/contents/packages/component/docs/components.md --jq '.content' | base64 -d > docs/components.md
+```
+
+Files:
 - `components.md`, `composition.md`, `context.md`, `events.md`, `frames.md`
 - `getting-started.md`, `handle.md`, `hydration.md`, `interactions.md`, `patterns.md`
 - `server-rendering.md`, `spring.md`, `styling.md`, `testing.md`, `tween.md`
 
-### Package READMEs (12 files from individual `packages/<name>/README.md`)
+### Package READMEs (13 files from individual `packages/<name>/README.md`)
 
-Fetch via `gh api` and write to `docs/<package-name>.md`:
+The `component` package documentation is covered by the 15 component doc files above. All other used packages get their README fetched as `docs/<package-name>.md`:
+
 - `async-context-middleware.md`
 - `fetch-router.md`
 - `form-data-middleware.md`
@@ -34,15 +42,18 @@ Fetch via `gh api` and write to `docs/<package-name>.md`:
 - `data-schema.md`
 - `node-fetch-server.md`
 
-**Removed** (no longer upstream): `animate.md`, `interaction-package.md`
-**New**: `testing.md`, plus several package READMEs that weren't previously tracked locally.
+**Removed**: `animate.md` (was a component doc, no longer upstream), `interaction-package.md` (superseded by `interaction.md`)
+**New**: `testing.md`, plus several package READMEs not previously tracked locally.
 
 **Total**: 27 doc files replacing the current 21.
+
+Do not commit Step 1 until after Step 3 analysis is complete, so `git diff` shows the full delta against the original docs.
 
 ## Step 2: Package Update
 
 1. Run `pnpm update` to fetch latest `preview/main` packages
-2. Run `pnpm run typecheck` to establish a baseline of any immediate breakage
+2. Commit the lockfile update separately before proceeding to Step 3, so API changes can be reviewed against a clean baseline
+3. Run `pnpm run typecheck` to establish a baseline of any immediate breakage
 
 ## Step 3: API Change Analysis & Code Updates
 
@@ -61,7 +72,7 @@ Fetch via `gh api` and write to `docs/<package-name>.md`:
 ## Packages Used by This Repo
 
 From `remix/`:
-1. `component` (core + `/jsx-runtime`, `/server`)
+1. `component` (core + `/jsx-runtime`, `/server`) — docs covered by 15 component doc files
 2. `fetch-router` (+ `/routes`)
 3. `async-context-middleware`
 4. `form-data-middleware`
