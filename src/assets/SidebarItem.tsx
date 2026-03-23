@@ -4,13 +4,13 @@ import {
     type Handle,
     type SerializableProps,
 } from "remix/component";
-import { TrieMatcher } from "remix/route-pattern";
-import { navigating } from "~/lib/navigating.ts";
+import { ArrayMatcher } from "remix/route-pattern";
+import { isServer, navigating } from "~/lib/navigating.ts";
 import { routes } from "~/routes.ts";
 
-const matcher = new TrieMatcher<true>();
-matcher.add(routes.contacts.show.pattern, true);
-matcher.add(routes.contacts.edit.pattern, true);
+const matcher = new ArrayMatcher<true>();
+matcher.add(routes.contacts.show.pattern.source, true);
+matcher.add(routes.contacts.edit.pattern.source, true);
 
 export namespace SidebarItem {
     export interface Props extends SerializableProps {
@@ -36,9 +36,16 @@ export const SidebarItem = clientEntry(
         });
 
         return ({ selected, query, contact }: SidebarItem.Props) => {
-            const destination = navigating.to.url ? matcher.match(navigating.to.url) : null;
-            const isPending = Number(destination?.params.id) === contact.id;
-            const isActive = Number(selected) === contact.id;
+            // Derive active state from the current URL on the client,
+            // since frame-targeted navigations don't re-render the sidebar
+            // and the server-provided `selected` prop becomes stale.
+            const currentMatch = !isServer ? matcher.match(window.location.href) : null;
+            const isActive = Number(currentMatch?.params?.id ?? selected) === contact.id;
+
+            // Only show pending for contacts that aren't already active
+            const destination = navigating.to.url ? matcher.match(navigating.to.url.href) : null;
+            const isPathChange = !isServer && navigating.to.url?.pathname !== window.location.pathname;
+            const isPending = !isActive && isPathChange && Number(destination?.params.id) === contact.id;
 
             return (
                 <li>

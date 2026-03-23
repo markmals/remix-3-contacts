@@ -89,11 +89,23 @@ export class Navigating extends TypedEventTarget<NavigatingEventMap> {
                 this.from = { url: new URL(window.location.href) };
                 this.dispatchEvent(new DestinationChangeEvent(this.to.url!));
             },
-            // Clear destination when the current entry is committed
+            // Clear destination when the navigation is fully finished.
+            // The built-in listener uses `handler` (not `precommitHandler`),
+            // so the URL commits before frame content loads. Wait for
+            // transition.finished to keep the "loading" state visible
+            // while frames are still being fetched.
             currententrychange: () => {
-                this.to = structuredClone(Navigating.#idle);
-                this.from = { url: undefined };
-                this.dispatchEvent(new DestinationChangeEvent(null));
+                const reset = () => {
+                    this.to = structuredClone(Navigating.#idle);
+                    this.from = { url: undefined };
+                    this.dispatchEvent(new DestinationChangeEvent(null));
+                };
+
+                if (navigation.transition) {
+                    navigation.transition.finished.then(reset);
+                } else {
+                    reset();
+                }
             },
         });
 
