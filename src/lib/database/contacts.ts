@@ -1,4 +1,4 @@
-import { setTimeout } from "node:timers/promises";
+import { setTimeout as sleep } from "node:timers/promises";
 import { matchSorter } from "match-sorter";
 import { getContext } from "remix/async-context-middleware";
 import * as s from "remix/data-schema";
@@ -104,6 +104,6 @@ export async function fakeNetwork(key?: string) {
     if (!key || !fakeCache.get(key)) {
         if (key) fakeCache.set(key, true);
         // Fake network slowdown between 1-3 seconds
-        return await setTimeout(1000 + Math.random() * 2_000);
+        return await sleep(1000 + Math.random() * 2_000);
     }
 }
