@@ -39,50 +39,50 @@ The iterator can be:
 ### Template literal
 
 ```tsx
-css={{
+mix={[css({
   transition: `width ${spring('bouncy')}`
-}}
+})]}
 // → "width 550ms linear(...)"
 ```
 
 ### Multiple properties (same spring)
 
 ```tsx
-css={{
+mix={[css({
   transition: `transform ${spring('bouncy')}, opacity ${spring('bouncy')}`
-}}
+})]}
 ```
 
 ### Using the helper
 
 ```tsx
-css={{
+mix={[css({
   transition: spring.transition('width', 'bouncy')
-}}
+})]}
 // → "width 550ms linear(...)"
 
-css={{
+mix={[css({
   transition: spring.transition(['left', 'top'], 'snappy')
-}}
+})]}
 // → "left 385ms linear(...), top 385ms linear(...)"
 ```
 
-## Animate Prop
+## Animation Mixins
 
 Spread the spring value to get both `duration` and `easing`:
 
 ```tsx
-animate={{
-  enter: {
+mix={[
+  animateEntrance({
     opacity: 0,
     transform: 'scale(0.9)',
     ...spring('bouncy')
-  },
-  exit: {
+  }),
+  animateExit({
     opacity: 0,
     ...spring('snappy')
-  }
-}}
+  }),
+]}
 ```
 
 ## Presets
@@ -264,18 +264,18 @@ function AnimatedCard(handle: Handle) {
 
   return () => (
     <div
-      css={{
-        transition: spring.transition(['width', 'height'], 'bouncy'),
-      }}
+      mix={[
+        css({
+          transition: spring.transition(['width', 'height'], 'bouncy'),
+        }),
+        on('click', () => {
+          isExpanded = !isExpanded
+          handle.update()
+        }),
+      ]}
       style={{
         width: isExpanded ? '300px' : '100px',
         height: isExpanded ? '200px' : '100px',
-      }}
-      on={{
-        click() {
-          isExpanded = !isExpanded
-          handle.update()
-        },
       }}
     >
       Click me

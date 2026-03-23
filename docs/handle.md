@@ -2,9 +2,10 @@
 
 The `Handle` object provides the component's interface to the framework.
 
-## `handle.update(task?)`
+## `handle.update()`
 
-Schedules a component update. Optionally accepts a task to run after the update completes.
+Schedules a component update and returns a promise that resolves with an `AbortSignal` after
+the update completes.
 
 ```tsx
 function Counter(handle: Handle) {
@@ -12,12 +13,12 @@ function Counter(handle: Handle) {
 
   return () => (
     <button
-      on={{
-        click() {
+      mix={[
+        on('click', () => {
           count++
           handle.update()
-        },
-      }}
+        }),
+      ]}
     >
       Count: {count}
     </button>
@@ -25,7 +26,7 @@ function Counter(handle: Handle) {
 }
 ```
 
-With a task:
+Waiting for the update:
 
 ```tsx
 function Player(handle: Handle) {
@@ -35,15 +36,13 @@ function Player(handle: Handle) {
   return () => (
     <button
       disabled={isPlaying}
-      on={{
-        click() {
+      mix={[
+        on('click', async () => {
           isPlaying = true
-          handle.update(() => {
-            // Task runs after update completes
-            stopButton.focus()
-          })
-        },
-      }}
+          await handle.update()
+          stopButton.focus()
+        }),
+      ]}
     >
       Play
     </button>
@@ -70,8 +69,8 @@ function Form(handle: Handle) {
       <input
         type="checkbox"
         checked={showDetails}
-        on={{
-          change(event) {
+        mix={[
+          on('change', (event) => {
             showDetails = event.currentTarget.checked
             handle.update()
             if (showDetails) {
@@ -80,11 +79,11 @@ function Form(handle: Handle) {
                 detailsSection.scrollIntoView({ behavior: 'smooth' })
               })
             }
-          },
-        }}
+          }),
+        ]}
       />
       {showDetails && (
-        <section connect={(node) => (detailsSection = node)}>Details content</section>
+        <section mix={[ref((node) => (detailsSection = node))]}>Details content</section>
       )}
     </form>
   )
@@ -107,8 +106,8 @@ function BadExample(handle: Handle) {
   return () => (
     <div>
       <button
-        on={{
-          click() {
+        mix={[
+          on('click', () => {
             shouldLoad = true // Setting state just to trigger queueTask
             handle.update()
             handle.queueTask(() => {
@@ -116,8 +115,8 @@ function BadExample(handle: Handle) {
                 // Do work
               }
             })
-          },
-        }}
+          }),
+        ]}
       >
         Load
       </button>
@@ -130,13 +129,13 @@ function GoodExample(handle: Handle) {
   return () => (
     <div>
       <button
-        on={{
-          click() {
+        mix={[
+          on('click', () => {
             handle.queueTask(() => {
               // Do work directly - no intermediate state needed
             })
-          },
-        }}
+          }),
+        ]}
       >
         Load
       </button>
@@ -145,46 +144,26 @@ function GoodExample(handle: Handle) {
 }
 ```
 
-**Don't call `handle.update()` before async work in a task:**
-
-The task's signal is aborted when the component re-renders. If you call `handle.update()` before your async work completes, the re-render will abort the signal you're using for the async operation:
+**When showing loading state before async work, await `handle.update()` and use the returned signal:**
 
 ```tsx
-// ❌ Avoid: Calling handle.update() before async work
-function BadAsyncExample(handle: Handle) {
+function AsyncExample(handle: Handle) {
   let data: string[] = []
   let loading = false
 
-  handle.queueTask(async (signal) => {
+  async function load() {
     loading = true
-    handle.update() // This triggers a re-render, which aborts signal!
+    let signal = await handle.update()
 
-    let response = await fetch('/api/data', { signal }) // AbortError: signal is aborted
-    if (signal.aborted) return
-
-    data = await response.json()
-    loading = false
-    handle.update()
-  })
-
-  return () => <div>{loading ? 'Loading...' : data.join(', ')}</div>
-}
-
-// ✅ Prefer: Set initial state in setup, only call handle.update() after async work
-function GoodAsyncExample(handle: Handle) {
-  let data: string[] = []
-  let loading = true // Start in loading state
-
-  handle.queueTask(async (signal) => {
     let response = await fetch('/api/data', { signal })
     if (signal.aborted) return
 
     data = await response.json()
     loading = false
-    handle.update() // Safe - async work is complete
-  })
+    handle.update()
+  }
 
-  return () => <div>{loading ? 'Loading...' : data.join(', ')}</div>
+  return () => <button mix={[on('click', load)]}>{loading ? 'Loading...' : 'Load data'}</button>
 }
 ```
 
@@ -217,7 +196,7 @@ function Clock(handle: Handle) {
 }
 ```
 
-## `handle.on(target, listeners)`
+## `addEventListeners(target, handle.signal, listeners)`
 
 Listen to an `EventTarget` with automatic cleanup when the component disconnects. Ideal for global event targets like `document` and `window`.
 
@@ -225,7 +204,7 @@ Listen to an `EventTarget` with automatic cleanup when the component disconnects
 function KeyboardTracker(handle: Handle) {
   let keys: string[] = []
 
-  handle.on(document, {
+  addEventListeners(document, handle.signal, {
     keydown(event) {
       keys.push(event.key)
       handle.update()
@@ -240,15 +219,17 @@ function KeyboardTracker(handle: Handle) {
 
 The root frame for the current runtime tree. This is useful when nested components need to reload the entire page/frame tree instead of only their nearest frame.
 
+When server rendering with `renderToStream()`, pass the `frameSrc` option to populate `handle.frames.top.src` during SSR. For nested frame renders, also pass `topFrameSrc` to keep the top-frame URL fixed while `handle.frame.src` changes per frame.
+
 ```tsx
 function RefreshAllButton(handle: Handle) {
   return () => (
     <button
-      on={{
-        async click() {
+      mix={[
+        on('click', async () => {
           await handle.frames.top.reload()
-        },
-      }}
+        }),
+      ]}
     >
       Refresh everything
     </button>
@@ -269,12 +250,12 @@ Return value:
 function CartRow(handle: Handle) {
   return () => (
     <button
-      on={{
-        async click() {
+      mix={[
+        on('click', async () => {
           await handle.frames.get('cart-summary')?.reload()
           await handle.frame.reload()
-        },
-      }}
+        }),
+      ]}
     >
       Update Cart
     </button>
@@ -317,7 +298,9 @@ function App(handle: Handle<{ theme: string }>) {
 
 function Header(handle: Handle) {
   let { theme } = handle.context.get(App)
-  return () => <header css={{ backgroundColor: theme === 'dark' ? '#000' : '#fff' }}>Header</header>
+  return () => (
+    <header mix={[css({ backgroundColor: theme === 'dark' ? '#000' : '#fff' })]}>Header</header>
+  )
 }
 ```
 
