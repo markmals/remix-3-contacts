@@ -3,24 +3,53 @@ import type { RemixNode } from "remix/component";
 import { renderToStream } from "remix/component/server";
 import { createHtmlResponse as html } from "remix/response/html";
 import { matchSorter } from "match-sorter";
+import { SidebarItem } from "~/assets/SidebarItem.tsx";
 import { Document } from "~/components/Document.tsx";
 import { getContacts } from "~/lib/database/contacts.ts";
 import { router } from "~/router.tsx";
 
-export function isDetailFrameRequest(): boolean {
-    return getContext().request.headers.get("x-remix-target") === "detail";
+function frameTarget(): string | null {
+    return getContext().request.headers.get("x-remix-target");
 }
 
-export async function documentWithSidebar(selected?: string | number) {
+export function isDetailFrameRequest(): boolean {
+    return frameTarget() === "detail";
+}
+
+export function isSidebarFrameRequest(): boolean {
+    return frameTarget() === "sidebar";
+}
+
+export async function sidebarResponse(selected?: string | number) {
     const { url } = getContext();
     const query = url.searchParams.get("q");
     let contacts = await getContacts(query);
     if (query) {
         contacts = matchSorter(contacts, query, { keys: ["first", "last"] });
     }
-    return render.document(
-        <Document contacts={contacts} query={query} selected={String(selected ?? "")} />,
+    return render.frame(
+        <nav>
+            {contacts.length ? (
+                <ul>
+                    {contacts.map(contact => (
+                        <SidebarItem
+                            contact={contact}
+                            query={query}
+                            selected={String(selected ?? "")}
+                        />
+                    ))}
+                </ul>
+            ) : (
+                <p>
+                    <i>No contacts</i>
+                </p>
+            )}
+        </nav>,
     );
+}
+
+export function documentResponse() {
+    return render.document(<Document />);
 }
 
 export const render = {

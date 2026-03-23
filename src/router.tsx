@@ -5,7 +5,13 @@ import { methodOverride } from "remix/method-override-middleware";
 import { staticFiles } from "remix/static-middleware";
 import { ZeroState } from "~/components/ZeroState.tsx";
 import { loadDatabase } from "./lib/database/middleware.ts";
-import { documentWithSidebar, isDetailFrameRequest, render } from "./lib/render.tsx";
+import {
+    documentResponse,
+    isDetailFrameRequest,
+    isSidebarFrameRequest,
+    render,
+    sidebarResponse,
+} from "./lib/render.tsx";
 import contacts from "./contacts.tsx";
 import { routes } from "./routes.ts";
 
@@ -20,9 +26,8 @@ export const router = createRouter({
 });
 
 router.map(routes.home, async () => {
-    if (isDetailFrameRequest()) {
-        return render.frame(<ZeroState />);
-    }
-    return documentWithSidebar();
+    if (isSidebarFrameRequest()) return sidebarResponse();
+    if (isDetailFrameRequest()) return render.frame(<ZeroState />);
+    return documentResponse();
 });
 router.map(routes.contacts, contacts);

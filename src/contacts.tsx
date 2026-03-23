@@ -11,7 +11,13 @@ import {
     getContact,
     updateContact,
 } from "~/lib/database/contacts.ts";
-import { documentWithSidebar, isDetailFrameRequest, render } from "~/lib/render.tsx";
+import {
+    documentResponse,
+    isDetailFrameRequest,
+    isSidebarFrameRequest,
+    render,
+    sidebarResponse,
+} from "~/lib/render.tsx";
 import { routes } from "~/routes.ts";
 
 async function contactPage(
@@ -22,13 +28,15 @@ async function contactPage(
         return redirect(routes.home.href());
     }
 
+    if (isSidebarFrameRequest()) return sidebarResponse(context.params.id);
+
     if (isDetailFrameRequest()) {
         const contact = await getContact(Number(context.params.id));
         if (!contact) return render.frame(<ZeroState />);
         return render.frame(detail(contact));
     }
 
-    return documentWithSidebar(context.params.id);
+    return documentResponse();
 }
 
 export default {

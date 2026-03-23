@@ -20,3 +20,13 @@ run({
         return response.body ?? (await response.text());
     },
 });
+
+// Prevent the browser from auto-resetting focus on intercepted navigations.
+// The built-in listener uses event.intercept() without focusReset: "manual",
+// so the browser resets focus after each navigation by default. This listener
+// runs after the built-in one (last intercept() call wins for focusReset).
+navigation.addEventListener("navigate", event => {
+    if (event.canIntercept) {
+        event.intercept({ focusReset: "manual" });
+    }
+});
