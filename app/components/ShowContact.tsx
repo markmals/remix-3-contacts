@@ -1,5 +1,5 @@
-import { DeleteButton, EditButton } from "~/assets/Buttons.tsx";
-import { Favorite } from "~/assets/Favorite.tsx";
+import { DeleteButton, EditButton } from "~/components/Buttons.tsx";
+import { Favorite } from "~/components/Favorite.tsx";
 import type { Contact } from "~/lib/database/contacts.ts";
 
 const AVATAR_PLACEHOLDER =

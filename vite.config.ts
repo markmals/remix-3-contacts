@@ -22,7 +22,7 @@ export default defineConfig({
             build: {
                 outDir: "dist/client",
                 rollupOptions: {
-                    input: "app/assets/entry",
+                    input: "app/entry.browser",
                 },
             },
         },

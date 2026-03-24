@@ -3,7 +3,7 @@ import type { RemixNode } from "remix/component";
 import { renderToStream } from "remix/component/server";
 import * as s from "remix/data-schema";
 import { createHtmlResponse as html } from "remix/response/html";
-import { SidebarItem } from "~/assets/SidebarItem.tsx";
+import { SidebarItem } from "~/components/SidebarItem.tsx";
 import { Document } from "~/components/Document.tsx";
 import { router } from "~/entry.server.tsx";
 import { getContacts } from "~/lib/database/contacts.ts";
