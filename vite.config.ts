@@ -2,6 +2,9 @@ import { defineConfig } from "vite-plus";
 import { remix } from "./remix.plugin.ts";
 
 export default defineConfig({
+    server: {
+        port: 1612,
+    },
     css: {
         transformer: "lightningcss",
     },
