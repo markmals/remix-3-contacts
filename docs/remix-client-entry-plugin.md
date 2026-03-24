@@ -386,6 +386,185 @@ export function Document({ children }) {
 3. **Client boot**: `run()` parses the data script, finds the markers, splits each entry's URL on `#` to get `moduleUrl` and `exportName`, and calls `loadModule`.
 4. **Hydration**: The loaded component function is called against the existing DOM. Matching elements are adopted in place.
 
+## Deployment
+
+The plugin works across different deployment targets. The key difference between targets is how the server environment is configured and how the production server serves assets and handles requests. The client build and component authoring stay the same regardless of target.
+
+### Node
+
+A Node deployment uses the plugin's built-in server handler wiring and a standalone server (e.g. `remix/fetch-server`) to serve the production build.
+
+#### `vite.config.ts`
+
+The Node config must define both `client` and `ssr` environments with explicit output directories, and use the `builder.buildApp` hook to control build order — the SSR environment builds first so that its asset manifest is available when the client build runs:
+
+```ts
+import { remix } from "./remix.plugin.ts";
+import { defineConfig } from "vite-plus";
+
+export default defineConfig({
+    builder: {
+        async buildApp(builder) {
+            await builder.build(builder.environments.ssr);
+            await builder.build(builder.environments.client);
+        },
+    },
+    environments: {
+        client: {
+            build: {
+                outDir: "dist/client",
+                rollupOptions: {
+                    input: "src/entry.browser",
+                },
+            },
+        },
+        ssr: {
+            build: {
+                outDir: "dist/ssr",
+                rollupOptions: {
+                    input: "src/entry.server",
+                },
+            },
+        },
+    },
+    plugins: [remix()],
+});
+```
+
+The `remix()` plugin is called with default options here — `serverHandler: true` wires up the dev server handler automatically, and `serverEnvironments: ["ssr"]` is the default.
+
+#### Production server
+
+The production server imports the built SSR entry delegates everything else to the app's `fetch` handler. Here's an vanilla Node example:
+
+```ts
+// server.ts
+import * as http from "node:http";
+import { createRequestListener } from "remix/node-fetch-server";
+
+// @ts-expect-error - no types for the built output
+import router from "./dist/ssr/entry.server.js";
+
+let server = http.createServer(
+    createRequestListener(request => router.fetch(request), {
+        onError(error) {
+            // Client disconnects mid-stream cause AbortErrors — not actionable
+            if (error instanceof DOMException && error.name === "AbortError") {
+                return new Response(null, { status: 499 });
+            }
+            console.error(error);
+            return new Response("Internal Server Error", { status: 500 });
+        },
+    }),
+);
+
+let port = process.env.PORT ? Number.parseInt(process.env.PORT, 10) : 1612;
+
+server.listen(port, () => {
+    console.log(`Contacts demo is running on http://localhost:${port}`);
+});
+
+let shuttingDown = false;
+
+function shutdown() {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    server.close(() => {
+        process.exit(0);
+    });
+}
+
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);
+```
+
+The `remix/node-fetch-server` package bridges Node-style request/response objects to the standard `fetch` API that the Remix server entry exports. The server entry itself exports a `fetch(request: Request): Response` function, which is the same interface used across all deployment targets.
+
+During development, `vite` starts the dev server with HMR. For production, `vite build` produces the `dist/` output and `node server.ts` runs the Express server against it.
+
+### Cloudflare Workers
+
+A Cloudflare deployment replaces the plugin's built-in server handler with the `@cloudflare/vite-plugin`, which handles the worker environment and deployment.
+
+#### `vite.config.ts`
+
+The key differences from Node: `serverHandler` is set to `false` (Cloudflare's plugin manages the server), and the `cloudflare()` plugin is added pointing at the `ssr` environment:
+
+```ts
+import { cloudflare } from "@cloudflare/vite-plugin";
+import { remix } from "./remix.plugin.ts";
+import { defineConfig } from "vite";
+
+export default defineConfig({
+    environments: {
+        client: {
+            build: {
+                rollupOptions: {
+                    input: "src/entry.browser",
+                },
+            },
+        },
+    },
+    plugins: [
+        remix({ serverHandler: false }),
+        cloudflare({
+            viteEnvironment: { name: "ssr" },
+        }),
+    ],
+});
+```
+
+Notice there is no explicit `ssr` environment config or `builder.buildApp` hook — the Cloudflare plugin creates and manages the SSR environment itself, including output directories and build ordering.
+
+#### `wrangler.jsonc`
+
+The Wrangler config points at the server entry module:
+
+```jsonc
+{
+    "name": "my-remix-app",
+    "compatibility_date": "2025-10-12",
+    "main": "./src/entry.server",
+}
+```
+
+#### Server entry as a Worker
+
+The server entry exports a Cloudflare Workers-compatible `fetch` handler via `export default`. Since Workers natively use the `fetch` API, no adapter like `node-fetch-server` is needed:
+
+```tsx
+// app/entry.server.tsx
+import { createRouter, route, type RouteHandlers } from "remix/fetch-router";
+import { Document } from "~/components/document.tsx";
+import { Counter } from "~/assets/counter.tsx";
+import { html } from "~/lib/render.tsx";
+
+const routes = route({ home: "/" });
+const router = createRouter();
+
+const handlers = {
+    home() {
+        return html(
+            router,
+            <Document>
+                <h1>Hello, World!</h1>
+                <Counter />
+            </Document>,
+        );
+    },
+} satisfies Controller<typeof routes>;
+
+router.map(routes, handlers);
+
+export default router;
+
+if (import.meta.hot) {
+    import.meta.hot.accept();
+}
+```
+
+The `vite preview` command uses the Cloudflare plugin to run a local Miniflare instance against the production build, giving you a near-identical environment to what runs on Cloudflare's edge.
+
 ## Design Decisions
 
 ### Why `clientEntry(import.meta.url, fn)` instead of `"use client"`
