@@ -6,11 +6,11 @@ export const QuerySchema = f.object({
     q: f.field(s.union([s.string(), s.undefined_()])),
 });
 
-export const FavoriteContactSchema = f.object({
+export const FavoriteSchema = f.object({
     favorite: f.field(coerce.boolean()),
 });
 
-export const UpdateContactSchema = f.object({
+export const UpdateSchema = f.object({
     first: f.field(s.defaulted(s.string(), "")),
     last: f.field(s.defaulted(s.string(), "")),
     avatar: f.field(s.defaulted(s.string(), "")),

@@ -14,7 +14,7 @@ import {
 } from "~/lib/database/contacts.ts";
 import { document, isDetailRequest, isSidebarRequest, frame, sidebar } from "~/lib/render.tsx";
 import { routes } from "~/routes.ts";
-import { FavoriteContactSchema, QuerySchema, UpdateContactSchema } from "./lib/schemas.ts";
+import { FavoriteSchema, QuerySchema, UpdateSchema } from "./lib/schemas.ts";
 
 async function contactPage(
     context: RequestContext<{ id: string }>,
@@ -55,7 +55,7 @@ export default {
             return redirect(routes.home.href());
         },
         async favorite(context) {
-            const { favorite } = s.parse(FavoriteContactSchema, context.get(FormData));
+            const { favorite } = s.parse(FavoriteSchema, context.get(FormData));
             const update = await updateContact(Number(context.params.id), {
                 favorite,
             });
@@ -68,7 +68,7 @@ export default {
                 return redirect(routes.home.href());
             }
 
-            const updates = s.parse(UpdateContactSchema, context.get(FormData));
+            const updates = s.parse(UpdateSchema, context.get(FormData));
             await updateContact(Number(context.params.id), updates);
 
             return redirect(routes.contacts.show.href({ id: context.params.id }));
