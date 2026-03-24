@@ -25,6 +25,7 @@
 ### Task 1: Rewrite types
 
 **Files:**
+
 - Modify: `src/lib/frame-router/types.ts`
 
 - [ ] **Step 1: Replace the entire file with new type definitions**
@@ -118,6 +119,7 @@ Expected: Type errors in `core.ts` (it still returns the old shape). That's expe
 ### Task 2: Rewrite core implementation
 
 **Files:**
+
 - Modify: `src/lib/frame-router/core.ts`
 
 - [ ] **Step 1: Replace the entire file with the new implementation**
@@ -313,6 +315,7 @@ Expected: Type errors in consumer files (`Document.tsx`, `Navigator.tsx`, `Sideb
 ### Task 3: Update all call sites
 
 **Files:**
+
 - Modify: `src/components/Document.tsx`
 - Modify: `src/assets/Navigator.tsx`
 - Modify: `src/assets/SidebarItem.tsx`
@@ -363,4 +366,3 @@ Change resolve calls and Frame name props:
 
 Run: `pnpm run typecheck && pnpm run fmt && pnpm run lint`
 Expected: All pass with no errors.
-

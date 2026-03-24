@@ -17,18 +17,22 @@
 ## File Structure
 
 ### New Files
+
 - `.node-version` — pins Node 24
 - `remix.plugin.ts` — Vite plugin: fullstack + clientEntry transform
 - `vite.config.ts` — Vite+ config: environments, builder, resolve, plugins, tasks
 - `app/env.d.ts` — ambient type declarations for Vite import queries (if needed)
 
 ### Renamed Files
+
 - `app/router.tsx` → `app/entry.server.tsx` — SSR entry point
 
 ### Moved Files
+
 - `public/index.css` → `app/styles/index.css` — CSS processed by Vite
 
 ### Modified Files (Phase 1)
+
 - `app/assets/Favorite.tsx` — `clientEntry` first arg → `import.meta.url`
 - `app/assets/SearchBar.tsx` — same
 - `app/assets/Buttons.tsx` — same (3 clientEntry calls)
@@ -43,11 +47,13 @@
 - `tsconfig.json` — exclude `dist/*` instead of `public/assets/*`
 
 ### Modified Files (Phase 2)
+
 - `vite.config.ts` — add `fmt`/`lint` blocks, remove `run.tasks.typecheck`
 - `package.json` — swap biome/tsgo for perfectionist/tsgolint
 - `.vscode/settings.json` — Biome → Oxc
 
 ### Removed Files (Phase 2)
+
 - `biome.jsonc`
 
 ---
@@ -57,6 +63,7 @@
 ### Task 1: Pin Node version and install Vite+ dependencies
 
 **Files:**
+
 - Create: `.node-version`
 - Modify: `package.json`
 
@@ -106,6 +113,7 @@ git commit -m "Add Vite+ dependencies, remove esbuild/tsx"
 ### Task 2: Create the Remix Vite plugin
 
 **Files:**
+
 - Create: `remix.plugin.ts`
 
 **Reference:** `docs/remix-client-entry-plugin.md` — "Complete Plugin Source" section
@@ -221,6 +229,7 @@ git commit -m "Add Remix Vite plugin for clientEntry transforms"
 ### Task 3: Create vite.config.ts
 
 **Files:**
+
 - Create: `vite.config.ts`
 
 - [ ] **Step 1: Create `vite.config.ts`**
@@ -280,6 +289,7 @@ git commit -m "Add Vite+ config with multi-environment build"
 ### Task 4: Rename router to entry.server and update imports
 
 **Files:**
+
 - Rename: `app/router.tsx` → `app/entry.server.tsx`
 - Modify: `app/entry.server.tsx` (add HMR + staticFiles for dist/client)
 - Modify: `app/lib/render.tsx:9` (update import path)
@@ -296,7 +306,6 @@ git mv app/router.tsx app/entry.server.tsx
 At the end of `app/entry.server.tsx`, after `router.map(routes.contacts, contacts);`, add:
 
 ```ts
-
 if (import.meta.hot) {
     import.meta.hot.accept();
 }
@@ -350,6 +359,7 @@ git commit -m "Rename router to entry.server, add HMR and dist/client serving"
 ### Task 5: Move CSS and remove assets route
 
 **Files:**
+
 - Move: `public/index.css` → `app/styles/index.css`
 - Modify: `app/routes.ts`
 
@@ -390,6 +400,7 @@ git commit -m "Move CSS to app/styles, remove assets route"
 ### Task 6: Update clientEntry calls in all asset files
 
 **Files:**
+
 - Modify: `app/assets/Favorite.tsx:5`
 - Modify: `app/assets/SearchBar.tsx:6`
 - Modify: `app/assets/Buttons.tsx:13,31,47`
@@ -493,13 +504,13 @@ The `routes` import stays — it is used for `routes.contacts.show` and `routes.
 Change line 5 from:
 
 ```ts
-        const mod = await import(moduleUrl);
+const mod = await import(moduleUrl);
 ```
 
 to:
 
 ```ts
-        const mod = await import(/* @vite-ignore */ moduleUrl);
+const mod = await import(/* @vite-ignore */ moduleUrl);
 ```
 
 - [ ] **Step 6: Commit**
@@ -514,6 +525,7 @@ git commit -m "Update clientEntry calls to use import.meta.url"
 ### Task 7: Update Document.tsx with mergeAssets
 
 **Files:**
+
 - Modify: `app/components/Document.tsx`
 
 **Reference:** `docs/remix-client-entry-plugin.md` — "Document component (server)" section
@@ -612,6 +624,7 @@ git commit -m "Update Document to use mergeAssets for CSS/JS resolution"
 ### Task 8: Update server.ts for production-only use
 
 **Files:**
+
 - Modify: `server.ts`
 
 - [ ] **Step 1: Update `server.ts`**
@@ -670,6 +683,7 @@ git commit -m "Update server.ts for production-only use with built SSR output"
 ### Task 9: Update config files
 
 **Files:**
+
 - Modify: `.gitignore`
 - Modify: `tsconfig.json:3`
 
@@ -722,12 +736,14 @@ vp run typecheck
 ```
 
 Fix any type errors that arise. Likely issues:
+
 - The `?assets=client` / `?assets=ssr` / `?url` import queries may need type declarations. If so, create `app/env.d.ts` with the necessary ambient module declarations.
 - The `mergeAssets` return type may need checking.
 
 - [ ] **Step 4: User verifies dev server**
 
 Tell the user to run `vp dev` and verify:
+
 - Pages render with correct styling
 - Client-side hydration works (search bar, favorite button, navigation)
 - HMR works when editing a component
@@ -735,12 +751,14 @@ Tell the user to run `vp dev` and verify:
 - [ ] **Step 5: User verifies production build**
 
 Tell the user to run:
+
 ```bash
 vp build
 node server.ts
 ```
 
 Verify:
+
 - `dist/client/` and `dist/ssr/` directories are created
 - Production server starts and pages render correctly
 - Static assets (CSS, JS, favicons) are served
@@ -756,6 +774,7 @@ If any fixes were needed during verification, commit them.
 ### Task 11: Add fmt and lint config to vite.config.ts
 
 **Files:**
+
 - Modify: `vite.config.ts`
 
 - [ ] **Step 1: Update `vite.config.ts`**
@@ -826,6 +845,7 @@ git commit -m "Add Oxfmt/Oxlint config, remove typecheck task"
 ### Task 12: Swap lint/format dependencies
 
 **Files:**
+
 - Modify: `package.json`
 
 - [ ] **Step 1: Remove Biome and TypeScript native preview**
@@ -856,6 +876,7 @@ git commit -m "Swap Biome for Oxlint/Oxfmt, add perfectionist plugin"
 ### Task 13: Update .vscode/settings.json
 
 **Files:**
+
 - Modify: `.vscode/settings.json`
 
 **Reference:** `/Users/orion/Developer/Projects/malstrom.me/.vscode/settings.json`
@@ -874,35 +895,35 @@ git commit -m "Swap Biome for Oxlint/Oxfmt, add perfectionist plugin"
         "source.fixAll.oxc": "explicit",
         "source.fixAll": "explicit",
         "source.addMissingImports.ts": "explicit",
-        "source.removeUnused.ts": "never"
+        "source.removeUnused.ts": "never",
     },
     "editor.defaultFormatter": "oxc.oxc-vscode",
     "editor.formatOnSave": true,
     "editor.formatOnSaveMode": "file",
 
     "[typescript]": {
-        "editor.defaultFormatter": "oxc.oxc-vscode"
+        "editor.defaultFormatter": "oxc.oxc-vscode",
     },
     "[tsx]": {
-        "editor.defaultFormatter": "oxc.oxc-vscode"
+        "editor.defaultFormatter": "oxc.oxc-vscode",
     },
     "[javascript]": {
-        "editor.defaultFormatter": "oxc.oxc-vscode"
+        "editor.defaultFormatter": "oxc.oxc-vscode",
     },
     "[jsx]": {
-        "editor.defaultFormatter": "oxc.oxc-vscode"
+        "editor.defaultFormatter": "oxc.oxc-vscode",
     },
     "[css]": {
-        "editor.defaultFormatter": "oxc.oxc-vscode"
+        "editor.defaultFormatter": "oxc.oxc-vscode",
     },
     "[json]": {
-        "editor.defaultFormatter": "oxc.oxc-vscode"
+        "editor.defaultFormatter": "oxc.oxc-vscode",
     },
     "[jsonc]": {
-        "editor.defaultFormatter": "oxc.oxc-vscode"
+        "editor.defaultFormatter": "oxc.oxc-vscode",
     },
     "[markdown]": {
-        "editor.defaultFormatter": "oxc.oxc-vscode"
+        "editor.defaultFormatter": "oxc.oxc-vscode",
     },
 
     "explorer.fileNesting.enabled": true,
@@ -910,7 +931,7 @@ git commit -m "Swap Biome for Oxlint/Oxfmt, add perfectionist plugin"
     "explorer.fileNesting.patterns": {
         "package.json": ".github*, .npmrc, .prettierignore, .vscode*, .node-version, biome.json*, bun.lock*, components.json, eslint.config.*, mise.toml, pnpm-*.yaml, prettier.config.*, tsconfig.*, wrangler.toml, wrangler.*.toml, wrangler.json*, wrangler.*.json, wrangler.*.jsonc, workspace.json",
         "readme*": "agent*, authors, backers*, changelog*, citation*, claude*, code_of_conduct*, codeowners, contributing*, contributors, copying, credits, governance.md, history.md, license*, maintainers, readme*, security.md, sponsors*",
-        "vite.config.*": "vitest.config.*, *.plugin.ts"
+        "vite.config.*": "vitest.config.*, *.plugin.ts",
     },
 
     "biome.enabled": false,
@@ -919,7 +940,7 @@ git commit -m "Swap Biome for Oxlint/Oxfmt, add perfectionist plugin"
     "dprint.experimentalLsp": false,
     "deno.enable": false,
     "unocss.disable": true,
-    "vitest.ignoreWorkspace": true
+    "vitest.ignoreWorkspace": true,
 }
 ```
 
@@ -935,6 +956,7 @@ git commit -m "Update VS Code settings for Oxc tooling"
 ### Task 14: Remove biome.jsonc
 
 **Files:**
+
 - Delete: `biome.jsonc`
 
 - [ ] **Step 1: Delete `biome.jsonc`**

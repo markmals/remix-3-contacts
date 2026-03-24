@@ -8,34 +8,34 @@ The main use case is flushing after events that call `handle.update()`. Since up
 
 ```tsx
 function Counter(handle: Handle) {
-  let count = 0
+    let count = 0;
 
-  return () => (
-    <button
-      mix={[
-        on('click', () => {
-          count++
-          handle.update()
-        }),
-      ]}
-    >
-      Count: {count}
-    </button>
-  )
+    return () => (
+        <button
+            mix={[
+                on("click", () => {
+                    count++;
+                    handle.update();
+                }),
+            ]}
+        >
+            Count: {count}
+        </button>
+    );
 }
 
 // In your test
-let container = document.createElement('div')
-let root = createRoot(container)
+let container = document.createElement("div");
+let root = createRoot(container);
 
-root.render(<Counter />)
-root.flush() // Ensure initial render completes
+root.render(<Counter />);
+root.flush(); // Ensure initial render completes
 
-let button = container.querySelector('button')
-button.click() // Triggers handle.update()
-root.flush() // Flush to apply the update
+let button = container.querySelector("button");
+button.click(); // Triggers handle.update()
+root.flush(); // Flush to apply the update
 
-expect(container.textContent).toBe('Count: 1')
+expect(container.textContent).toBe("Count: 1");
 ```
 
 ## Why Flush After Initial Render?
@@ -43,12 +43,12 @@ expect(container.textContent).toBe('Count: 1')
 You should also flush after the initial `root.render()` to ensure event listeners are attached and the DOM is ready for interaction:
 
 ```tsx
-let root = createRoot(container)
-root.render(<MyComponent />)
-root.flush() // Event listeners now attached
+let root = createRoot(container);
+root.render(<MyComponent />);
+root.flush(); // Event listeners now attached
 
 // Safe to interact
-container.querySelector('button').click()
+container.querySelector("button").click();
 ```
 
 ## Testing Async Operations
@@ -57,31 +57,31 @@ For components with async operations in `queueTask`, flush after each step:
 
 ```tsx
 function AsyncLoader(handle: Handle) {
-  let data: string | null = null
+    let data: string | null = null;
 
-  handle.queueTask(async (signal) => {
-    let response = await fetch('/api/data', { signal })
-    let json = await response.json()
-    if (signal.aborted) return
-    data = json.value
-    handle.update()
-  })
+    handle.queueTask(async signal => {
+        let response = await fetch("/api/data", { signal });
+        let json = await response.json();
+        if (signal.aborted) return;
+        data = json.value;
+        handle.update();
+    });
 
-  return () => <div>{data ?? 'Loading...'}</div>
+    return () => <div>{data ?? "Loading..."}</div>;
 }
 
 // In your test (with mocked fetch)
-let root = createRoot(container)
-root.render(<AsyncLoader />)
-root.flush()
+let root = createRoot(container);
+root.render(<AsyncLoader />);
+root.flush();
 
-expect(container.textContent).toBe('Loading...')
+expect(container.textContent).toBe("Loading...");
 
 // After fetch resolves
-await waitForFetch()
-root.flush()
+await waitForFetch();
+root.flush();
 
-expect(container.textContent).toBe('Expected data')
+expect(container.textContent).toBe("Expected data");
 ```
 
 ## Testing Component Removal
@@ -89,16 +89,16 @@ expect(container.textContent).toBe('Expected data')
 Use `root.dispose()` to clean up and verify cleanup behavior:
 
 ```tsx
-let root = createRoot(container)
-root.render(<MyComponent />)
-root.flush()
+let root = createRoot(container);
+root.render(<MyComponent />);
+root.flush();
 
 // Verify setup behavior
-expect(container.querySelector('.content')).toBeTruthy()
+expect(container.querySelector(".content")).toBeTruthy();
 
 // Remove and verify cleanup
-root.dispose()
-expect(container.innerHTML).toBe('')
+root.dispose();
+expect(container.innerHTML).toBe("");
 ```
 
 ## See Also

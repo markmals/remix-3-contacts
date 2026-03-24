@@ -10,11 +10,11 @@ Use this package when you want `data-table` APIs backed by `better-sqlite3`.
 - **Adapter-Owned Compiler**: SQL compilation lives in this adapter, with optional shared pure helpers from `data-table`
 - **Migration DDL Support**: Compiles and executes `DataMigrationOperation` operations for `remix/data-table/migrations`
 - **SQLite Capabilities Enabled By Default**:
-  - `returning: true`
-  - `savepoints: true`
-  - `upsert: true`
-  - `transactionalDdl: true`
-  - `migrationLock: false`
+    - `returning: true`
+    - `savepoints: true`
+    - `upsert: true`
+    - `transactionalDdl: true`
+    - `migrationLock: false`
 
 ## Installation
 
@@ -25,12 +25,12 @@ npm i remix better-sqlite3
 ## Usage
 
 ```ts
-import Database from 'better-sqlite3'
-import { createDatabase } from 'remix/data-table'
-import { createSqliteDatabaseAdapter } from 'remix/data-table-sqlite'
+import Database from "better-sqlite3";
+import { createDatabase } from "remix/data-table";
+import { createSqliteDatabaseAdapter } from "remix/data-table-sqlite";
 
-let sqlite = new Database('app.db')
-let db = createDatabase(createSqliteDatabaseAdapter(sqlite))
+let sqlite = new Database("app.db");
+let db = createDatabase(createSqliteDatabaseAdapter(sqlite));
 ```
 
 This is a good fit for local development, embedded deployments, and single-node services.
@@ -51,24 +51,24 @@ Import any driver-specific types you need directly from `better-sqlite3`.
 ### In-Memory Database For Tests
 
 ```ts
-import Database from 'better-sqlite3'
-import { createDatabase } from 'remix/data-table'
-import { createSqliteDatabaseAdapter } from 'remix/data-table-sqlite'
+import Database from "better-sqlite3";
+import { createDatabase } from "remix/data-table";
+import { createSqliteDatabaseAdapter } from "remix/data-table-sqlite";
 
-let sqlite = new Database(':memory:')
-let db = createDatabase(createSqliteDatabaseAdapter(sqlite))
+let sqlite = new Database(":memory:");
+let db = createDatabase(createSqliteDatabaseAdapter(sqlite));
 ```
 
 ### Capability Overrides For Fallback Testing
 
 ```ts
-import { createSqliteDatabaseAdapter } from 'remix/data-table-sqlite'
+import { createSqliteDatabaseAdapter } from "remix/data-table-sqlite";
 
 let adapter = createSqliteDatabaseAdapter(sqlite, {
-  capabilities: {
-    returning: false,
-  },
-})
+    capabilities: {
+        returning: false,
+    },
+});
 ```
 
 ## Related Packages

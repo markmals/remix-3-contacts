@@ -12,9 +12,9 @@ Both are exported from `remix/component/server`.
 Renders a component tree to a complete HTML string. Use this when you need the full output before responding (e.g., generating static pages or embedding HTML in an email).
 
 ```tsx
-import { renderToString } from 'remix/component/server'
+import { renderToString } from "remix/component/server";
 
-let html = await renderToString(<App />)
+let html = await renderToString(<App />);
 ```
 
 ## renderToStream
@@ -22,22 +22,22 @@ let html = await renderToString(<App />)
 Renders a component tree to a streaming response. The initial HTML is sent immediately. Any `<Frame>` components with a `fallback` prop will render the fallback first, then stream the resolved content as it becomes available.
 
 ```tsx
-import { renderToStream } from 'remix/component/server'
+import { renderToStream } from "remix/component/server";
 
 let stream = renderToStream(<App />, {
-  frameSrc: request.url,
-  resolveFrame(src, _target, context) {
-    let frameUrl = new URL(src, context?.currentFrameSrc ?? request.url)
-    return fetchHtml(frameUrl)
-  },
-  onError(error) {
-    console.error(error)
-  },
-})
+    frameSrc: request.url,
+    resolveFrame(src, _target, context) {
+        let frameUrl = new URL(src, context?.currentFrameSrc ?? request.url);
+        return fetchHtml(frameUrl);
+    },
+    onError(error) {
+        console.error(error);
+    },
+});
 
 return new Response(stream, {
-  headers: { 'Content-Type': 'text/html; charset=utf-8' },
-})
+    headers: { "Content-Type": "text/html; charset=utf-8" },
+});
 ```
 
 ### Options
@@ -64,17 +64,17 @@ To render content into the document head during SSR, use an explicit `<head>` el
 
 ```tsx
 function ProductPage() {
-  return () => (
-    <html>
-      <head>
-        <title>Product Name</title>
-        <meta name="description" content="A great product" />
-      </head>
-      <body>
-        <h1>Product Name</h1>
-      </body>
-    </html>
-  )
+    return () => (
+        <html>
+            <head>
+                <title>Product Name</title>
+                <meta name="description" content="A great product" />
+            </head>
+            <body>
+                <h1>Product Name</h1>
+            </body>
+        </html>
+    );
 }
 ```
 

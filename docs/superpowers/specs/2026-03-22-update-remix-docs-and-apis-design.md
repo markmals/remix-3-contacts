@@ -16,11 +16,13 @@ Fetch all files to a temporary location first, verify all are present and non-em
 ### Component docs (15 files from `packages/component/docs/`)
 
 Fetch via `gh api` and write to `docs/`. Example command:
+
 ```sh
 gh api repos/remix-run/remix/contents/packages/component/docs/components.md --jq '.content' | base64 -d > docs/components.md
 ```
 
 Files:
+
 - `components.md`, `composition.md`, `context.md`, `events.md`, `frames.md`
 - `getting-started.md`, `handle.md`, `hydration.md`, `interactions.md`, `patterns.md`
 - `server-rendering.md`, `spring.md`, `styling.md`, `testing.md`, `tween.md`
@@ -58,20 +60,21 @@ Do not commit Step 1 until after Step 3 analysis is complete, so `git diff` show
 ## Step 3: API Change Analysis & Code Updates
 
 1. Use `git diff` on the replaced docs to identify:
-   - Changed function signatures or renamed exports
-   - New required parameters or removed APIs
-   - Deprecated patterns replaced by new ones
+    - Changed function signatures or renamed exports
+    - New required parameters or removed APIs
+    - Deprecated patterns replaced by new ones
 
 2. Update code conservatively:
-   - Fix any breaking changes (type errors, renamed APIs)
-   - Adopt updated patterns where current code uses a now-deprecated approach
-   - No new features, no new packages, no architectural changes
+    - Fix any breaking changes (type errors, renamed APIs)
+    - Adopt updated patterns where current code uses a now-deprecated approach
+    - No new features, no new packages, no architectural changes
 
 3. Verify with `pnpm run typecheck`, `pnpm run lint`, and `pnpm run fmt`
 
 ## Packages Used by This Repo
 
 From `remix/`:
+
 1. `component` (core + `/jsx-runtime`, `/server`) — docs covered by 15 component doc files
 2. `fetch-router` (+ `/routes`)
 3. `async-context-middleware`

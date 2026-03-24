@@ -17,6 +17,7 @@
 These upstream changes affect this codebase and must be addressed:
 
 ### Component package
+
 - **Interaction package removed**: `on(target, listeners)` from `remix/interaction` → `addEventListeners(target, signal, listeners)` from `remix/component`
 - **`handle.on()` removed**: `handle.on(target, listeners)` → `addEventListeners(target, handle.signal, listeners)`
 - **`TypedEventTarget` moved**: now exported from `remix/component`
@@ -27,17 +28,20 @@ These upstream changes affect this codebase and must be addressed:
 - **`connect` prop removed**: use `ref()` mixin (verify if our code uses this)
 
 ### Fetch-router
+
 - **Controller shape changed**: `{ show, edit, ... }` → `{ actions: { show, edit, ... } }`
 - **`BuildAction` generics changed**: `BuildAction<"GET", route>` → no request-method generic
 - **`context.formData` removed**: use `context.get(FormData)` — check if controller action handlers still destructure `formData` directly
 - **`action` → `handler`**: in Action object form
 
 ### Data-table
+
 - **`createTable(...)` → `table(...)`**: renamed helper
 - **Column definitions**: now use `column(...)` builders
 - **`sql` import**: still from `remix/data-table` (unchanged)
 
 ### Form-data-middleware
+
 - **`context.formData` removed**: now uses `context.set(FormData, formData)` internally
 
 ---
@@ -46,29 +50,30 @@ These upstream changes affect this codebase and must be addressed:
 
 Files that will be modified or deleted:
 
-| File | Change | Reason |
-|------|--------|--------|
-| `docs/*.md` (21 files) | Delete all top-level `.md` files | Replace with upstream content |
-| `docs/*.md` (27 files) | Create | Fresh upstream docs |
-| `pnpm-lock.yaml` | Modify | Package update |
-| `src/lib/navigation.ts` | Delete or heavily rewrite | `remix/interaction` removed; built-in frame navigation replaces custom `NavigationEnhancer` |
-| `src/assets/Navigator.tsx` | Rewrite | `handle.on()` removed; use built-in frame navigation APIs |
-| `src/lib/render.tsx` | Modify | `resolveFrame` signature changed |
-| `src/assets/entry.tsx` | Modify | `resolveFrame` signature changed |
-| `src/routes/contacts.tsx` | Modify | Controller shape → `{ actions }`, `BuildAction` generics |
-| `src/routes/frames.tsx` | Modify | Controller shape → `{ actions }` |
-| `src/router.tsx` | Modify | Verify `router.map()` still works with new controller shape |
-| `src/lib/database/contacts.ts` | Modify | `createTable` → `table`, column definition changes |
-| `src/lib/database/middleware.ts` | Verify | `createDatabase` may become `new Database(...)` (or stay as-is) |
-| `src/lib/frame-router/core.ts` | Verify/simplify | Check if built-in frame navigation reduces need for custom frame router |
-| `src/frames.ts` | Verify/simplify | May be simplified if built-in navigation handles frame resolution |
-| `src/components/Document.tsx` | Verify | Frame navigation attributes may affect anchor/form rendering |
+| File                             | Change                           | Reason                                                                                      |
+| -------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------- |
+| `docs/*.md` (21 files)           | Delete all top-level `.md` files | Replace with upstream content                                                               |
+| `docs/*.md` (27 files)           | Create                           | Fresh upstream docs                                                                         |
+| `pnpm-lock.yaml`                 | Modify                           | Package update                                                                              |
+| `src/lib/navigation.ts`          | Delete or heavily rewrite        | `remix/interaction` removed; built-in frame navigation replaces custom `NavigationEnhancer` |
+| `src/assets/Navigator.tsx`       | Rewrite                          | `handle.on()` removed; use built-in frame navigation APIs                                   |
+| `src/lib/render.tsx`             | Modify                           | `resolveFrame` signature changed                                                            |
+| `src/assets/entry.tsx`           | Modify                           | `resolveFrame` signature changed                                                            |
+| `src/routes/contacts.tsx`        | Modify                           | Controller shape → `{ actions }`, `BuildAction` generics                                    |
+| `src/routes/frames.tsx`          | Modify                           | Controller shape → `{ actions }`                                                            |
+| `src/router.tsx`                 | Modify                           | Verify `router.map()` still works with new controller shape                                 |
+| `src/lib/database/contacts.ts`   | Modify                           | `createTable` → `table`, column definition changes                                          |
+| `src/lib/database/middleware.ts` | Verify                           | `createDatabase` may become `new Database(...)` (or stay as-is)                             |
+| `src/lib/frame-router/core.ts`   | Verify/simplify                  | Check if built-in frame navigation reduces need for custom frame router                     |
+| `src/frames.ts`                  | Verify/simplify                  | May be simplified if built-in navigation handles frame resolution                           |
+| `src/components/Document.tsx`    | Verify                           | Frame navigation attributes may affect anchor/form rendering                                |
 
 ---
 
 ### Task 1: Fetch upstream documentation
 
 **Files:**
+
 - Delete: all 21 `.md` files at the top level of `docs/`
 - Create: 27 new `.md` files in `docs/`
 
@@ -118,6 +123,7 @@ Do NOT commit yet — we need the diff for analysis in Task 4.
 ### Task 2: Update packages
 
 **Files:**
+
 - Modify: `pnpm-lock.yaml`, possibly `package.json`
 
 - [ ] **Step 1: Update remix package**
@@ -154,6 +160,7 @@ git diff -- docs/
 ```
 
 Focus on:
+
 - Changed function signatures
 - Removed exports
 - New required parameters
@@ -170,16 +177,20 @@ Combine the doc diff analysis with the typecheck errors to build a complete list
 This is the largest change. The `remix/interaction` package is removed entirely.
 
 **Files:**
+
 - Modify: `src/lib/navigation.ts`
 - Modify: `src/assets/Navigator.tsx`
 
 - [ ] **Step 1: Update imports in `src/lib/navigation.ts`**
 
 Change:
+
 ```ts
 import { on, TypedEventTarget } from "remix/interaction";
 ```
+
 To:
+
 ```ts
 import { addEventListeners, TypedEventTarget } from "remix/component";
 ```
@@ -189,6 +200,7 @@ import { addEventListeners, TypedEventTarget } from "remix/component";
 The `on(target, listeners)` pattern becomes `addEventListeners(target, signal, listeners)`.
 
 In the `Navigating` class constructor (~line 75):
+
 ```ts
 // Before
 const dispose = on(navigation, {
@@ -224,12 +236,15 @@ In `NavigationEnhancer` constructor (~line 155), apply the same two patterns (pr
 - [ ] **Step 3: Update `src/assets/Navigator.tsx`**
 
 Change:
+
 ```ts
 handle.on(enhancer, {
     navigate(event) { ... }
 });
 ```
+
 To:
+
 ```ts
 import { addEventListeners } from "remix/component";
 
@@ -276,6 +291,7 @@ git commit -m "Migrate from remix/interaction to remix/component APIs"
 ### Task 5: Fix fetch-router controller shape
 
 **Files:**
+
 - Modify: `src/routes/contacts.tsx`
 - Modify: `src/routes/frames.tsx`
 - Modify: `src/router.tsx` (verify)
@@ -382,6 +398,7 @@ git commit -m "Update controller shape to { actions } format"
 ### Task 6: Fix data-table API changes
 
 **Files:**
+
 - Modify: `src/lib/database/contacts.ts`
 - Verify: `src/lib/database/middleware.ts`
 - Verify: `src/lib/database/seed.ts`
@@ -426,6 +443,7 @@ git commit -m "Update data-table API: createTable → table, column builders"
 ### Task 7: Fix resolveFrame signature changes
 
 **Files:**
+
 - Modify: `src/lib/render.tsx`
 - Modify: `src/assets/entry.tsx`
 
@@ -495,6 +513,7 @@ git commit -m "Update resolveFrame signatures for new component API"
 - [ ] **Step 1: Verify files marked as "Verify" in file map**
 
 Check that these files still compile correctly and don't need changes:
+
 - `src/lib/frame-router/core.ts` — uses `Handle` from `remix/component`, `Route` from `remix/fetch-router/routes`, `ArrayMatcher` from `remix/route-pattern`
 - `src/frames.ts` — uses frame-router core
 - `src/components/Document.tsx` — uses `Frame` from `remix/component`, check if new attributes like `rmx-target` are needed on forms/anchors

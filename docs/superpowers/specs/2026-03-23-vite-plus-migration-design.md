@@ -90,6 +90,7 @@ if (import.meta.hot) {
 ```
 
 All imports of `~/router.tsx` throughout the app update to `~/entry.server.tsx`:
+
 - `app/lib/render.tsx` (imports `{ router }` from `~/router.tsx`)
 - `server.ts` (imports `{ router }` from `./app/router.tsx`)
 
@@ -112,6 +113,7 @@ import styles from "~/styles/index.css?url";
 Every `clientEntry(routes.assets.href({...}), fn)` call changes to `clientEntry(import.meta.url, fn)`. The Vite plugin resolves URLs at build time. The `routes` import remains in these files — it is still used for other route references (e.g. `routes.contacts.favorite`, `routes.contacts.show`). Only the `routes.assets.href()` usage is removed.
 
 Before:
+
 ```ts
 export const Favorite = clientEntry(
     routes.assets.href({ file: "Favorite", component: "Favorite" }),
@@ -120,6 +122,7 @@ export const Favorite = clientEntry(
 ```
 
 After:
+
 ```ts
 export const Favorite = clientEntry(
     import.meta.url,
@@ -181,10 +184,12 @@ import { router } from "./dist/ssr/entry.server.js";
 #### `package.json`
 
 Dependencies to remove:
+
 - `esbuild` (dev)
 - `tsx` (dev)
 
 Dependencies to add (via `vp add`):
+
 - `vite-plus` (dev)
 - `@hiogawa/vite-plugin-fullstack`
 - `oxc-parser` (dev, for plugin types)
@@ -243,10 +248,12 @@ Also remove the `run.tasks.typecheck` block — type checking is now handled by 
 #### `package.json`
 
 Dependencies to remove:
+
 - `@biomejs/biome` (dev)
 - `@typescript/native-preview` (dev) — type checking now via tsgolint through `vp check`
 
 Dependencies to add (via `vp add`):
+
 - `eslint-plugin-perfectionist` (dev)
 - `oxlint-tsgolint` (dev)
 
@@ -268,7 +275,7 @@ Replace Biome with Oxc, modeled after the malstrom.me reference:
         "source.fixAll.oxc": "explicit",
         "source.fixAll": "explicit",
         "source.addMissingImports.ts": "explicit",
-        "source.removeUnused.ts": "never"
+        "source.removeUnused.ts": "never",
     },
     "editor.defaultFormatter": "oxc.oxc-vscode",
     "editor.formatOnSave": true,
@@ -279,7 +286,7 @@ Replace Biome with Oxc, modeled after the malstrom.me reference:
 
     "explorer.fileNesting.patterns": {
         "package.json": "... .node-version ...",
-        "vite.config.*": "vitest.config.*, *.plugin.ts"
+        "vite.config.*": "vitest.config.*, *.plugin.ts",
     },
 
     "biome.enabled": false,

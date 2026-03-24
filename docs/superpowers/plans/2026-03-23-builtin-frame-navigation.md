@@ -11,6 +11,7 @@
 **Spec:** `docs/superpowers/specs/2026-03-23-builtin-frame-navigation-design.md`
 
 **Verification commands:**
+
 - `pnpm run typecheck` — TypeScript type checking
 - `pnpm run lint` — Biome linting with auto-fix
 - `pnpm run fmt` — Biome formatting with auto-fix
@@ -24,9 +25,11 @@
 ## File Map
 
 **Create:**
+
 - `src/assets/Buttons.tsx` — `NewButton`, `EditButton`, `CancelButton`, `DeleteButton` client entries
 
 **Modify:**
+
 - `src/routes.ts` — Remove `frame` route group and `route` import
 - `src/lib/render.tsx` — Add `isDetailFrameRequest()`, `documentWithSidebar()`, update `resolveFrame` to forward `x-remix-target`
 - `src/router.tsx` — Remove frame controller, add shell-or-fragment home route
@@ -41,6 +44,7 @@
 - `src/lib/navigation.ts` — Remove `NavigationEnhancer`, `NavigateEvent`, `RouterEventMap`
 
 **Delete:**
+
 - `src/lib/frame-router/core.ts`
 - `src/lib/frame-router/types.ts`
 - `src/frames.ts`
@@ -57,6 +61,7 @@
 Independent — no existing files reference it yet.
 
 **Files:**
+
 - Create: `src/assets/Buttons.tsx`
 
 - [ ] **Step 1: Create the file**
@@ -72,6 +77,7 @@ Full content from spec (see `src/assets/Buttons.tsx` section).
 Independent — only changes the `navigation.reload()` call.
 
 **Files:**
+
 - Modify: `src/assets/Favorite.tsx`
 
 - [ ] **Step 1: Read the current file**
@@ -95,6 +101,7 @@ navigate(window.location.href, { history: "replace" });
 Independent — only changes the `resolveFrame` callback signature and headers.
 
 **Files:**
+
 - Modify: `src/assets/entry.tsx`
 
 - [ ] **Step 1: Read the current file**
@@ -102,13 +109,16 @@ Independent — only changes the `resolveFrame` callback signature and headers.
 - [ ] **Step 2: Update resolveFrame**
 
 Change:
+
 ```tsx
 async resolveFrame(src, signal) {
     const response = await fetch(src, { headers: { accept: "text/html" }, signal });
     return response.body ?? (await response.text());
 },
 ```
+
 To:
+
 ```tsx
 async resolveFrame(src, signal, target) {
     const headers = new Headers({ accept: "text/html", "x-remix-frame": "true" });
@@ -125,6 +135,7 @@ async resolveFrame(src, signal, target) {
 Independent — only changes `navigation.navigate()` calls to Remix `navigate()`.
 
 **Files:**
+
 - Modify: `src/assets/SearchBar.tsx`
 
 - [ ] **Step 1: Read the current file**
@@ -149,6 +160,7 @@ Note: `"auto"` changes to `"push"` because Remix's `navigate()` only supports `"
 This is the main architectural change. These files are interdependent and must be modified together — changing any one in isolation would break the build. Do all steps before running typecheck.
 
 **Files:**
+
 - Modify: `src/routes.ts`
 - Modify: `src/lib/navigation.ts`
 - Modify: `src/lib/render.tsx`
@@ -161,6 +173,7 @@ This is the main architectural change. These files are interdependent and must b
 - [ ] **Step 1: Read all files being modified**
 
 Read these files to understand current state:
+
 - `src/routes.ts`
 - `src/lib/navigation.ts`
 - `src/lib/render.tsx`
@@ -182,6 +195,7 @@ Keep: global `Navigation` augmentation, `NavigatingEventMap`, `DestinationChange
 - [ ] **Step 4: Rewrite `src/lib/render.tsx`**
 
 Replace entire file with spec's version. Key additions:
+
 - `isDetailFrameRequest()` export — checks `x-remix-target: detail` header
 - `documentWithSidebar(selected?)` export — fetches contacts, renders full Document
 - `resolveFrame` now forwards `target` as `x-remix-target` header on internal sub-requests
@@ -191,6 +205,7 @@ Full content from spec (see `src/lib/render.tsx` section).
 - [ ] **Step 5: Rewrite `src/router.tsx`**
 
 Replace entire file with spec's version. Key changes:
+
 - Remove `Document` import, `frame` controller import, `render` import from `./lib/render.tsx`
 - Import `documentWithSidebar`, `isDetailFrameRequest`, `render` from `~/lib/render.tsx`
 - Import `ZeroState` for home route's detail fragment
@@ -202,6 +217,7 @@ Full content from spec (see `src/router.tsx` section).
 - [ ] **Step 6: Rewrite `src/routes/contacts.tsx`**
 
 Replace entire file with spec's version. Key changes:
+
 - Remove `Document` import, add `RemixNode` type import
 - Import `documentWithSidebar`, `isDetailFrameRequest`, `render` from `~/lib/render.tsx`
 - Add `contactPage(context, detail)` helper — checks `isDetailFrameRequest()`, fetches contact, returns detail fragment or full document
@@ -213,6 +229,7 @@ Full content from spec (see `src/routes/contacts.tsx` section).
 - [ ] **Step 7: Rewrite `src/components/Document.tsx`**
 
 Replace entire file with spec's version. Key changes:
+
 - Remove `assert`, `Navigator`, `frames`, `routes` imports
 - Add `SidebarItem`, `SearchBar`, `NewButton`, `Contact` type imports
 - Component accepts props: `{ contacts: Contact[]; query: string | null; selected: string }`
@@ -226,6 +243,7 @@ Full content from spec (see `src/components/Document.tsx` section).
 - [ ] **Step 8: Rewrite `src/assets/SidebarItem.tsx`**
 
 Replace entire file with spec's version. Key changes:
+
 - Remove `frames` import
 - Add `TrieMatcher` import from `remix/route-pattern`
 - Module-level `matcher` with `routes.contacts.show.pattern` and `routes.contacts.edit.pattern`
@@ -253,6 +271,7 @@ rm src/components/Sidebar.tsx
 Depends on Task 1 (Buttons.tsx exists).
 
 **Files:**
+
 - Modify: `src/components/ShowContact.tsx`
 
 - [ ] **Step 1: Read the current file**
@@ -260,11 +279,14 @@ Depends on Task 1 (Buttons.tsx exists).
 - [ ] **Step 2: Update imports**
 
 Replace:
+
 ```tsx
 import { DeleteConfirm } from "~/assets/DeleteConfirm.tsx";
 import { Favorite } from "~/assets/Favorite.tsx";
 ```
+
 With:
+
 ```tsx
 import { DeleteButton, EditButton } from "~/assets/Buttons.tsx";
 import { Favorite } from "~/assets/Favorite.tsx";
@@ -291,6 +313,7 @@ Replace `<DeleteConfirm contactId={props.contact.id} />` with `<DeleteButton con
 Depends on Task 1 (Buttons.tsx exists).
 
 **Files:**
+
 - Modify: `src/components/EditContact.tsx`
 
 - [ ] **Step 1: Read the current file**
@@ -298,10 +321,13 @@ Depends on Task 1 (Buttons.tsx exists).
 - [ ] **Step 2: Update import**
 
 Change:
+
 ```tsx
 import { CancelButton } from "~/assets/CancelButton.tsx";
 ```
+
 To:
+
 ```tsx
 import { CancelButton } from "~/assets/Buttons.tsx";
 ```
@@ -313,6 +339,7 @@ import { CancelButton } from "~/assets/Buttons.tsx";
 Old individual button files are now replaced by `Buttons.tsx`.
 
 **Files:**
+
 - Delete: `src/assets/CancelButton.tsx`
 - Delete: `src/assets/DeleteConfirm.tsx`
 
@@ -335,6 +362,7 @@ pnpm run typecheck
 ```
 
 Expected: no errors. Common issues to watch for:
+
 - Missing imports (e.g., `addEventListeners` if not in an import)
 - Type mismatches on `selected` prop (`string` vs `string | null`)
 - Unused imports in partially-updated files

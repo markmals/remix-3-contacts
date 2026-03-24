@@ -5,12 +5,12 @@ Restructure the frame router so frame-level operations (`resolve`, `reload`, `na
 ## Current API
 
 ```ts
-frames.resolve.sidebar(url)
-frames.reload.sidebar(url, handle)
-frames.reloadAll(url, handle)
-frames.match(url)
-frames.matchAll(url)
-frames.canIntercept(url)
+frames.resolve.sidebar(url);
+frames.reload.sidebar(url, handle);
+frames.reloadAll(url, handle);
+frames.match(url);
+frames.matchAll(url);
+frames.canIntercept(url);
 ```
 
 ## New API
@@ -20,20 +20,20 @@ frames.canIntercept(url)
 Each config key that maps to a `RouteTuple[]` becomes a `FrameNode`:
 
 ```ts
-frames.sidebar.resolve(url)          // resolve frame source URL
-frames.sidebar.reload(url, handle)   // reload the frame
-frames.sidebar.name                  // "sidebar"
+frames.sidebar.resolve(url); // resolve frame source URL
+frames.sidebar.reload(url, handle); // reload the frame
+frames.sidebar.name; // "sidebar"
 
 // Nested example:
-frames.foo.bar.resolve(url)
-frames.foo.bar.name                  // "foo-bar"
+frames.foo.bar.resolve(url);
+frames.foo.bar.name; // "foo-bar"
 ```
 
 ```ts
 interface FrameNode {
-  resolve(url: URL | string): string | null;
-  reload(url: URL | string, handle: Handle): Promise<void>;
-  name: string;
+    resolve(url: URL | string): string | null;
+    reload(url: URL | string, handle: Handle): Promise<void>;
+    name: string;
 }
 ```
 
@@ -42,18 +42,22 @@ interface FrameNode {
 Router-wide operations move to `frames.$`:
 
 ```ts
-frames.$.reloadAll(url, handle)
-frames.$.match(url)
-frames.$.matchAll(url)
-frames.$.canIntercept(url)
+frames.$.reloadAll(url, handle);
+frames.$.match(url);
+frames.$.matchAll(url);
+frames.$.canIntercept(url);
 ```
 
 ```ts
 interface FrameUtils {
-  reloadAll(url: URL | string, handle: Handle): Promise<void>;
-  match(url: URL | string | null | undefined): { params: Record<string, string | undefined> } | null;
-  matchAll(url: URL | string | null | undefined): Array<{ params: Record<string, string | undefined> }>;
-  canIntercept(url: URL | string): boolean;
+    reloadAll(url: URL | string, handle: Handle): Promise<void>;
+    match(
+        url: URL | string | null | undefined,
+    ): { params: Record<string, string | undefined> } | null;
+    matchAll(
+        url: URL | string | null | undefined,
+    ): Array<{ params: Record<string, string | undefined> }>;
+    canIntercept(url: URL | string): boolean;
 }
 ```
 
@@ -65,15 +69,15 @@ interface FrameUtils {
 - Add `FrameNode` interface.
 - Add `FrameUtils` interface.
 - Add `FrameNodeAPI<Config>` mapped type:
-  ```ts
-  type FrameNodeAPI<Config> = {
-    [K in keyof Config]: Config[K] extends readonly any[]
-      ? FrameNode
-      : Config[K] extends object
-        ? FrameNodeAPI<Config[K]>
-        : never;
-  };
-  ```
+    ```ts
+    type FrameNodeAPI<Config> = {
+        [K in keyof Config]: Config[K] extends readonly any[]
+            ? FrameNode
+            : Config[K] extends object
+              ? FrameNodeAPI<Config[K]>
+              : never;
+    };
+    ```
 - Replace `FrameRouter<Config>` with `FrameNodeAPI<Config> & { $: FrameUtils }`.
 
 ### `src/lib/frame-router/core.ts`

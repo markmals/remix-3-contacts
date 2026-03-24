@@ -411,8 +411,8 @@ i {
 
     width: 100%;
     aspect-ratio: 157 / 36;
-    background:
-        url("https://remix.run/marketing/racecar-teaser-hero.webp") center / contain no-repeat;
+    background: url("https://remix.run/marketing/racecar-teaser-hero.webp") center / contain
+        no-repeat;
 }
 
 #error-page {

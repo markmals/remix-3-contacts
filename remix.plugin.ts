@@ -33,8 +33,7 @@ export function remix({
         {
             name: "remix-preview-server",
             async configurePreviewServer(server) {
-                const ssrOutDir =
-                    server.config.environments.ssr?.build?.outDir ?? "dist/ssr";
+                const ssrOutDir = server.config.environments.ssr?.build?.outDir ?? "dist/ssr";
                 const entryPath = new URL(
                     `${ssrOutDir}/entry.server.js`,
                     `file://${server.config.root}/`,
@@ -43,15 +42,11 @@ export function remix({
                 const mod = await import(/* @vite-ignore */ entryPath);
                 const router = mod.default ?? mod.router;
 
-                const { createRequestListener } = await import(
-                    "remix/node-fetch-server"
-                );
+                const { createRequestListener } = await import("remix/node-fetch-server");
 
                 return () => {
                     server.middlewares.use(
-                        createRequestListener(
-                            (request: Request) => router.fetch(request),
-                        ),
+                        createRequestListener((request: Request) => router.fetch(request)),
                     );
                 };
             },

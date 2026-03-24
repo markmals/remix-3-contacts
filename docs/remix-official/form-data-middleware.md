@@ -22,23 +22,23 @@ Use the `formData()` middleware at the router level to parse `FormData` from the
 Uploaded files are available in the parsed `FormData` object. For a single file field, use `formData.get(name)`. For repeated file fields, use `formData.getAll(name)`.
 
 ```ts
-import { createRouter } from 'remix/fetch-router'
-import { formData } from 'remix/form-data-middleware'
+import { createRouter } from "remix/fetch-router";
+import { formData } from "remix/form-data-middleware";
 
 let router = createRouter({
-  middleware: [formData()],
-})
+    middleware: [formData()],
+});
 
-router.post('/users', async (context) => {
-  let formData = context.get(FormData)
-  let name = formData.get('name')
-  let email = formData.get('email')
+router.post("/users", async context => {
+    let formData = context.get(FormData);
+    let name = formData.get("name");
+    let email = formData.get("email");
 
-  // Handle file uploads
-  let avatar = formData.get('avatar')
+    // Handle file uploads
+    let avatar = formData.get("avatar");
 
-  return Response.json({ name, email, hasAvatar: avatar instanceof File })
-})
+    return Response.json({ name, email, hasAvatar: avatar instanceof File });
+});
 ```
 
 ### Custom File Upload Handler
@@ -46,21 +46,21 @@ router.post('/users', async (context) => {
 You can use a custom upload handler to customize how file uploads are handled. The return value of the upload handler will be used as the value of the form field in the `FormData` object.
 
 ```ts
-import { formData } from 'remix/form-data-middleware'
-import { writeFile } from 'node:fs/promises'
+import { formData } from "remix/form-data-middleware";
+import { writeFile } from "node:fs/promises";
 
 let router = createRouter({
-  middleware: [
-    formData({
-      async uploadHandler(upload) {
-        // Save to disk and return path
-        let path = `./uploads/${upload.name}`
-        await writeFile(path, Buffer.from(await upload.arrayBuffer()))
-        return path
-      },
-    }),
-  ],
-})
+    middleware: [
+        formData({
+            async uploadHandler(upload) {
+                // Save to disk and return path
+                let path = `./uploads/${upload.name}`;
+                await writeFile(path, Buffer.from(await upload.arrayBuffer()));
+                return path;
+            },
+        }),
+    ],
+});
 ```
 
 ### Limit Multipart Growth
@@ -70,15 +70,15 @@ let router = createRouter({
 
 ```ts
 let router = createRouter({
-  middleware: [
-    formData({
-      maxFiles: 5,
-      maxFileSize: 10 * 1024 * 1024,
-      maxParts: 25,
-      maxTotalSize: 12 * 1024 * 1024,
-    }),
-  ],
-})
+    middleware: [
+        formData({
+            maxFiles: 5,
+            maxFileSize: 10 * 1024 * 1024,
+            maxParts: 25,
+            maxTotalSize: 12 * 1024 * 1024,
+        }),
+    ],
+});
 ```
 
 ### Suppress Parse Errors
@@ -87,12 +87,12 @@ Some requests may contain invalid form data that cannot be parsed. You can suppr
 
 ```ts
 let router = createRouter({
-  middleware: [
-    formData({
-      suppressErrors: true, // Invalid form data won't throw
-    }),
-  ],
-})
+    middleware: [
+        formData({
+            suppressErrors: true, // Invalid form data won't throw
+        }),
+    ],
+});
 ```
 
 ## Related Packages

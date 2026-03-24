@@ -29,16 +29,16 @@ When the server renders `<Frame name="detail" src={url}>`, `renderToStream` call
 
 ### Navigation patterns
 
-| User action | Navigation type | What updates |
-|---|---|---|
-| Click contact in sidebar | `rmx-target="detail"` on `<a>` | Detail frame only |
-| Search contacts | `navigate(url)` (no target) | Top frame (sidebar + detail) |
-| Create new contact | `fetch()` POST + `navigate(redirectUrl)` | Top frame |
-| Save edited contact | `fetch()` POST + `navigate(redirectUrl)` | Top frame |
-| Delete contact | `fetch()` POST + `navigate(redirectUrl)` | Top frame |
-| Toggle favorite | `fetch()` PATCH + `navigate(url, { history: "replace" })` | Top frame |
-| Click Edit button | `navigate(url, { target: "detail" })` | Detail frame only |
-| Click Cancel button | `navigation.back()` (browser API) | Traversal (intercepted by listener) |
+| User action              | Navigation type                                           | What updates                        |
+| ------------------------ | --------------------------------------------------------- | ----------------------------------- |
+| Click contact in sidebar | `rmx-target="detail"` on `<a>`                            | Detail frame only                   |
+| Search contacts          | `navigate(url)` (no target)                               | Top frame (sidebar + detail)        |
+| Create new contact       | `fetch()` POST + `navigate(redirectUrl)`                  | Top frame                           |
+| Save edited contact      | `fetch()` POST + `navigate(redirectUrl)`                  | Top frame                           |
+| Delete contact           | `fetch()` POST + `navigate(redirectUrl)`                  | Top frame                           |
+| Toggle favorite          | `fetch()` PATCH + `navigate(url, { history: "replace" })` | Top frame                           |
+| Click Edit button        | `navigate(url, { target: "detail" })`                     | Detail frame only                   |
+| Click Cancel button      | `navigation.back()` (browser API)                         | Traversal (intercepted by listener) |
 
 All navigations are soft (client-side DOM diff). No hard browser refreshes.
 
@@ -121,9 +121,7 @@ export const render = {
                     const url = new URL(src, ctx?.currentFrameSrc ?? context.url);
                     const headers = new Headers({ accept: "text/html" });
                     if (target) headers.set("x-remix-target", target);
-                    const response = await router.fetch(
-                        new Request(url, { headers }),
-                    );
+                    const response = await router.fetch(new Request(url, { headers }));
 
                     if (!response.ok) {
                         throw new Error(`Failed to resolve frame ${url.pathname}`);
@@ -221,12 +219,11 @@ async function contactPage(
 
 export default {
     actions: {
-        show: (context) => contactPage(context, contact =>
-            <ShowContact contact={contact} query={context.url.searchParams.get("q")} />,
-        ),
-        edit: (context) => contactPage(context, contact =>
-            <EditContact contact={contact} />,
-        ),
+        show: context =>
+            contactPage(context, contact => (
+                <ShowContact contact={contact} query={context.url.searchParams.get("q")} />
+            )),
+        edit: context => contactPage(context, contact => <EditContact contact={contact} />),
         async create() {
             const id = await createContact();
             return redirect(routes.contacts.edit.href({ id }));
@@ -450,6 +447,7 @@ export const SidebarItem = clientEntry(
 ```
 
 Key changes:
+
 - `selected` prop type changed from `string | null` to `string` (empty string = no selection)
 - `frames` import removed, replaced with `TrieMatcher` from `remix/route-pattern`
 - `rmx-target="detail"` added to the `<a>` element
