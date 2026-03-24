@@ -1,55 +1,59 @@
 {
-    "biome.enabled": true,
+    "js/ts.preferences.importModuleSpecifierEnding": "js",
+    "js/ts.experimental.useTsgo": true,
+
+    "oxc.enable.oxlint": true,
+    "oxc.enable.oxfmt": true,
 
     "editor.codeActionsOnSave": {
+        "source.fixAll.oxc": "explicit",
         "source.fixAll": "explicit",
-        "source.fixAll.biome": "explicit",
-
         "source.addMissingImports.ts": "explicit",
         "source.removeUnused.ts": "never"
     },
-
-    "editor.defaultFormatter": "biomejs.biome",
+    "editor.defaultFormatter": "oxc.oxc-vscode",
     "editor.formatOnSave": true,
+    "editor.formatOnSaveMode": "file",
 
     "[typescript]": {
-        "editor.defaultFormatter": "biomejs.biome"
+        "editor.defaultFormatter": "oxc.oxc-vscode"
     },
     "[tsx]": {
-        "editor.defaultFormatter": "biomejs.biome"
+        "editor.defaultFormatter": "oxc.oxc-vscode"
     },
     "[javascript]": {
-        "editor.defaultFormatter": "biomejs.biome"
+        "editor.defaultFormatter": "oxc.oxc-vscode"
     },
     "[jsx]": {
-        "editor.defaultFormatter": "biomejs.biome"
+        "editor.defaultFormatter": "oxc.oxc-vscode"
     },
     "[css]": {
-        "editor.defaultFormatter": "biomejs.biome"
+        "editor.defaultFormatter": "oxc.oxc-vscode"
     },
     "[json]": {
-        "editor.defaultFormatter": "biomejs.biome"
+        "editor.defaultFormatter": "oxc.oxc-vscode"
     },
     "[jsonc]": {
-        "editor.defaultFormatter": "biomejs.biome"
+        "editor.defaultFormatter": "oxc.oxc-vscode"
     },
     "[markdown]": {
-        "editor.defaultFormatter": "esbenp.prettier-vscode"
+        "editor.defaultFormatter": "oxc.oxc-vscode"
     },
 
     "explorer.fileNesting.enabled": true,
     "explorer.fileNesting.expand": false,
     "explorer.fileNesting.patterns": {
-        "package.json": ".github*, .npmrc, .prettierignore, .vscode*, biome.json*, bun.lock*, components.json, eslint.config.*, mise.toml, pnpm-*.yaml, prettier.config.*, tsconfig.*, wrangler.toml, wrangler.*.toml, wrangler.json*, wrangler.*.json, wrangler.*.jsonc, workspace.json",
+        "package.json": ".github*, .npmrc, .prettierignore, .vscode*, .node-version, biome.json*, bun.lock*, components.json, eslint.config.*, mise.toml, pnpm-*.yaml, prettier.config.*, tsconfig.*, wrangler.toml, wrangler.*.toml, wrangler.json*, wrangler.*.json, wrangler.*.jsonc, workspace.json",
         "readme*": "agent*, authors, backers*, changelog*, citation*, claude*, code_of_conduct*, codeowners, contributing*, contributors, copying, credits, governance.md, history.md, license*, maintainers, readme*, security.md, sponsors*",
-        "vite.config.ts": "*.plugin.ts"
+        "vite.config.*": "vitest.config.*, *.plugin.ts"
     },
 
-    // "prettier.enable": false,
-    "oxc.enable": false,
+    "biome.enabled": false,
+    "prettier.enable": false,
     "eslint.enable": false,
     "dprint.experimentalLsp": false,
     "deno.enable": false,
     "unocss.disable": true,
+    "vitest.disableWorkspaceWarning": true,
     "vitest.ignoreWorkspace": true
 }

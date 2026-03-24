@@ -33,11 +33,22 @@ export default defineConfig({
         },
     },
     plugins: [remix()],
-    run: {
-        tasks: {
-            typecheck: {
-                command: "tsgo --noEmit",
-            },
+    fmt: {
+        printWidth: 100,
+        tabWidth: 4,
+        arrowParens: "avoid",
+        organizeImports: true,
+    },
+    lint: {
+        options: {
+            typeAware: true,
+            typeCheck: true,
+        },
+        jsPlugins: ["eslint-plugin-perfectionist"],
+        rules: {
+            "typescript/no-floating-promises": "allow",
+            "typescript/unbound-method": "allow",
+            "perfectionist/sort-jsx-props": "warn",
         },
     },
 });
