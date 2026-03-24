@@ -1,7 +1,7 @@
 import { addEventListeners, clientEntry, type Handle, navigate, on } from "remix/component";
 import { navigating } from "~/lib/navigating.ts";
 
-export const SearchBar = clientEntry(import.meta.url, function SearchBar(handle: Handle) {
+export const SearchBar = clientEntry(import.meta.url, (handle: Handle) => {
     addEventListeners(navigating, handle.signal, {
         destinationchange() {
             handle.update();

@@ -9,7 +9,7 @@ export function NewButton() {
     );
 }
 
-export const EditButton = clientEntry(import.meta.url, function EditButton() {
+export const EditButton = clientEntry(import.meta.url, () => {
     return (props: { contactId: number; query?: string }) => (
         <form
             action={routes.contacts.edit.href({ id: props.contactId }, { q: props.query })}
@@ -24,7 +24,7 @@ export const EditButton = clientEntry(import.meta.url, function EditButton() {
     );
 });
 
-export const CancelButton = clientEntry(import.meta.url, function CancelButton() {
+export const CancelButton = clientEntry(import.meta.url, () => {
     return () => (
         <button
             mix={on("click", () => {
@@ -37,7 +37,7 @@ export const CancelButton = clientEntry(import.meta.url, function CancelButton()
     );
 });
 
-export const DeleteButton = clientEntry(import.meta.url, function DeleteButton() {
+export const DeleteButton = clientEntry(import.meta.url, () => {
     return (props: { contactId: number }) => (
         <form
             action={routes.contacts.destroy.href({ id: props.contactId })}

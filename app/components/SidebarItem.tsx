@@ -26,7 +26,7 @@ export namespace SidebarItem {
     }
 }
 
-export const SidebarItem = clientEntry(import.meta.url, function SidebarItem(handle: Handle) {
+export const SidebarItem = clientEntry(import.meta.url, (handle: Handle) => {
     addEventListeners(navigating, handle.signal, {
         destinationchange() {
             handle.update();
