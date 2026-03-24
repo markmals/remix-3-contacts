@@ -31,6 +31,35 @@ export function remix({
             serverHandler,
         }),
         {
+            name: "remix-build",
+            async buildApp(builder) {
+                await builder.build(builder.environments.ssr);
+                await builder.build(builder.environments.client);
+            },
+            config() {
+                return {
+                    environments: {
+                        client: {
+                            build: {
+                                outDir: "dist/client",
+                                rollupOptions: {
+                                    input: "app/entry.browser",
+                                },
+                            },
+                        },
+                        ssr: {
+                            build: {
+                                outDir: "dist/ssr",
+                                rollupOptions: {
+                                    input: "app/entry.server",
+                                },
+                            },
+                        },
+                    },
+                };
+            },
+        },
+        {
             name: "remix-preview-server",
             async configurePreviewServer(server) {
                 const ssrOutDir = server.config.environments.ssr?.build?.outDir ?? "dist/ssr";
