@@ -2,22 +2,22 @@
     "name": "remix-3-contacts",
     "private": true,
     "type": "module",
-    "main": "index.js",
     "packageManager": "pnpm@10.29.3",
     "scripts": {
-        "dev": "pnpm run --filter '.' --parallel '/^dev:/'",
-        "dev:server": "NODE_ENV=development tsx watch server.ts",
-        "dev:browser": "esbuild app/assets/*.tsx --outbase=app/assets --outdir=public/assets --bundle --minify --splitting --format=esm --entry-names='[dir]/[name]' --chunk-names='chunks/[name]-[hash]' --sourcemap --watch",
-        "start": "tsx server.ts",
-        "typecheck": "tsgo --noEmit",
         "fmt": "biome format --write .",
         "lint": "biome lint --write --unsafe ."
     },
     "dependencies": {
+        "@hiogawa/vite-plugin-fullstack": "^0.0.11",
         "better-sqlite3": "^12.8.0",
         "match-sorter": "^8.2.0",
         "remix": "github:remix-run/remix#preview/main&path:packages/remix",
         "sort-by": "^1.2.0"
+    },
+    "pnpm": {
+        "overrides": {
+            "vite": "npm:@voidzero-dev/vite-plus-core@latest"
+        }
     },
     "devDependencies": {
         "@biomejs/biome": "^2.4.8",
@@ -25,7 +25,8 @@
         "@types/node": "^25.5.0",
         "@types/sort-by": "^1.2.3",
         "@typescript/native-preview": "latest",
-        "esbuild": "^0.27.4",
-        "tsx": "^4.21.0"
+        "oxc-parser": "^0.121.0",
+        "vite": "npm:@voidzero-dev/vite-plus-core@latest",
+        "vite-plus": "^0.1.13"
     }
 }

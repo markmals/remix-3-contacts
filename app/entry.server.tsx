@@ -12,6 +12,7 @@ import { routes } from "./routes.ts";
 export const router = createRouter({
     middleware: [
         staticFiles("./public"),
+        staticFiles("./dist/client"),
         formData(),
         methodOverride(),
         asyncContext(),
@@ -25,3 +26,9 @@ router.map(routes.home, async () => {
     return document();
 });
 router.map(routes.contacts, contacts);
+
+export default router;
+
+if (import.meta.hot) {
+    import.meta.hot.accept();
+}

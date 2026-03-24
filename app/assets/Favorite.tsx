@@ -1,61 +1,58 @@
 import { clientEntry, type Handle, navigate, on } from "remix/component";
 import { routes } from "~/routes.ts";
 
-export const Favorite = clientEntry(
-    routes.assets.href({ file: "Favorite", component: "Favorite" }),
-    function Favorite(handle: Handle) {
-        const route = routes.contacts.favorite;
-        let submitting = false;
-        let favorite!: boolean;
+export const Favorite = clientEntry(import.meta.url, function Favorite(handle: Handle) {
+    const route = routes.contacts.favorite;
+    let submitting = false;
+    let favorite!: boolean;
 
-        return (props: { contactId: number; favorite: boolean }) => {
-            if (!submitting) {
-                favorite = props.favorite;
-            }
+    return (props: { contactId: number; favorite: boolean }) => {
+        if (!submitting) {
+            favorite = props.favorite;
+        }
 
-            return (
-                <form
-                    action={route.href({ id: props.contactId })}
-                    method="POST"
-                    mix={on("submit", async event => {
-                        event.preventDefault();
+        return (
+            <form
+                action={route.href({ id: props.contactId })}
+                method="POST"
+                mix={on("submit", async event => {
+                    event.preventDefault();
 
-                        favorite = !favorite;
-                        submitting = true;
-                        const signal = await handle.update();
+                    favorite = !favorite;
+                    submitting = true;
+                    const signal = await handle.update();
 
-                        try {
-                            const response = await fetch(event.currentTarget.action, {
-                                method: event.currentTarget.method,
-                                body: new FormData(event.currentTarget, event.submitter),
-                                signal,
-                            });
+                    try {
+                        const response = await fetch(event.currentTarget.action, {
+                            method: event.currentTarget.method,
+                            body: new FormData(event.currentTarget, event.submitter),
+                            signal,
+                        });
 
-                            if (!response.ok && !response.redirected) {
-                                throw response;
-                            }
-
-                            submitting = false;
-                            navigate(window.location.href, { history: "replace" });
-                        } catch {
-                            favorite = !favorite;
-                            submitting = false;
-                            handle.update();
+                        if (!response.ok && !response.redirected) {
+                            throw response;
                         }
-                    })}
+
+                        submitting = false;
+                        navigate(window.location.href, { history: "replace" });
+                    } catch {
+                        favorite = !favorite;
+                        submitting = false;
+                        handle.update();
+                    }
+                })}
+            >
+                <input name="_method" type="hidden" value={route.method} />
+                <input name="id" type="hidden" value={props.contactId} />
+                <button
+                    aria-label={favorite ? "Remove from favorites" : "Add to favorites"}
+                    name="favorite"
+                    type="submit"
+                    value={favorite ? "true" : "false"}
                 >
-                    <input name="_method" type="hidden" value={route.method} />
-                    <input name="id" type="hidden" value={props.contactId} />
-                    <button
-                        aria-label={favorite ? "Remove from favorites" : "Add to favorites"}
-                        name="favorite"
-                        type="submit"
-                        value={favorite ? "true" : "false"}
-                    >
-                        {favorite ? "★" : "☆"}
-                    </button>
-                </form>
-            );
-        };
-    },
-);
+                    {favorite ? "★" : "☆"}
+                </button>
+            </form>
+        );
+    };
+});

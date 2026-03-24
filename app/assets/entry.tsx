@@ -2,7 +2,7 @@ import { navigate, run } from "remix/component";
 
 run({
     async loadModule(moduleUrl, exportName) {
-        const mod = await import(moduleUrl);
+        const mod = await import(/* @vite-ignore */ moduleUrl);
         const exported = mod[exportName];
 
         if (typeof exported !== "function") {

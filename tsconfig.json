@@ -1,11 +1,15 @@
 {
-    "include": ["**/*"],
-    "exclude": ["public/assets/*"],
+    "include": ["**/*.ts", "**/*.tsx"],
+    "exclude": ["dist", "server.ts"],
     "compilerOptions": {
         "lib": ["DOM", "DOM.Iterable", "ESNext"],
         "target": "ESNext",
         "module": "ESNext",
-        "types": ["@types/node"],
+        "types": [
+            "@types/node", 
+            "vite-plus/client", 
+            "@hiogawa/vite-plugin-fullstack/types"
+        ],
         "moduleResolution": "bundler",
         "jsx": "react-jsx",
         "jsxImportSource": "remix/component",

@@ -41,9 +41,8 @@
     "explorer.fileNesting.expand": false,
     "explorer.fileNesting.patterns": {
         "package.json": ".github*, .npmrc, .prettierignore, .vscode*, biome.json*, bun.lock*, components.json, eslint.config.*, mise.toml, pnpm-*.yaml, prettier.config.*, tsconfig.*, wrangler.toml, wrangler.*.toml, wrangler.json*, wrangler.*.json, wrangler.*.jsonc, workspace.json",
-        "readme*": "agent*, authors, backers*, changelog*, citation*, claude*, code_of_conduct*, codeowners, contributing*, contributors, copying, credits, governance.md, history.md, license*, maintainers, readme*, security.md, sponsors*"
-        // "tsdown.config.ts": "vitest.config.ts, *.plugin.ts"
-        // "vite.config.ts": "vitest.config.ts, *.plugin.ts"
+        "readme*": "agent*, authors, backers*, changelog*, citation*, claude*, code_of_conduct*, codeowners, contributing*, contributors, copying, credits, governance.md, history.md, license*, maintainers, readme*, security.md, sponsors*",
+        "vite.config.ts": "*.plugin.ts"
     },
 
     // "prettier.enable": false,

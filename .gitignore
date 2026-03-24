@@ -3,5 +3,5 @@
 /node_modules/
 *.tsbuildinfo
 
-# Remix
-/public/assets
+# Vite
+/dist
