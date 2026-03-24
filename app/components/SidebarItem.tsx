@@ -1,9 +1,4 @@
-import {
-    addEventListeners,
-    clientEntry,
-    type Handle,
-    type SerializableProps,
-} from "remix/component";
+import { addEventListeners, clientEntry, type SerializableProps } from "remix/component";
 import { ArrayMatcher } from "remix/route-pattern";
 import { isServer, navigating } from "~/lib/navigating.ts";
 import { routes } from "~/routes.ts";
@@ -26,7 +21,7 @@ export namespace SidebarItem {
     }
 }
 
-export const SidebarItem = clientEntry(import.meta.url, (handle: Handle) => {
+export const SidebarItem = clientEntry(import.meta.url, handle => {
     addEventListeners(navigating, handle.signal, {
         destinationchange() {
             handle.update();

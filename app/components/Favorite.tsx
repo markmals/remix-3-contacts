@@ -1,7 +1,7 @@
-import { clientEntry, type Handle, navigate, on } from "remix/component";
+import { clientEntry, navigate, on } from "remix/component";
 import { routes } from "~/routes.ts";
 
-export const Favorite = clientEntry(import.meta.url, (handle: Handle) => {
+export const Favorite = clientEntry(import.meta.url, handle => {
     const route = routes.contacts.favorite;
     let submitting = false;
     let favorite!: boolean;
