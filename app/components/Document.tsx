@@ -7,7 +7,7 @@ import clientAssets from "~/entry.browser.ts?assets=client";
 import { SearchBar } from "~/components/SearchBar.tsx";
 import serverAssets from "~/entry.server.tsx?assets=ssr";
 import { QuerySchema } from "~/lib/schemas.ts";
-import styles from "~/styles/index.css?url";
+import styles from "~/index.css?url";
 
 export function Document() {
     const { url } = getContext();
