@@ -102,7 +102,9 @@ export class Navigating extends TypedEventTarget<NavigatingEventMap> {
                 };
 
                 if (navigation.transition) {
-                    navigation.transition.finished.then(reset);
+                    // Aborted transitions reject with AbortError — a new
+                    // currententrychange will fire for the replacing navigation.
+                    navigation.transition.finished.then(reset, () => {});
                 } else {
                     reset();
                 }

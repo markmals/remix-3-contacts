@@ -1,6 +1,7 @@
-import { DeleteButton, EditButton } from "~/components/Buttons.tsx";
+import { DeleteButton } from "~/components/Buttons.tsx";
 import { Favorite } from "~/components/Favorite.tsx";
 import type { Contact } from "~/lib/database/contacts.ts";
+import { routes } from "~/routes.ts";
 
 const AVATAR_PLACEHOLDER =
     "https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png";
@@ -48,7 +49,17 @@ export function ShowContact() {
                         {props.contact.notes ? <p>{props.contact.notes}</p> : null}
 
                         <div>
-                            <EditButton contactId={props.contact.id} query={props.query} />
+                            <form
+                                action={routes.contacts.edit.href(
+                                    { id: props.contact.id },
+                                    { q: props.query },
+                                )}
+                                method="GET"
+                            >
+                                <button rmx-target="detail" type="submit">
+                                    Edit
+                                </button>
+                            </form>
                             <DeleteButton contactId={props.contact.id} />
                         </div>
                     </div>
