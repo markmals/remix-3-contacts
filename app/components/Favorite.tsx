@@ -42,7 +42,6 @@ export let Favorite = clientEntry(import.meta.url, handle => {
                 })}
             >
                 <input name="_method" type="hidden" value={routes.contacts.favorite.method} />
-                <input name="id" type="hidden" value={props.contactId} />
                 <button
                     aria-label={favorite ? "Remove from favorites" : "Add to favorites"}
                     name="favorite"

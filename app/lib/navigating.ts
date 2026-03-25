@@ -1,4 +1,4 @@
-import { addEventListeners, TypedEventTarget } from "remix/component";
+import { TypedEventTarget } from "remix/component";
 
 declare global {
     interface Navigation extends TypedEventTarget<NavigationEventMap> {}
@@ -61,8 +61,8 @@ export class Navigating extends TypedEventTarget<NavigatingEventMap> {
         formData: undefined,
     };
 
-    to: NavigationState;
-    from: { url?: URL };
+    to = structuredClone(Navigating.#idle);
+    from: { url?: URL } = { url: undefined };
 
     // No events fire on the server, so skip registering listeners entirely
     override addEventListener(...args: Parameters<EventTarget["addEventListener"]>) {
@@ -70,51 +70,43 @@ export class Navigating extends TypedEventTarget<NavigatingEventMap> {
         super.addEventListener(...args);
     }
 
-    reset() {
+    #reset() {
         this.to = structuredClone(Navigating.#idle);
-        this.from = { url: undefined };
+        this.from.url = undefined;
         this.dispatchEvent(new DestinationChangeEvent(null));
     }
 
-    constructor(signal?: AbortSignal) {
+    constructor() {
         super();
-
-        this.to = structuredClone(Navigating.#idle);
-        this.from = { url: undefined };
-
         if (isServer) return;
 
-        let controller = new AbortController();
-        addEventListeners(navigation, controller.signal, {
-            navigate: event => {
-                this.to = {
-                    state: event.formData ? "submitting" : "loading",
-                    url: new URL(event.destination.url),
-                    formData: event.formData ? event.formData : undefined,
-                } as NavigationState;
-                this.from = { url: new URL(location.href) };
-                this.dispatchEvent(new DestinationChangeEvent(this.to.url!));
-            },
-            // Clear destination when the navigation is fully finished.
-            // The built-in listener uses `handler` (not `precommitHandler`),
-            // so the URL commits before frame content loads. Wait for
-            // transition.finished to keep the "loading" state visible
-            // while frames are still being fetched.
-            currententrychange: () => {
-                if (navigation.transition) {
-                    // Aborted transitions reject with AbortError — a new
-                    // currententrychange will fire for the replacing navigation.
-                    navigation.transition.finished.then(
-                        () => this.reset(),
-                        () => {},
-                    );
-                } else {
-                    this.reset();
-                }
-            },
+        navigation.addEventListener("navigate", event => {
+            this.from.url = new URL(location.href);
+
+            this.to.state = event.formData ? "submitting" : "loading";
+            this.to.url = new URL(event.destination.url);
+            this.to.formData = event.formData ? event.formData : undefined;
+
+            this.dispatchEvent(new DestinationChangeEvent(this.to.url));
         });
 
-        signal?.addEventListener("abort", controller.abort, { once: true });
+        // Clear destination when the navigation is fully finished.
+        // The built-in listener uses `handler` (not `precommitHandler`),
+        // so the URL commits before frame content loads. Wait for
+        // transition.finished to keep the "loading" state visible
+        // while frames are still being fetched.
+        navigation.addEventListener("currententrychange", () => {
+            if (navigation.transition) {
+                // Aborted transitions reject with AbortError — a new
+                // currententrychange will fire for the replacing navigation.
+                navigation.transition.finished.then(
+                    () => this.#reset(),
+                    () => {},
+                );
+            } else {
+                this.#reset();
+            }
+        });
     }
 }
 

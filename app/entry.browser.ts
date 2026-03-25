@@ -10,12 +10,12 @@ navigation.addEventListener("navigate", async event => {
     // triggered programatically, handled by built-in listener
     if (!event.sourceElement) return;
     // anchors handled by built-in listener
-    if (event.sourceElement?.closest("a, area")) return;
+    if (event.sourceElement.closest("a, area")) return;
 
     // sourceElement is <button type="submit"> inside of form submissions
-    let target = event.sourceElement?.getAttribute("rmx-target") ?? undefined;
-    let src = event.sourceElement?.getAttribute("rmx-src") ?? undefined;
-    let resetScroll = event.sourceElement?.hasAttribute("rmx-reset-scroll") ?? undefined;
+    let target = event.sourceElement.getAttribute("rmx-target") ?? undefined;
+    let src = event.sourceElement.getAttribute("rmx-src") ?? undefined;
+    let resetScroll = event.sourceElement.hasAttribute("rmx-reset-scroll") ?? undefined;
 
     // Form POST submission
     if (event.formData) {
@@ -62,9 +62,13 @@ run({
 
 // Must be registered after `run` (last intercept() call wins for focusReset).
 navigation.addEventListener("navigate", event => {
-    // Only set focusReset for non-traverse navigations.
-    // Traversals (back/forward) are handled by the built-in listener.
-    if (!event.canIntercept || event.defaultPrevented || event.navigationType === "traverse") {
+    if (
+        !event.canIntercept ||
+        event.defaultPrevented ||
+        // Only set focusReset for non-traverse navigations.
+        // Traversals (back/forward) are handled by the built-in listener.
+        event.navigationType === "traverse"
+    ) {
         return;
     }
 
