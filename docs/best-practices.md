@@ -36,6 +36,7 @@ For small apps with one or two resources, a controller can live at the top level
 **Decision:** Does this component need to respond to user interaction on the client?
 
 **Heuristic:** Default to server-only. Only wrap a component with `clientEntry` when it needs one of these:
+
 - Event handlers (`on("click")`, `on("submit")`, `on("input")`)
 - Local state that changes without a full page navigation
 - Access to browser APIs (`window`, `navigation`, `localStorage`)
@@ -64,7 +65,11 @@ export const LikeButton = clientEntry(import.meta.url, (handle: Handle) => {
     return (props: { itemId: number; liked: boolean }) => {
         if (!submitting) liked = props.liked;
         return (
-            <form mix={on("submit", async event => { /* client logic */ })}>
+            <form
+                mix={on("submit", async event => {
+                    /* client logic */
+                })}
+            >
                 {/* ... */}
             </form>
         );
@@ -75,6 +80,7 @@ export const LikeButton = clientEntry(import.meta.url, (handle: Handle) => {
 **The pattern:** `clientEntry(import.meta.url, setupFn)` where `setupFn` receives a `Handle` and returns the render function. The setup function runs once on hydration; the render function runs on every update.
 
 **What goes in setup vs. render:**
+
 - **Setup:** Event listener registration (`addEventListeners`), one-time initialization, state variable declarations, anything that should survive re-renders
 - **Render:** JSX, derived values, conditional logic based on current props/state
 
@@ -87,6 +93,7 @@ export const LikeButton = clientEntry(import.meta.url, (handle: Handle) => {
 **Decision:** Should this form use standard HTML submission, fetch-based submission, or client-side navigation?
 
 **Heuristic:** Start with a plain HTML `<form>` that works without JavaScript. Then layer on client-side enhancement only if you need one of:
+
 - Optimistic updates (show result before server responds)
 - Preventing full-page navigation (update only a specific frame)
 - Confirmation dialogs before submission
@@ -162,6 +169,7 @@ The `methodOverride()` middleware in your server entry reads `_method` from the 
 **Decision:** Should I update the UI before the server responds?
 
 **Heuristic:** Use optimistic updates for toggle-like actions where:
+
 - The expected outcome is predictable (toggling a boolean, incrementing a count)
 - The action is unlikely to fail
 - Instant feedback significantly improves perceived performance
@@ -184,33 +192,35 @@ export const LikeButton = clientEntry(import.meta.url, (handle: Handle) => {
         if (!submitting) liked = props.liked;
 
         return (
-            <form mix={on("submit", async event => {
-                event.preventDefault();
+            <form
+                mix={on("submit", async event => {
+                    event.preventDefault();
 
-                // 1. Optimistic update
-                liked = !liked;
-                submitting = true;
-                const signal = await handle.update();
-
-                try {
-                    // 2. Send to server
-                    const response = await fetch(event.currentTarget.action, {
-                        method: event.currentTarget.method,
-                        body: new FormData(event.currentTarget, event.submitter),
-                        signal,
-                    });
-                    if (!response.ok && !response.redirected) throw response;
-
-                    // 3. Sync with server state
-                    submitting = false;
-                    navigate(window.location.href, { history: "replace" });
-                } catch {
-                    // 4. Rollback on failure
+                    // 1. Optimistic update
                     liked = !liked;
-                    submitting = false;
-                    handle.update();
-                }
-            })}>
+                    submitting = true;
+                    const signal = await handle.update();
+
+                    try {
+                        // 2. Send to server
+                        const response = await fetch(event.currentTarget.action, {
+                            method: event.currentTarget.method,
+                            body: new FormData(event.currentTarget, event.submitter),
+                            signal,
+                        });
+                        if (!response.ok && !response.redirected) throw response;
+
+                        // 3. Sync with server state
+                        submitting = false;
+                        navigate(window.location.href, { history: "replace" });
+                    } catch {
+                        // 4. Rollback on failure
+                        liked = !liked;
+                        submitting = false;
+                        handle.update();
+                    }
+                })}
+            >
                 <button name="liked" type="submit" value={String(liked)}>
                     {liked ? "\u2665" : "\u2661"}
                 </button>
@@ -221,6 +231,7 @@ export const LikeButton = clientEntry(import.meta.url, (handle: Handle) => {
 ```
 
 **Key details:**
+
 - `handle.update()` returns an `AbortSignal` you can pass to `fetch` -- if the component unmounts or re-renders before the fetch completes, it's automatically cancelled
 - The `submitting` flag prevents the server-provided prop from overwriting the optimistic value during re-renders
 - `navigate(window.location.href, { history: "replace" })` triggers a soft reload that syncs all frames with the latest server state without adding a history entry
@@ -239,7 +250,9 @@ export const LikeButton = clientEntry(import.meta.url, (handle: Handle) => {
 export const SearchInput = clientEntry(import.meta.url, (handle: Handle) => {
     // Re-render when navigation state changes (for loading indicator)
     addEventListeners(navigating, handle.signal, {
-        destinationchange() { handle.update(); },
+        destinationchange() {
+            handle.update();
+        },
     });
 
     return (props: { query?: string }) => {
@@ -258,8 +271,7 @@ export const SearchInput = clientEntry(import.meta.url, (handle: Handle) => {
                             url.searchParams.set("q", event.currentTarget.value);
                         }
 
-                        const isFirstSearch =
-                            new URL(location.href).searchParams.get("q") === null;
+                        const isFirstSearch = new URL(location.href).searchParams.get("q") === null;
 
                         navigate(url.toString(), {
                             target: "results",
@@ -289,6 +301,7 @@ export const SearchInput = clientEntry(import.meta.url, (handle: Handle) => {
 **Decision:** Should I use frames to split my page into independently-updatable regions?
 
 **Heuristic:** Use frames when your page has regions that:
+
 - Update independently (e.g., a navigation list and a content area)
 - Have different data requirements
 - Should be navigable without reloading the entire page
@@ -323,7 +336,9 @@ Each `<Frame>` is a named region. The `src` tells the server where to fetch the 
 navigate(url, { target: "content" });
 
 // From HTML (no JS required):
-<a href={url} rmx-target="content">Click me</a>
+<a href={url} rmx-target="content">
+    Click me
+</a>;
 ```
 
 **Server-side frame detection:** The server knows which frame is being requested via the `x-remix-target` header. Your controller checks this to decide what to render:
@@ -337,6 +352,7 @@ return document(); // Full page (initial load, hard refresh, no JS)
 ```
 
 **The two fundamental response types:**
+
 - `document()` - Full HTML page with `<html>`, `<head>`, `<body>`. Used for initial page loads and no-JS fallback.
 - `frame(node)` - An HTML fragment for a specific frame region. Used when a named frame is targeted.
 
@@ -382,7 +398,7 @@ export const routes = route({
 **What `resources()` generates:** RESTful route patterns following REST conventions. `resources("/posts")` creates routes for `index`, `new`, `show`, `create`, `edit`, `update`, and `destroy`. Use `exclude` to omit routes you don't need:
 
 ```tsx
-resources("/posts", { exclude: ["index", "new"] })
+resources("/posts", { exclude: ["index", "new"] });
 ```
 
 **Custom routes:** Add any custom route as an object with `method` and `pattern`. Parameters use `:name` syntax.
@@ -390,16 +406,18 @@ resources("/posts", { exclude: ["index", "new"] })
 **Using routes in components (type-safe URL generation):**
 
 ```tsx
-routes.posts.show.href({ id: 42 })              // "/posts/42"
-routes.posts.edit.href({ id: 42 }, { tab: "meta" })  // "/posts/42/edit?tab=meta"
-routes.home.href()                               // "/"
+routes.posts.show.href({ id: 42 }); // "/posts/42"
+routes.posts.edit.href({ id: 42 }, { tab: "meta" }); // "/posts/42/edit?tab=meta"
+routes.home.href(); // "/"
 ```
 
 **Mapping routes to controllers in the server entry:**
 
 ```tsx
-router.map(routes.home, async () => { /* ... */ });
-router.map(routes.posts, postsController);  // Maps all sub-routes to a controller
+router.map(routes.home, async () => {
+    /* ... */
+});
+router.map(routes.posts, postsController); // Maps all sub-routes to a controller
 ```
 
 ---
@@ -415,17 +433,18 @@ router.map(routes.posts, postsController);  // Maps all sub-routes to a controll
 ```tsx
 export const router = createRouter({
     middleware: [
-        staticFiles("./public"),          // 1. Serve static files (short-circuits)
-        staticFiles("./dist/client"),     // 2. Serve built client assets
-        formData(),                       // 3. Parse multipart/urlencoded form data
-        methodOverride(),                 // 4. Rewrite _method field to real HTTP method
-        asyncContext(),                   // 5. Enable request-scoped context (getContext())
-        await loadDatabase(),             // 6. Initialize database, inject into context
+        staticFiles("./public"), // 1. Serve static files (short-circuits)
+        staticFiles("./dist/client"), // 2. Serve built client assets
+        formData(), // 3. Parse multipart/urlencoded form data
+        methodOverride(), // 4. Rewrite _method field to real HTTP method
+        asyncContext(), // 5. Enable request-scoped context (getContext())
+        await loadDatabase(), // 6. Initialize database, inject into context
     ],
 });
 ```
 
 **Why this order matters:**
+
 1. **Static files first:** Most requests for CSS/JS/images should return immediately without touching form parsing or database setup.
 2. **Form data before method override:** `methodOverride()` reads from the parsed form data, so `formData()` must run first.
 3. **Async context before database:** The database middleware uses `context.set()` which requires async context to be active.
@@ -446,25 +465,35 @@ if (import.meta.hot) {
 
 **Heuristic:**
 
-| Logic type | Where it goes | Why |
-|---|---|---|
-| Request handling for a specific route | **Controller** (`controllers/`) | Tied to a route's URL/method |
-| Cross-cutting concern (auth, logging, parsing) | **Middleware** (`lib/`) | Runs across many routes |
-| UI rendering | **Component** (`components/`) | Presentation layer |
-| Data access / business rules | **Lib utilities** (`lib/`) | Reusable, testable |
-| Validation schemas | **`lib/schemas.ts`** | Shared between controllers |
-| Rendering helpers (document, frame) | **`lib/render.tsx`** | Shared rendering logic |
+| Logic type                                     | Where it goes                   | Why                          |
+| ---------------------------------------------- | ------------------------------- | ---------------------------- |
+| Request handling for a specific route          | **Controller** (`controllers/`) | Tied to a route's URL/method |
+| Cross-cutting concern (auth, logging, parsing) | **Middleware** (`lib/`)         | Runs across many routes      |
+| UI rendering                                   | **Component** (`components/`)   | Presentation layer           |
+| Data access / business rules                   | **Lib utilities** (`lib/`)      | Reusable, testable           |
+| Validation schemas                             | **`lib/schemas.ts`**            | Shared between controllers   |
+| Rendering helpers (document, frame)            | **`lib/render.tsx`**            | Shared rendering logic       |
 
 **Controllers** are objects that satisfy the `Controller` type. They map route actions to handler functions:
 
 ```tsx
 export default {
     actions: {
-        async index(context) { /* ... */ },
-        async show(context) { /* ... */ },
-        async create(context) { /* ... */ },
-        async update(context) { /* ... */ },
-        async destroy(context) { /* ... */ },
+        async index(context) {
+            /* ... */
+        },
+        async show(context) {
+            /* ... */
+        },
+        async create(context) {
+            /* ... */
+        },
+        async update(context) {
+            /* ... */
+        },
+        async destroy(context) {
+            /* ... */
+        },
     },
 } satisfies Controller<typeof routes.posts>;
 ```
@@ -477,7 +506,7 @@ The `satisfies Controller<typeof routes.posts>` ensures your action names match 
 async (context, next) => {
     context.set(Database, db);
     return next();
-}
+};
 ```
 
 Call `next()` to pass through to the next middleware or the matched route handler. You can modify the context before calling `next()` or modify the response after.
@@ -527,6 +556,7 @@ const profile = s.parse(ProfileSchema, context.get(FormData));
 ```
 
 **Key concepts:**
+
 - `f.object()` / `f.field()` handle FormData extraction (fields are always strings in the raw form)
 - `coerce.boolean()` converts string `"true"`/`"false"` to actual booleans
 - `s.defaulted()` provides fallback values for missing fields
@@ -551,6 +581,7 @@ export const navigating = new Navigating();
 ```
 
 It exposes:
+
 - `navigating.to.state` - `"idle"`, `"loading"`, or `"submitting"`
 - `navigating.to.url` - the destination URL (or `undefined` when idle)
 - `navigating.to.formData` - form data if submitting (or `undefined`)
@@ -560,7 +591,9 @@ It exposes:
 ```tsx
 export const MyComponent = clientEntry(import.meta.url, (handle: Handle) => {
     addEventListeners(navigating, handle.signal, {
-        destinationchange() { handle.update(); },
+        destinationchange() {
+            handle.update();
+        },
     });
 
     return () => {
@@ -621,7 +654,9 @@ navigation.addEventListener("navigate", event => {
             focusReset: "manual",
             async handler() {
                 const response = await fetch(event.destination.url, {
-                    method: "POST", body: event.formData, signal: event.signal,
+                    method: "POST",
+                    body: event.formData,
+                    signal: event.signal,
                 });
                 navigate(response.url);
             },
@@ -648,13 +683,13 @@ navigation.addEventListener("navigate", event => {
 
 **Heuristic:**
 
-| Scenario | History mode | Why |
-|---|---|---|
-| User clicks a link to a new page | **push** (default) | Back button should return to previous page |
-| Search-as-you-type (after first keystroke) | **push** | Back button navigates between search states |
-| First search keystroke | **replace** | Don't create an entry for the pre-search state with `?q=` |
-| Optimistic update sync (`navigate(location.href)`) | **replace** | Syncing server state shouldn't create history |
-| Removing a query param (clearing search) | **push** or **replace** | Depends on whether "cleared search" is a meaningful state |
+| Scenario                                           | History mode            | Why                                                       |
+| -------------------------------------------------- | ----------------------- | --------------------------------------------------------- |
+| User clicks a link to a new page                   | **push** (default)      | Back button should return to previous page                |
+| Search-as-you-type (after first keystroke)         | **push**                | Back button navigates between search states               |
+| First search keystroke                             | **replace**             | Don't create an entry for the pre-search state with `?q=` |
+| Optimistic update sync (`navigate(location.href)`) | **replace**             | Syncing server state shouldn't create history             |
+| Removing a query param (clearing search)           | **push** or **replace** | Depends on whether "cleared search" is a meaningful state |
 
 ```tsx
 // Push (new history entry)
@@ -734,7 +769,9 @@ For server-only components, the setup phase is minimal -- there's no persistent 
 export const SearchInput = clientEntry(import.meta.url, (handle: Handle) => {
     // Setup: runs once on hydration
     addEventListeners(navigating, handle.signal, {
-        destinationchange() { handle.update(); },
+        destinationchange() {
+            handle.update();
+        },
     });
 
     return (props: { query?: string }) => {
@@ -811,6 +848,7 @@ async function renderPage(context, contentRenderer) {
 ```
 
 **Why this pattern matters:** The same URL serves different content depending on context:
+
 - **Initial page load:** Returns a full HTML document with all frames resolved inline
 - **Frame navigation:** Returns just the targeted frame's HTML fragment
 - **No JavaScript:** Falls back to full document -- progressive enhancement still works
@@ -915,18 +953,24 @@ export default defineConfig({
     server: { port: 3000 },
     css: { transformer: "lightningcss" },
     resolve: { tsconfigPaths: true },
-    fmt: { /* Oxfmt options */ },
-    lint: { /* Oxlint options */ },
+    fmt: {
+        /* Oxfmt options */
+    },
+    lint: {
+        /* Oxlint options */
+    },
 });
 ```
 
 **What the `remix()` plugin provides:**
+
 - **Build orchestration:** Builds SSR then client environments, with separate output directories (`dist/ssr`, `dist/client`)
 - **Preview server:** Loads the built SSR entry and creates a request listener for `vp preview`
 - **Client entry transforms:** Automatically resolves `import.meta.url` in `clientEntry()` calls to the correct asset URLs for both server and client environments
 - **Error suppression:** Prevents abort errors from cancelled requests (e.g., search-as-you-type) from triggering the Vite error overlay
 
 **Commands:**
+
 - `vp dev` -- start dev server with HMR
 - `vp build` -- production build
 - `vp preview` -- preview production build locally
@@ -954,9 +998,10 @@ const isActive = Number(currentMatch?.params?.id ?? selected) === item.id;
 
 // Pending: destination matches this item but isn't the current page
 const destination = navigating.to.url ? matcher.match(navigating.to.url.href) : null;
-const isPending = !isActive
-    && navigating.to.url?.pathname !== window.location.pathname
-    && Number(destination?.params.id) === item.id;
+const isPending =
+    !isActive &&
+    navigating.to.url?.pathname !== window.location.pathname &&
+    Number(destination?.params.id) === item.id;
 ```
 
 **Why derive from URL instead of props:** Frame-targeted navigations don't re-render components outside the targeted frame. A server-provided `selected` prop becomes stale after client-side navigation. Reading `window.location.href` directly gives the true current state.
