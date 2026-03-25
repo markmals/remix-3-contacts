@@ -86,7 +86,7 @@ export class Navigating extends TypedEventTarget<NavigatingEventMap> {
                     url: new URL(event.destination.url),
                     formData: event.formData ? event.formData : undefined,
                 } as NavigationState;
-                this.from = { url: new URL(window.location.href) };
+                this.from = { url: new URL(location.href) };
                 this.dispatchEvent(new DestinationChangeEvent(this.to.url!));
             },
             // Clear destination when the navigation is fully finished.

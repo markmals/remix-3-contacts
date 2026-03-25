@@ -32,12 +32,12 @@ export const SidebarItem = clientEntry(import.meta.url, handle => {
         // Derive active state from the current URL on the client,
         // since frame-targeted navigations don't re-render the sidebar
         // and the server-provided `selected` prop becomes stale.
-        const currentMatch = !isServer ? matcher.match(window.location.href) : null;
+        const currentMatch = !isServer ? matcher.match(location.href) : null;
         const isActive = Number(currentMatch?.params?.id ?? selected) === contact.id;
 
         // Only show pending for contacts that aren't already active
         const destination = navigating.to.url ? matcher.match(navigating.to.url.href) : null;
-        const isPathChange = !isServer && navigating.to.url?.pathname !== window.location.pathname;
+        const isPathChange = !isServer && navigating.to.url?.pathname !== location.pathname;
         const isPending =
             !isActive && isPathChange && Number(destination?.params.id) === contact.id;
 

@@ -34,7 +34,7 @@ export const Favorite = clientEntry(import.meta.url, handle => {
                         }
 
                         submitting = false;
-                        navigate(window.location.href, { history: "replace" });
+                        navigate(location.href, { history: "replace" });
                     } catch {
                         favorite = !favorite;
                         submitting = false;
