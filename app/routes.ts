@@ -1,6 +1,6 @@
 import { route, resources } from "remix/fetch-router/routes";
 
-export const routes = route({
+export let routes = route({
     home: "/",
     contacts: {
         ...resources("/contacts", { exclude: ["index", "new"] }),

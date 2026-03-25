@@ -3,7 +3,7 @@ import { ArrayMatcher } from "remix/route-pattern";
 import { isServer, navigating } from "~/lib/navigating.ts";
 import { routes } from "~/routes.ts";
 
-const matcher = new ArrayMatcher<true>();
+let matcher = new ArrayMatcher<true>();
 matcher.add(routes.contacts.show.pattern, true);
 matcher.add(routes.contacts.edit.pattern, true);
 
@@ -21,7 +21,7 @@ export namespace SidebarItem {
     }
 }
 
-export const SidebarItem = clientEntry(import.meta.url, handle => {
+export let SidebarItem = clientEntry(import.meta.url, handle => {
     addEventListeners(navigating, handle.signal, {
         destinationchange() {
             handle.update();
@@ -32,14 +32,13 @@ export const SidebarItem = clientEntry(import.meta.url, handle => {
         // Derive active state from the current URL on the client,
         // since frame-targeted navigations don't re-render the sidebar
         // and the server-provided `selected` prop becomes stale.
-        const currentMatch = !isServer ? matcher.match(location.href) : null;
-        const isActive = Number(currentMatch?.params?.id ?? selected) === contact.id;
+        let currentMatch = !isServer ? matcher.match(location.href) : null;
+        let isActive = Number(currentMatch?.params?.id ?? selected) === contact.id;
 
         // Only show pending for contacts that aren't already active
-        const destination = navigating.to.url ? matcher.match(navigating.to.url.href) : null;
-        const isPathChange = !isServer && navigating.to.url?.pathname !== location.pathname;
-        const isPending =
-            !isActive && isPathChange && Number(destination?.params.id) === contact.id;
+        let destination = navigating.to.url ? matcher.match(navigating.to.url.href) : null;
+        let isPathChange = !isServer && navigating.to.url?.pathname !== location.pathname;
+        let isPending = !isActive && isPathChange && Number(destination?.params.id) === contact.id;
 
         return (
             <li>

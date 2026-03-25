@@ -63,8 +63,8 @@ Configuration for formatting, linting, and build lives in `vite.config.ts`. Ther
 - **Use the `node:` protocol** – write `import fs from 'node:fs'` rather than bare `'fs'`.
 - **Arrays = `T[]`** – use shorthand array syntax consistently.
 - **Don't reassign parameters** – treat function arguments as read-only.
-- **Favor `const`** – use `const` over `let` whenever a binding never changes.
-- **One `const` per line** – declare variables individually.
+- **Favor `let`** – use `let` over `const` for bindings, unless declaring a truly top-level constant. Then declare it with an all caps binding as a `const`.
+- **One `let` per line** – declare variables individually.
 - **Skip non-null assertions** – rewrite code so `!` isn't necessary.
 - **Avoid `enum`** – choose unions, objects, or literal types instead.
 - **Stick with `trimStart/End`** – don't use `trimLeft/Right`.

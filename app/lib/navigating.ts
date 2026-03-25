@@ -43,7 +43,7 @@ type NavigationStates = {
 
 type NavigationState = NavigationStates[keyof NavigationStates];
 
-export const isServer = typeof window === "undefined";
+export let isServer = typeof window === "undefined";
 
 /**
  * Application-level navigation state tracker.
@@ -84,7 +84,7 @@ export class Navigating extends TypedEventTarget<NavigatingEventMap> {
 
         if (isServer) return;
 
-        const controller = new AbortController();
+        let controller = new AbortController();
         addEventListeners(navigation, controller.signal, {
             navigate: event => {
                 this.to = {
@@ -118,4 +118,4 @@ export class Navigating extends TypedEventTarget<NavigatingEventMap> {
     }
 }
 
-export const navigating = new Navigating();
+export let navigating = new Navigating();

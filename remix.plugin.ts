@@ -23,7 +23,7 @@ export function remix({
     serverEnvironments?: string[];
     serverHandler?: boolean;
 } = {}): PluginOption {
-    const environments = new Set(_environments);
+    let environments = new Set(_environments);
 
     return [
         fullstack({
@@ -62,16 +62,16 @@ export function remix({
         {
             name: "remix-preview-server",
             async configurePreviewServer(server) {
-                const ssrOutDir = server.config.environments.ssr?.build?.outDir ?? "dist/ssr";
-                const entryPath = new URL(
+                let ssrOutDir = server.config.environments.ssr?.build?.outDir ?? "dist/ssr";
+                let entryPath = new URL(
                     `${ssrOutDir}/entry.server.js`,
                     `file://${server.config.root}/`,
                 ).href;
 
-                const mod = await import(/* @vite-ignore */ entryPath);
-                const router = mod.default ?? mod.router;
+                let mod = await import(/* @vite-ignore */ entryPath);
+                let router = mod.default ?? mod.router;
 
-                const { createRequestListener } = await import("remix/node-fetch-server");
+                let { createRequestListener } = await import("remix/node-fetch-server");
 
                 return () => {
                     server.middlewares.use(
@@ -107,22 +107,22 @@ export function remix({
                 handler(code, id, _meta) {
                     if (!code.includes("import.meta.url")) return;
 
-                    const meta = _meta as unknown as Partial<RolldownTransformMeta> | undefined;
-                    const ast = meta?.ast ?? parseSync(id, code).program;
+                    let meta = _meta as unknown as Partial<RolldownTransformMeta> | undefined;
+                    let ast = meta?.ast ?? parseSync(id, code).program;
 
-                    const calls = findClientEntryCalls(ast);
+                    let calls = findClientEntryCalls(ast);
                     if (calls.length === 0) return;
 
-                    const isServer = environments.has(this.environment.name);
+                    let isServer = environments.has(this.environment.name);
 
                     if (isServer) {
                         // Server: import ?assets=client to get the resolved client entry URL
-                        const prepend = `import ___clientEntryAssets from "${id}?assets=client";\n`;
+                        let prepend = `import ___clientEntryAssets from "${id}?assets=client";\n`;
 
                         if (meta?.magicString) {
-                            const { magicString } = meta;
+                            let { magicString } = meta;
                             magicString.prepend(prepend);
-                            for (const call of calls) {
+                            for (let call of calls) {
                                 magicString.overwrite(
                                     call.metaUrlStart,
                                     call.metaUrlEnd,
@@ -133,7 +133,7 @@ export function remix({
                         }
 
                         let result = code;
-                        for (const call of [...calls].reverse()) {
+                        for (let call of [...calls].reverse()) {
                             result =
                                 result.slice(0, call.metaUrlStart) +
                                 `___clientEntryAssets.entry + "#${call.exportName}"` +
@@ -145,7 +145,7 @@ export function remix({
                     // Client: import.meta.url already resolves to the chunk URL.
                     // Just append #ExportName so clientEntry gets the required fragment.
                     let result = code;
-                    for (const call of [...calls].reverse()) {
+                    for (let call of [...calls].reverse()) {
                         result =
                             result.slice(0, call.metaUrlStart) +
                             `import.meta.url + "#${call.exportName}"` +
@@ -165,23 +165,23 @@ interface ClientEntryCall {
 }
 
 function findClientEntryCalls(program: Program): ClientEntryCall[] {
-    const results: ClientEntryCall[] = [];
+    let results: ClientEntryCall[] = [];
 
-    for (const node of program.body) {
+    for (let node of program.body) {
         if (node.type !== "ExportNamedDeclaration") continue;
         if (node.declaration?.type !== "VariableDeclaration") continue;
 
-        for (const declarator of node.declaration.declarations) {
+        for (let declarator of node.declaration.declarations) {
             if (declarator.id.type !== "Identifier") continue;
             if (declarator.init?.type !== "CallExpression") continue;
 
-            const call = declarator.init;
+            let call = declarator.init;
 
             if (call.callee.type !== "Identifier" || call.callee.name !== "clientEntry") continue;
 
             if (call.arguments.length < 2) continue;
 
-            const firstArg = call.arguments[0];
+            let firstArg = call.arguments[0];
             if (
                 firstArg.type !== "MemberExpression" ||
                 firstArg.object.type !== "MetaProperty" ||

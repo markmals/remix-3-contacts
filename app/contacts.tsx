@@ -27,7 +27,7 @@ async function contactPage(
     if (isSidebarRequest()) return await sidebar(context.params.id);
 
     if (isDetailRequest()) {
-        const contact = await getContact(Number(context.params.id));
+        let contact = await getContact(Number(context.params.id));
         if (!contact) return frame(<ZeroState />);
         return frame(detail(contact));
     }
@@ -38,7 +38,7 @@ async function contactPage(
 export default {
     actions: {
         async show(context) {
-            const { q } = s.parse(QuerySchema, context.url.searchParams);
+            let { q } = s.parse(QuerySchema, context.url.searchParams);
             return await contactPage(context, contact => (
                 <ShowContact contact={contact} query={q} />
             ));
@@ -47,7 +47,7 @@ export default {
             return await contactPage(context, contact => <EditContact contact={contact} />);
         },
         async create() {
-            const id = await createContact();
+            let id = await createContact();
             return redirect(routes.contacts.edit.href({ id }));
         },
         async destroy(context) {
@@ -55,20 +55,20 @@ export default {
             return redirect(routes.home.href());
         },
         async favorite(context) {
-            const { favorite } = s.parse(FavoriteSchema, context.get(FormData));
-            const update = await updateContact(Number(context.params.id), {
+            let { favorite } = s.parse(FavoriteSchema, context.get(FormData));
+            let update = await updateContact(Number(context.params.id), {
                 favorite,
             });
             return Response.json(update);
         },
         async update(context) {
-            const contact = await getContact(Number(context.params.id));
+            let contact = await getContact(Number(context.params.id));
 
             if (!contact) {
                 return redirect(routes.home.href());
             }
 
-            const updates = s.parse(UpdateSchema, context.get(FormData));
+            let updates = s.parse(UpdateSchema, context.get(FormData));
             await updateContact(Number(context.params.id), updates);
 
             return redirect(routes.contacts.show.href({ id: context.params.id }));

@@ -1,7 +1,7 @@
 import type { Database as DataTable } from "remix/data-table";
 import { Contacts } from "./contacts.ts";
 
-const contacts = [
+const CONTACTS = [
     {
         first: "Brooks",
         last: "Lybrand",
@@ -39,7 +39,7 @@ export async function seed(db: DataTable) {
         where: {},
     });
 
-    for (const contact of contacts) {
+    for (let contact of CONTACTS) {
         await db.create(Contacts, {
             first: contact.first,
             last: contact.last,

@@ -9,7 +9,7 @@ import { document, isDetailRequest, isSidebarRequest, frame, sidebar } from "./l
 import contacts from "./contacts.tsx";
 import { routes } from "./routes.ts";
 
-export const router = createRouter({
+export let router = createRouter({
     middleware: [
         staticFiles("./public"),
         staticFiles("./dist/client"),

@@ -4,11 +4,11 @@ import { createSqliteDatabaseAdapter as sqliteAdapter } from "remix/data-table-s
 import { createContextKey, type Middleware } from "remix/fetch-router";
 import { seed } from "./seed.ts";
 
-export const Database = createContextKey<DataTable>();
+export let Database = createContextKey<DataTable>();
 
 export async function loadDatabase(): Promise<Middleware> {
-    const sqlite = new SQLite(":memory:");
-    const db = createDatabase(sqliteAdapter(sqlite));
+    let sqlite = new SQLite(":memory:");
+    let db = createDatabase(sqliteAdapter(sqlite));
 
     await db.exec(sql`
         CREATE TABLE IF NOT EXISTS contacts (

@@ -1,7 +1,7 @@
 import { clientEntry, on } from "remix/component";
 import { routes } from "~/routes.ts";
 
-export const CancelButton = clientEntry(import.meta.url, () => {
+export let CancelButton = clientEntry(import.meta.url, () => {
     return () => (
         <button
             mix={on("click", () => {
@@ -14,7 +14,7 @@ export const CancelButton = clientEntry(import.meta.url, () => {
     );
 });
 
-export const DeleteButton = clientEntry(import.meta.url, () => {
+export let DeleteButton = clientEntry(import.meta.url, () => {
     return (props: { contactId: number }) => (
         <form
             action={routes.contacts.destroy.href({ id: props.contactId })}

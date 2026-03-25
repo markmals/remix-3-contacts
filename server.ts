@@ -3,7 +3,7 @@ import { createRequestListener } from "remix/node-fetch-server";
 
 import { router } from "./dist/ssr/entry.server.js";
 
-const server = http.createServer(
+let server = http.createServer(
     createRequestListener(request => router.fetch(request), {
         onError(error) {
             // Client disconnects mid-stream cause AbortErrors — not actionable
@@ -16,7 +16,7 @@ const server = http.createServer(
     }),
 );
 
-const port = process.env.PORT ? Number.parseInt(process.env.PORT, 10) : 1612;
+let port = process.env.PORT ? Number.parseInt(process.env.PORT, 10) : 1612;
 
 server.listen(port, () => {
     console.log(`Contacts demo is running on http://localhost:${port}`);

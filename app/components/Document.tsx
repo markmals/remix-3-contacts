@@ -10,9 +10,9 @@ import styles from "~/index.css?url";
 import { routes } from "~/routes.ts";
 
 export function Document() {
-    const { url } = getContext();
-    const { q } = s.parse(QuerySchema, url.searchParams);
-    const assets = mergeAssets(clientAssets, serverAssets);
+    let { url } = getContext();
+    let { q } = s.parse(QuerySchema, url.searchParams);
+    let assets = mergeAssets(clientAssets, serverAssets);
 
     return () => (
         <html lang="en">

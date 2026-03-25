@@ -1,7 +1,7 @@
 import { clientEntry, navigate, on } from "remix/component";
 import { routes } from "~/routes.ts";
 
-export const Favorite = clientEntry(import.meta.url, handle => {
+export let Favorite = clientEntry(import.meta.url, handle => {
     let submitting = false;
     let favorite!: boolean;
 
@@ -19,10 +19,10 @@ export const Favorite = clientEntry(import.meta.url, handle => {
 
                     favorite = !favorite;
                     submitting = true;
-                    const signal = await handle.update();
+                    let signal = await handle.update();
 
                     try {
-                        const response = await fetch(event.currentTarget.action, {
+                        let response = await fetch(event.currentTarget.action, {
                             method: event.currentTarget.method,
                             body: new FormData(event.currentTarget, event.submitter),
                             signal,

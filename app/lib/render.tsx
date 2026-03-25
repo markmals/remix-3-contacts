@@ -22,9 +22,9 @@ export function isSidebarRequest(): boolean {
 }
 
 export async function sidebar(selected?: string | number): Promise<Response> {
-    const { url } = getContext();
-    const { q } = s.parse(QuerySchema, url.searchParams);
-    const contacts = await getContacts(q);
+    let { url } = getContext();
+    let { q } = s.parse(QuerySchema, url.searchParams);
+    let contacts = await getContacts(q);
 
     return frame(
         <nav>
@@ -48,15 +48,15 @@ export async function sidebar(selected?: string | number): Promise<Response> {
 }
 
 export function document(): Response {
-    const context = getContext();
+    let context = getContext();
     return html(
         renderToStream(<Document />, {
             frameSrc: context.url,
             async resolveFrame(src, target, ctx) {
-                const url = new URL(src, ctx?.currentFrameSrc ?? context.url);
-                const headers = new Headers({ accept: "text/html" });
+                let url = new URL(src, ctx?.currentFrameSrc ?? context.url);
+                let headers = new Headers({ accept: "text/html" });
                 if (target) headers.set("x-remix-target", target);
-                const response = await router.fetch(new Request(url, { headers }));
+                let response = await router.fetch(new Request(url, { headers }));
 
                 if (!response.ok) {
                     throw new Error(`Failed to resolve frame ${url.pathname}`);

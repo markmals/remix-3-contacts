@@ -5,7 +5,7 @@ import { column as c, table, type TableRow } from "remix/data-table";
 import sortBy from "sort-by";
 import { Database } from "./middleware.ts";
 
-export const Contacts = table({
+export let Contacts = table({
     name: "contacts",
     columns: {
         id: c.integer().primaryKey(),
@@ -22,7 +22,7 @@ export const Contacts = table({
 export type Contact = TableRow<typeof Contacts>;
 
 export async function getContacts(query?: string): Promise<Contact[]> {
-    const db = getContext().get(Database);
+    let db = getContext().get(Database);
     await fakeNetwork(`getContacts:${query}`);
 
     let contacts = await db.findMany(Contacts);
@@ -35,8 +35,8 @@ export async function getContacts(query?: string): Promise<Contact[]> {
 }
 
 export async function createContact(): Promise<number> {
-    const db = getContext().get(Database);
-    const contact = await db.create(
+    let db = getContext().get(Database);
+    let contact = await db.create(
         Contacts,
         {
             first: "",
@@ -54,7 +54,7 @@ export async function createContact(): Promise<number> {
 }
 
 export async function getContact(id?: number): Promise<Contact | null> {
-    const db = getContext().get(Database);
+    let db = getContext().get(Database);
     if (!id) return null;
     await fakeNetwork(`contact:${id}`);
     return await db.find(Contacts, id);
@@ -63,14 +63,14 @@ export async function getContact(id?: number): Promise<Contact | null> {
 const AT = /^@+/;
 
 export async function updateContact(id: number, updates: Partial<Contact>) {
-    const db = getContext().get(Database);
+    let db = getContext().get(Database);
     await fakeNetwork();
 
     let contact = await db.find(Contacts, id);
     if (!contact) throw new Error(`Contact with id ${id} not found`);
 
     // Never allow id/createdAt to be updated via patch
-    const { id: _id, createdAt: _createdAt, ...patch } = updates;
+    let { id: _id, createdAt: _createdAt, ...patch } = updates;
     if (Object.keys(patch).length === 0) return contact;
 
     // Trim any leading @'s off of bsky handle
@@ -82,7 +82,7 @@ export async function updateContact(id: number, updates: Partial<Contact>) {
 }
 
 export async function deleteContact(id: number): Promise<boolean> {
-    const db = getContext().get(Database);
+    let db = getContext().get(Database);
 
     try {
         await db.delete(Contacts, id);
@@ -93,15 +93,15 @@ export async function deleteContact(id: number): Promise<boolean> {
 }
 
 // fake a cache so we don't slow down stuff we've already seen
-const fakeCache = new Map<string, boolean>();
+const CACHE = new Map<string, boolean>();
 
 export async function fakeNetwork(key?: string) {
     if (process.env.NODE_ENV === "test") {
         return;
     }
 
-    if (!key || !fakeCache.get(key)) {
-        if (key) fakeCache.set(key, true);
+    if (!key || !CACHE.get(key)) {
+        if (key) CACHE.set(key, true);
         // Fake network slowdown between 1-3 seconds
         return await sleep(1000 + Math.random() * 2_000);
     }

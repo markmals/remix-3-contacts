@@ -1,7 +1,7 @@
 import { addEventListeners, clientEntry, navigate, on } from "remix/component";
 import { navigating } from "~/lib/navigating.ts";
 
-export const SearchBar = clientEntry(import.meta.url, handle => {
+export let SearchBar = clientEntry(import.meta.url, handle => {
     addEventListeners(navigating, handle.signal, {
         destinationchange() {
             handle.update();
@@ -9,7 +9,7 @@ export const SearchBar = clientEntry(import.meta.url, handle => {
     });
 
     return (props: { query?: string }) => {
-        const searching = Boolean(navigating.to.url?.searchParams.has("q"));
+        let searching = Boolean(navigating.to.url?.searchParams.has("q"));
         return (
             <form id="search-form" method="GET">
                 <input
@@ -19,7 +19,7 @@ export const SearchBar = clientEntry(import.meta.url, handle => {
                     id="q"
                     mix={on("input", async event => {
                         try {
-                            const url = new URL(location.href);
+                            let url = new URL(location.href);
 
                             // Remove empty query params when value is empty
                             if (!event.currentTarget.value.trim()) {
@@ -28,7 +28,7 @@ export const SearchBar = clientEntry(import.meta.url, handle => {
                                 return;
                             }
 
-                            const isFirstSearch = url.searchParams.get("q") === null;
+                            let isFirstSearch = url.searchParams.get("q") === null;
 
                             url.searchParams.set("q", event.currentTarget.value);
                             await navigate(url.toString(), {
