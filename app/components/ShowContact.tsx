@@ -2,6 +2,8 @@ import { DeleteButton } from "~/components/Buttons.tsx";
 import { Favorite } from "~/components/Favorite.tsx";
 import type { Contact } from "~/lib/database/contacts.ts";
 import { routes } from "~/routes.ts";
+import { Title } from "./Title.tsx";
+import { SITE } from "~/lib/meta.ts";
 
 const AVATAR_PLACEHOLDER =
     "https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png";
@@ -10,6 +12,9 @@ export function ShowContact() {
     return (props: { contact: Contact; query?: string }) => {
         return (
             <div id="detail">
+                <Title>
+                    {props.contact.first} {props.contact.last} | {SITE.title}
+                </Title>
                 <div id="contact">
                     <div>
                         <img

@@ -1,10 +1,15 @@
 import { CancelButton } from "~/components/Buttons.tsx";
 import type { Contact } from "~/lib/database/contacts.ts";
 import { routes } from "~/routes.ts";
+import { Title } from "./Title.tsx";
+import { SITE } from "~/lib/meta.ts";
 
 export function EditContact() {
     return (props: { contact: Contact }) => (
         <div id="detail">
+            <Title>
+                Edit {props.contact.first} {props.contact.last} | {SITE.title}
+            </Title>
             <form
                 action={routes.contacts.update.href({ id: props.contact.id })}
                 id="contact-form"

@@ -8,18 +8,19 @@ import serverAssets from "~/entry.server.tsx?assets=ssr";
 import { QuerySchema } from "~/lib/schemas.ts";
 import styles from "~/index.css?url";
 import { routes } from "~/routes.ts";
+import { SITE } from "~/lib/meta.ts";
 
 export function Document() {
     let { url } = getContext();
     let { q } = s.parse(QuerySchema, url.searchParams);
-    let assets = mergeAssets(clientAssets, serverAssets);
+    let { css, js } = mergeAssets(clientAssets, serverAssets);
 
     return () => (
         <html lang="en">
             <head>
                 <meta charSet="utf-8" />
                 <meta content="width=device-width, initial-scale=1" name="viewport" />
-                <title>Remix 3 Contacts</title>
+                <title>{SITE.title}</title>
 
                 <link href="/favicon-32.png" rel="icon" sizes="32x32" />
                 <link href="/favicon-128.png" rel="icon" sizes="128x128" />
@@ -27,19 +28,20 @@ export function Document() {
                 <link href="/favicon-192.png" rel="icon" sizes="192x192" />
                 <link href="/favicon-180.png" rel="apple-touch-icon" sizes="180x180" />
 
-                <script async src={clientAssets.entry} type="module" />
                 <link href={styles} rel="stylesheet" />
-                {assets.css.map(attrs => (
+                {css.map(attrs => (
                     <link key={attrs.href} {...attrs} rel="stylesheet" />
                 ))}
-                {assets.js.map(attrs => (
+
+                <script async src={clientAssets.entry} type="module" />
+                {js.map(attrs => (
                     <link key={attrs.href} {...attrs} rel="modulepreload" />
                 ))}
             </head>
             <body>
                 <div id="root">
                     <div id="sidebar">
-                        <h1>Remix 3 Contacts</h1>
+                        <h1>{SITE.title}</h1>
                         <div>
                             <SearchBar query={q} />
                             <form
