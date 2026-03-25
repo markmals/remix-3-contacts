@@ -26,13 +26,13 @@ export class DestinationChangeEvent extends Event {
 type NavigationStates = {
     Idle: {
         state: "idle";
-        url: undefined;
-        formData: undefined;
+        url: null;
+        formData: null;
     };
     Loading: {
         state: "loading";
         url: URL;
-        formData: undefined;
+        formData: null;
     };
     Submitting: {
         state: "submitting";
@@ -55,14 +55,8 @@ export let isServer = typeof window === "undefined";
  * Safe to instantiate on the server — listeners are only attached client-side.
  */
 export class Navigating extends TypedEventTarget<NavigatingEventMap> {
-    static #idle: NavigationState = {
-        state: "idle",
-        url: undefined,
-        formData: undefined,
-    };
-
-    to = structuredClone(Navigating.#idle);
-    from: { url?: URL } = { url: undefined };
+    to: NavigationState = { state: "idle", url: null, formData: null };
+    from: { url: URL | null } = { url: null };
 
     // No events fire on the server, so skip registering listeners entirely
     override addEventListener(...args: Parameters<EventTarget["addEventListener"]>) {
@@ -71,8 +65,12 @@ export class Navigating extends TypedEventTarget<NavigatingEventMap> {
     }
 
     #reset() {
-        this.to = structuredClone(Navigating.#idle);
-        this.from.url = undefined;
+        this.from.url = null;
+
+        this.to.state = "idle";
+        this.to.url = null;
+        this.to.formData = null;
+
         this.dispatchEvent(new DestinationChangeEvent(null));
     }
 
@@ -85,7 +83,7 @@ export class Navigating extends TypedEventTarget<NavigatingEventMap> {
 
             this.to.state = event.formData ? "submitting" : "loading";
             this.to.url = new URL(event.destination.url);
-            this.to.formData = event.formData ? event.formData : undefined;
+            this.to.formData = event.formData;
 
             this.dispatchEvent(new DestinationChangeEvent(this.to.url));
         });
