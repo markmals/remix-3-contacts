@@ -15,7 +15,7 @@ export let Contacts = table({
         bsky: c.text().notNull(),
         notes: c.text().notNull(),
         favorite: c.boolean().default(false),
-        createdAt: c.timestamp().notNull().defaultNow(),
+        createdAt: c.timestamp().defaultNow(),
     },
 });
 
