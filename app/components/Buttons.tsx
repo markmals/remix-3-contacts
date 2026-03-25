@@ -19,8 +19,10 @@ export const DeleteButton = clientEntry(import.meta.url, () => {
         <form
             action={routes.contacts.destroy.href({ id: props.contactId })}
             method="POST"
-            mix={on("submit", async () => {
-                if (!confirm("Please confirm you want to delete this record.")) return;
+            mix={on("submit", async event => {
+                if (!confirm("Please confirm you want to delete this record.")) {
+                    event.preventDefault();
+                }
             })}
         >
             <input name="_method" type="hidden" value={routes.contacts.destroy.method} />
