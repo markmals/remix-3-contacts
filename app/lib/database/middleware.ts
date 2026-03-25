@@ -1,33 +1,41 @@
 import SQLite from "better-sqlite3";
-import { createDatabase, type Database as DataTable, sql } from "remix/data-table";
+import { createDatabase, type Database as DataTable } from "remix/data-table";
 import { createSqliteDatabaseAdapter as sqliteAdapter } from "remix/data-table-sqlite";
+import {
+    createMigration,
+    createMigrationRegistry,
+    createMigrationRunner,
+} from "remix/data-table/migrations";
 import { createContextKey, type Middleware } from "remix/fetch-router";
+import { Contacts } from "./contacts.ts";
 import { seed } from "./seed.ts";
 
 export let Database = createContextKey<DataTable>();
 
+let createContacts = createMigration({
+    async up({ schema }) {
+        await schema.createTable(Contacts);
+        await schema.createIndex(Contacts, ["last", "createdAt"]);
+    },
+    async down({ schema }) {
+        await schema.dropTable(Contacts, { ifExists: true });
+    },
+});
+
 export async function loadDatabase(): Promise<Middleware> {
     let sqlite = new SQLite(":memory:");
-    let db = createDatabase(sqliteAdapter(sqlite));
+    let adapter = sqliteAdapter(sqlite);
+    let db = createDatabase(adapter);
 
-    await db.exec(sql`
-        CREATE TABLE IF NOT EXISTS contacts (
-        id        INTEGER PRIMARY KEY,
-        first     TEXT NOT NULL,
-        last      TEXT NOT NULL,
-        avatar    TEXT,
-        bsky      TEXT NOT NULL,
-        notes     TEXT NOT NULL,
-        favorite  INTEGER NOT NULL DEFAULT 0
-                CHECK (favorite IN (0, 1)),
-        createdAt INTEGER NOT NULL
-        );
-    `);
-
-    await db.exec(sql`
-        CREATE INDEX IF NOT EXISTS idx_contacts_last_createdAt
-            ON contacts (last, createdAt);  
-    `);
+    // Initialize table using migration helpers
+    let registry = createMigrationRegistry();
+    registry.register({
+        id: crypto.randomUUID(),
+        name: "create_contacts",
+        migration: createContacts,
+    });
+    let runner = createMigrationRunner(adapter, registry);
+    await runner.up();
 
     await seed(db);
 

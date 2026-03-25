@@ -15,7 +15,7 @@ export let Contacts = table({
         bsky: c.text().notNull(),
         notes: c.text().notNull(),
         favorite: c.boolean().default(false),
-        createdAt: c.integer().notNull(),
+        createdAt: c.timestamp().notNull().defaultNow(),
     },
 });
 
@@ -41,11 +41,8 @@ export async function createContact(): Promise<number> {
         {
             first: "",
             last: "",
-            avatar: undefined,
             bsky: "",
             notes: "",
-            favorite: false,
-            createdAt: Date.now(),
         },
         { returnRow: true },
     );
@@ -60,7 +57,7 @@ export async function getContact(id?: number): Promise<Contact | null> {
     return await db.find(Contacts, id);
 }
 
-const AT = /^@+/;
+const AT_PATTERN = /^@+/;
 
 export async function updateContact(id: number, updates: Partial<Contact>) {
     let db = getContext().get(Database);
@@ -75,7 +72,7 @@ export async function updateContact(id: number, updates: Partial<Contact>) {
 
     // Trim any leading @'s off of bsky handle
     if (typeof patch.bsky === "string") {
-        patch.bsky = patch.bsky.replace(AT, "");
+        patch.bsky = patch.bsky.replace(AT_PATTERN, "");
     }
 
     return await db.update(Contacts, id, patch);
