@@ -70,6 +70,12 @@ export class Navigating extends TypedEventTarget<NavigatingEventMap> {
         super.addEventListener(...args);
     }
 
+    reset() {
+        this.to = structuredClone(Navigating.#idle);
+        this.from = { url: undefined };
+        this.dispatchEvent(new DestinationChangeEvent(null));
+    }
+
     constructor(signal?: AbortSignal) {
         super();
 
@@ -95,18 +101,15 @@ export class Navigating extends TypedEventTarget<NavigatingEventMap> {
             // transition.finished to keep the "loading" state visible
             // while frames are still being fetched.
             currententrychange: () => {
-                const reset = () => {
-                    this.to = structuredClone(Navigating.#idle);
-                    this.from = { url: undefined };
-                    this.dispatchEvent(new DestinationChangeEvent(null));
-                };
-
                 if (navigation.transition) {
                     // Aborted transitions reject with AbortError — a new
                     // currententrychange will fire for the replacing navigation.
-                    navigation.transition.finished.then(reset, () => {});
+                    navigation.transition.finished.then(
+                        () => this.reset(),
+                        () => {},
+                    );
                 } else {
-                    reset();
+                    this.reset();
                 }
             },
         });

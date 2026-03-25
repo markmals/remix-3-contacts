@@ -4,8 +4,8 @@ import { isServer, navigating } from "~/lib/navigating.ts";
 import { routes } from "~/routes.ts";
 
 const matcher = new ArrayMatcher<true>();
-matcher.add(routes.contacts.show.pattern.source, true);
-matcher.add(routes.contacts.edit.pattern.source, true);
+matcher.add(routes.contacts.show.pattern, true);
+matcher.add(routes.contacts.edit.pattern, true);
 
 export namespace SidebarItem {
     export interface Props extends SerializableProps {

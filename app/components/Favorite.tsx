@@ -2,7 +2,6 @@ import { clientEntry, navigate, on } from "remix/component";
 import { routes } from "~/routes.ts";
 
 export const Favorite = clientEntry(import.meta.url, handle => {
-    const route = routes.contacts.favorite;
     let submitting = false;
     let favorite!: boolean;
 
@@ -13,7 +12,7 @@ export const Favorite = clientEntry(import.meta.url, handle => {
 
         return (
             <form
-                action={route.href({ id: props.contactId })}
+                action={routes.contacts.favorite.href({ id: props.contactId })}
                 method="POST"
                 mix={on("submit", async event => {
                     event.preventDefault();
@@ -42,7 +41,7 @@ export const Favorite = clientEntry(import.meta.url, handle => {
                     }
                 })}
             >
-                <input name="_method" type="hidden" value={route.method} />
+                <input name="_method" type="hidden" value={routes.contacts.favorite.method} />
                 <input name="id" type="hidden" value={props.contactId} />
                 <button
                     aria-label={favorite ? "Remove from favorites" : "Add to favorites"}
