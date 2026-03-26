@@ -1,10 +1,10 @@
-# Remix 3 + Vite+ Best Practices Cookbook
+# Remix 3 & Vite Best Practices Cookbook
 
 A decision-oriented guide for building Remix 3 applications. Each recipe is self-contained: find the decision you're facing, read the heuristic, follow the pattern. This supplements the official API docs in `docs/remix-official/` with practical wisdom that isn't obvious from reading API surfaces alone.
 
 ## Project Structure
 
-A typical Remix 3 + Vite+ project:
+A typical Remix 3 & Vite project:
 
 ```
 app/
@@ -1130,7 +1130,7 @@ When you need to change your schema, you update two things together in the same 
 1. **Update the `table()` definition** in your source code to reflect the desired schema (e.g., add the new column to the `columns` object)
 2. **Write a migration file** that transitions the database from the old schema to the new one (e.g., `schema.alterTable` with `table.addColumn`)
 
-The `table()` definition is the source of truth for what the schema looks like *now*. The migration file describes *how to get there* from the previous state. Both ship together in the same deploy.
+The `table()` definition is the source of truth for what the schema looks like _now_. The migration file describes _how to get there_ from the previous state. Both ship together in the same deploy.
 
 **At deploy time**, run migrations before starting the app:
 
@@ -1144,7 +1144,7 @@ This ensures the database schema matches what the new code expects. The runner's
 
 - **One migration per change:** Each migration should do one logical thing (add a column, create a table, backfill data). This keeps rollbacks predictable.
 - **Migrations are append-only:** Never edit a migration that has already been applied in production. Write a new migration instead.
-- **Table definition and migration in the same commit:** The `table()` definition describes the *current* state; the migration describes the *transition*. Shipping them together guarantees the code and database stay in sync.
+- **Table definition and migration in the same commit:** The `table()` definition describes the _current_ state; the migration describes the _transition_. Shipping them together guarantees the code and database stay in sync.
 - **Use `dryRun` in CI:** Review generated SQL before deploying to catch dialect-specific issues.
 
 ---
@@ -1311,3 +1311,994 @@ export function PostDetail() {
 - **Client:** Sets `document.title` directly during the render phase when navigating between frames.
 
 Place `<Title>` in any frame content component that should update the document title. The base `<title>` tag in your document's `<head>` serves as the default for initial load and no-JS environments.
+
+---
+
+### 23. How do asset imports work in the document shell?
+
+**Decision:** How do I wire up scripts, stylesheets, and preload links in my HTML document?
+
+**Heuristic:** Use Vite's asset import specifiers to resolve paths at build time. Never hardcode asset paths in components.
+
+**The three import types:**
+
+```tsx
+// Client entry module — resolves hydration script + its dependencies
+import clientAssets from "~/entry.browser.ts?assets=client";
+
+// SSR assets — resolves server-rendered module dependencies (CSS, JS preloads)
+import serverAssets from "~/entry.server.tsx?assets=ssr";
+
+// Standalone stylesheet — resolves to a URL string
+import styles from "~/index.css?url";
+```
+
+**Merging assets in the document shell:**
+
+```tsx
+import { mergeAssets } from "@hiogawa/vite-plugin-fullstack/runtime";
+import clientAssets from "~/entry.browser.ts?assets=client";
+import serverAssets from "~/entry.server.tsx?assets=ssr";
+import styles from "~/index.css?url";
+
+export function Document() {
+    let { css, js } = mergeAssets(clientAssets, serverAssets);
+
+    return () => (
+        <html lang="en">
+            <head>
+                {/* Standalone CSS file — use ?url import */}
+                <link href={styles} rel="stylesheet" />
+
+                {/* Asset-resolved CSS from component modules */}
+                {css.map(attrs => (
+                    <link key={attrs.href} {...attrs} rel="stylesheet" />
+                ))}
+
+                {/* Client entry script */}
+                <script async src={clientAssets.entry} type="module" />
+
+                {/* Preload links for JS dependencies */}
+                {js.map(attrs => (
+                    <link key={attrs.href} {...attrs} rel="modulepreload" />
+                ))}
+            </head>
+            <body>{/* ... */}</body>
+        </html>
+    );
+}
+```
+
+**Key rules:**
+
+- Use `?assets=client` for the client entry module (the one passed to `run()`)
+- Use `?assets=ssr` for server-rendered modules that contribute CSS or JS to the document. Only use this for module assets (`.tsx`, `.ts`), not plain `.css` files
+- Use `?url` for standalone stylesheets — this gives you a plain URL string for a `<link>` tag
+- Render `clientAssets.entry` as the `<script>` src — never hardcode `/remix/assets/...` paths
+- The Remix Vite plugin transforms `import.meta.url` in `clientEntry()` calls into the correct `?assets=client` imports automatically, so you don't need to think about this in component files
+
+---
+
+### 24. How should I style components?
+
+**Decision:** Should I use CSS files, the `css()` mixin, or inline `style`?
+
+**Heuristic:** Prefer external `.css` files for app-wide styles. Use the `css()` mixin for component-scoped static rules when you don't want a separate stylesheet. Use `style` only for truly dynamic values, and prefer setting CSS custom properties over direct inline styles.
+
+**External CSS (default choice):**
+
+```tsx
+import styles from "~/index.css?url";
+
+// In your document shell:
+<link href={styles} rel="stylesheet" />;
+```
+
+**The `css()` mixin for component-scoped rules:**
+
+```tsx
+import { css } from "remix/component";
+
+<button
+    mix={[
+        css({
+            color: "white",
+            backgroundColor: "var(--color-primary)",
+            "&:hover": { backgroundColor: "var(--color-primary-dark)" },
+            "&:focus-visible": { outline: "2px solid var(--color-focus)" },
+            "@media (max-width: 768px)": { width: "100%" },
+        }),
+    ]}
+>
+    Submit
+</button>;
+```
+
+`css()` supports nested selectors (`&:hover`, `&::before`), media queries, and pseudo-elements — things you can't do with `style`. It generates real stylesheet rules, so it's more performant than inline styles for static values.
+
+**Dynamic values with CSS custom properties:**
+
+When a value changes based on state, set a CSS custom property via `style` and reference it from `css()` or your stylesheet:
+
+```tsx
+<div
+    mix={[
+        css({
+            backgroundColor: "var(--bg)",
+            transition: "background-color 200ms ease",
+        }),
+    ]}
+    style={{ "--bg": isActive ? "var(--color-active)" : "var(--color-muted)" }}
+>
+    {children}
+</div>
+```
+
+**Why custom properties over direct inline styles:** CSS custom properties keep your styling in one system. Stylesheets and `css()` rules can reference the same property, transitions work naturally, and you avoid specificity fights between inline styles and your CSS rules.
+
+**When to use each:**
+
+| Approach                       | Use for                                       | Example                                         |
+| ------------------------------ | --------------------------------------------- | ----------------------------------------------- |
+| `.css` files                   | App-wide layout, typography, resets           | Global stylesheet                               |
+| `css()` mixin                  | Component-scoped static rules with selectors  | Hover states, media queries, pseudo-elements    |
+| `style` with custom properties | Dynamic values that change with state         | Active/inactive colors, computed positions      |
+| Direct `style`                 | Rare — only for truly one-off computed values | `style={{ transform: \`translateX(${x}px)\` }}` |
+
+---
+
+### 25. How do I access DOM nodes directly?
+
+**Decision:** I need to focus an input, measure an element, or do other imperative DOM work.
+
+**Heuristic:** Use the `ref()` mixin to get a callback with the DOM node. For work that depends on updated rendered state (focus after a state change, measurement after layout), use `handle.queueTask()` instead.
+
+**Basic ref (fires on insert):**
+
+```tsx
+import { ref } from "remix/component";
+
+<input mix={[ref(node => node.focus())]} />;
+```
+
+**Storing a ref for later use:**
+
+```tsx
+let textareaNode: HTMLTextAreaElement | undefined;
+
+return () => (
+    <textarea
+        mix={[
+            ref(node => {
+                textareaNode = node;
+            }),
+            on("input", () => {
+                if (textareaNode) {
+                    textareaNode.style.height = "auto";
+                    textareaNode.style.height = `${textareaNode.scrollHeight}px`;
+                }
+            }),
+        ]}
+    />
+);
+```
+
+**When to use `ref()` vs `handle.queueTask()`:**
+
+- `ref()` fires when the node is first inserted into the DOM — use it for one-time setup (autofocus, attaching third-party libraries, storing the node reference)
+- `handle.queueTask()` runs after each render commit — use it when you need the DOM to reflect the latest state before doing measurement, focus, or scroll work (see Recipe 28)
+
+---
+
+### 26. How do I animate elements?
+
+**Decision:** How do I add enter, exit, or layout animations to elements?
+
+**Heuristic:** Use the animation mixins — `animateEntrance()`, `animateExit()`, and `animateLayout()`. Always provide a stable `key` on elements that should transition.
+
+**Enter animation:**
+
+```tsx
+import { animateEntrance } from "remix/component";
+
+<div
+    mix={[
+        animateEntrance({
+            opacity: 0,
+            transform: "translateY(8px)",
+            duration: 180,
+            easing: "ease-out",
+        }),
+    ]}
+/>;
+```
+
+**Toggle visibility with enter + exit:**
+
+```tsx
+import { animateEntrance, animateExit } from "remix/component";
+
+{
+    isVisible && (
+        <div
+            key="panel"
+            mix={[
+                animateEntrance({ opacity: 0, transform: "scale(0.98)", duration: 180 }),
+                animateExit({
+                    opacity: 0,
+                    transform: "scale(0.98)",
+                    duration: 120,
+                    easing: "ease-in",
+                }),
+            ]}
+        />
+    );
+}
+```
+
+**List reordering with layout animation:**
+
+```tsx
+import { animateLayout, spring } from "remix/component";
+
+{
+    items.map(item => (
+        <li key={item.id} mix={[animateLayout({ ...spring({ duration: 500, bounce: 0.2 }) })]}>
+            {item.name}
+        </li>
+    ));
+}
+```
+
+**Shared-layout swap (crossfade between two states):**
+
+```tsx
+<div mix={[css({ display: "grid", "& > *": { gridArea: "1 / 1" } })]}>
+    {state ? (
+        <div key="a" mix={[animateEntrance({ opacity: 0 }), animateExit({ opacity: 0 })]} />
+    ) : (
+        <div key="b" mix={[animateEntrance({ opacity: 0 }), animateExit({ opacity: 0 })]} />
+    )}
+</div>
+```
+
+**Practical guidance:**
+
+- Always `key` conditional or list elements you expect to transition
+- Use `animateLayout()` only on the element whose position or size changes
+- For spring-style timing, spread `spring()` or `spring("snappy")` into the mixin config
+- Default to `...spring()` for duration and easing in most cases — it produces natural motion
+- Keep one clear intent per mixin: entrance starts from an initial style, exit ends at a final style
+
+---
+
+### 27. How do I handle keyboard and press interactions?
+
+**Decision:** I need keyboard shortcuts, key-specific handlers, or unified pointer+keyboard press behavior.
+
+**Heuristic:** Use the built-in interaction helpers from `remix/component` instead of writing your own keyboard/pointer normalization. Prefer `rmx-target` attributes on anchors and buttons over the `link()` mixin for navigation.
+
+**`keysEvents()` — key-specific host events:**
+
+```tsx
+import { keysEvents } from "remix/component";
+
+<div
+    tabindex="0"
+    mix={[
+        keysEvents({
+            Escape() {
+                closePanel();
+                handle.update();
+            },
+            ArrowDown(event) {
+                event.preventDefault();
+                focusNextItem();
+            },
+            ArrowUp(event) {
+                event.preventDefault();
+                focusPreviousItem();
+            },
+        }),
+    ]}
+/>;
+```
+
+Use `keysEvents()` when you need to respond to specific keys on a focusable element. It handles `keydown` dispatch by key name so you don't need to write `if (event.key === "Escape")` branching yourself.
+
+**`pressEvents()` — unified pointer and keyboard input:**
+
+```tsx
+import { pressEvents } from "remix/component";
+
+<div
+    role="button"
+    tabindex="0"
+    mix={[
+        pressEvents({
+            onPress() {
+                toggleSelection();
+                handle.update();
+            },
+            onLongPress() {
+                openContextMenu();
+                handle.update();
+            },
+        }),
+    ]}
+/>;
+```
+
+Use `pressEvents()` when a non-button element needs to behave like an interactive control across both pointer and keyboard input. It normalizes click, touch, and Enter/Space into a single interaction model.
+
+**`link()` — navigation behavior on non-anchor elements:**
+
+```tsx
+import { link } from "remix/component";
+
+<div mix={[link(routes.posts.show.href({ id }), { target: "content" })]} />;
+```
+
+The `link()` mixin makes any element behave like a Remix navigation link. However, prefer real `<a>` tags or `<form><button type="submit"></button></form>` tags with `rmx-target` attributes in most cases — they're more accessible, work without JavaScript, and are easier to understand. Reserve `link()` for cases where an anchor or button tag isn't practical (e.g., a complex interactive card that needs to navigate on click).
+
+---
+
+### 28. How do I do post-render DOM work?
+
+**Decision:** I need to focus an element, scroll to a position, or measure layout after a state change.
+
+**Heuristic:** Use `handle.queueTask()` for work that depends on the DOM reflecting the latest render. Use `await handle.update()` when you need to chain state change → DOM work sequentially in an event handler.
+
+**`handle.queueTask()` — runs after each render commit:**
+
+```tsx
+export let Accordion = clientEntry(import.meta.url, (handle: Handle) => {
+    let open = false;
+    let contentNode: HTMLElement | undefined;
+
+    return () => (
+        <div>
+            <button
+                mix={[
+                    on("click", () => {
+                        open = !open;
+                        handle.update();
+                    }),
+                ]}
+            >
+                Toggle
+            </button>
+            {open && (
+                <div
+                    mix={[
+                        ref(node => {
+                            contentNode = node;
+                        }),
+                    ]}
+                >
+                    {handle.queueTask(() => {
+                        contentNode?.querySelector("input")?.focus();
+                    })}
+                    <input placeholder="Now focused" />
+                </div>
+            )}
+        </div>
+    );
+});
+```
+
+**`await handle.update()` — sequential state-then-DOM in event handlers:**
+
+```tsx
+on("submit", async event => {
+    event.preventDefault();
+    submitting = true;
+    let signal = await handle.update();
+
+    // DOM now reflects submitting=true, safe to read layout or focus
+    let response = await fetch(url, { method: "POST", body: formData, signal });
+    // ...
+});
+```
+
+The `await` on `handle.update()` waits for the render commit and returns an `AbortSignal` that cancels if the component unmounts.
+
+**When to use each:**
+
+| Pattern                 | Use for                                                                            |
+| ----------------------- | ---------------------------------------------------------------------------------- |
+| `handle.queueTask(fn)`  | Post-render work triggered by state changes in render (focus, scroll, measurement) |
+| `await handle.update()` | Sequential async flows where you need the DOM updated before continuing            |
+| `ref(node => ...)`      | One-time setup when the node is first inserted (see Recipe 25)                     |
+
+**Important:** When state changes what exists in the DOM (e.g., conditionally rendering an element), always do focus, scroll, and measurement work in `handle.queueTask()` or after `await handle.update()` — never inline in the render function, since the DOM hasn't committed yet.
+
+---
+
+### 29. When should I use persistent listeners vs session-based listeners?
+
+**Decision:** Should this event listener live for the element's entire lifetime, or only during an active interaction?
+
+**Heuristic:** Use `mix={[on(...)]}` for behavior that should always be active. Use imperative `addEventListener` with a scoped `AbortController` for listeners that should only exist during a short-lived interaction session (like a drag, a resize handle, or a long-press).
+
+**Persistent listener (always active):**
+
+```tsx
+<div
+    mix={[
+        on("pointerdown", event => {
+            startDragSession(event);
+        }),
+    ]}
+/>
+```
+
+The `on()` mixin attaches when the element mounts and detaches when it unmounts. It survives re-renders.
+
+**Session-based listeners (active only during interaction):**
+
+```tsx
+on("pointerdown", event => {
+    let controller = new AbortController();
+    let { signal } = controller;
+
+    // These listeners only exist while dragging
+    addEventListener(
+        "pointermove",
+        event => {
+            updatePosition(event);
+            handle.update();
+        },
+        { signal },
+    );
+
+    addEventListener(
+        "pointerup",
+        () => {
+            finishDrag();
+            controller.abort(); // Tear down all session listeners
+            handle.update();
+        },
+        { signal },
+    );
+
+    addEventListener(
+        "pointercancel",
+        () => {
+            cancelDrag();
+            controller.abort();
+            handle.update();
+        },
+        { signal },
+    );
+});
+```
+
+**Why this matters:** Persistent `pointermove` listeners on `window` that are only useful during a drag are wasteful and can cause subtle bugs if they fire between interactions. Scoping listeners to a session signal makes cleanup automatic and explicit.
+
+**The rule of thumb:**
+
+| Listener type                  | Pattern                                              | Example                                             |
+| ------------------------------ | ---------------------------------------------------- | --------------------------------------------------- |
+| Always needed while mounted    | `mix={[on(...)]}`                                    | Click handlers, submit handlers, keyboard shortcuts |
+| Only needed during interaction | Imperative `addEventListener` with `AbortController` | Drag tracking, resize handles, pointer capture      |
+| Global, for component lifetime | `addEventListeners(target, handle.signal, {...})`    | Window resize, navigation state changes             |
+
+---
+
+### 30. When and how do I create reusable mixins?
+
+**Decision:** Should I extract this behavior into a `createMixin()`, or keep it local?
+
+**Heuristic:** Reach for `createMixin()` only when the behavior is genuinely reusable host-element behavior that composes low-level DOM events into a semantic interaction. If the logic is local submit state, a one-off event handler, or a small async helper, keep it in the component.
+
+**When to use `createMixin()`:**
+
+- You're packaging reusable host behavior that composes low-level DOM events into one semantic interaction (e.g., drag-and-drop, hold-to-confirm, swipe gestures)
+- The interaction keeps timing/pointer/gesture state that belongs to the host element
+- You want to dispatch custom events or attach reusable behavior to different elements
+
+**When NOT to use `createMixin()`:**
+
+- The logic is only used once — prefer `on()` + setup-scope state
+- The shared part is an async helper or request helper — share the helper, not a mixin
+- It's form-local state (`submitting`, `error`) — keep it in the component
+- You're doing it to feel "more Remix-like" — only extract when it pays for itself
+
+**Basic mixin — pure prop transform:**
+
+```tsx
+import { createMixin } from "remix/component";
+
+let withTitle = createMixin(() => (title: string, props: { title?: string }) => (
+    <handle.element {...props} title={title} />
+));
+```
+
+**Lifecycle-managed mixin — imperative setup on insert:**
+
+```tsx
+let withAutofocus = createMixin<HTMLElement>(handle => {
+    handle.addEventListener("insert", event => {
+        event.node.focus();
+    });
+
+    return props => <handle.element {...props} />;
+});
+```
+
+**Core lifecycle semantics:**
+
+1. A mixin handle is tied to one mounted host node lifecycle
+2. `insert` fires when the host node is available for imperative setup
+3. `remove` fires for teardown of that lifecycle
+4. `handle.queueTask(fn)` runs post-commit and receives `(node, signal)` for mixins
+5. Render functions should stay pure — side effects belong in `insert`, `remove`, or queued work
+
+**Post-commit DOM work in a mixin:**
+
+```tsx
+handle.queueTask((node, signal) => {
+    node.removeEventListener(prevType, stableHandler);
+    node.addEventListener(nextType, stableHandler);
+});
+```
+
+Only use `signal` when the work is async or cancellation-sensitive. Don't add `signal.aborted` checks for purely synchronous work.
+
+---
+
+### 31. How do I use SVG sprites?
+
+**Decision:** How should I manage icons and SVG assets?
+
+**Heuristic:** Use an SVG sprite sheet — a single SVG file containing all icons as `<symbol>` elements. Import the sprite URL from the source asset and reference individual icons by fragment ID. Never hardcode sprite paths.
+
+**Setting up the sprite file** (`app/icons.svg`):
+
+```xml
+<svg xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <symbol id="icon-search" viewBox="0 0 24 24">
+            <path d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+                  stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" />
+        </symbol>
+        <symbol id="icon-plus" viewBox="0 0 24 24">
+            <path d="M12 4.5v15m7.5-7.5h-15"
+                  stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" />
+        </symbol>
+        <symbol id="icon-trash" viewBox="0 0 24 24">
+            <path d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
+                  stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" />
+        </symbol>
+    </defs>
+</svg>
+```
+
+**Importing the sprite:**
+
+```tsx
+import iconsHref from "~/icons.svg?url";
+```
+
+**Using icons in components:**
+
+```tsx
+function Icon(props: { name: string; size?: number }) {
+    let size = props.size ?? 20;
+    return () => (
+        <svg aria-hidden="true" width={size} height={size}>
+            <use href={`${iconsHref}#icon-${props.name}`} />
+        </svg>
+    );
+}
+
+// Usage:
+<Icon name="search" />
+<Icon name="plus" size={16} />
+<Icon name="trash" size={24} />
+```
+
+**Key rules:**
+
+- Import the sprite with `?url` so Vite resolves the correct path in both dev and production builds
+- Reference icons with `<use href={...}>` using the sprite URL + `#symbol-id`
+- Use `aria-hidden="true"` on decorative icons. For meaningful icons, add an accessible label via `aria-label` on the `<svg>` or wrap it with visually hidden text
+- Use `currentColor` for `stroke` and `fill` in the sprite so icons inherit their color from CSS
+- Keep all icons in a single sprite file for a single network request — the browser caches it across pages
+
+**Adding new icons:** Add a new `<symbol>` element to the sprite file with a unique `id` and `viewBox`. Reference it with the same `Icon` component pattern. No build step or code generation needed.
+
+**Why sprites over inline SVGs:** Inline SVGs duplicate markup in every instance and increase HTML payload. A sprite is fetched once, cached, and each `<use>` reference is just a few bytes. This is especially important in server-rendered apps where you want to minimize HTML size.
+
+---
+
+### 32. How do I test components?
+
+**Decision:** How do I write unit tests for Remix components?
+
+**Heuristic:** Use `createRoot()` to mount components in a real DOM container, and `root.flush()` to synchronously process renders and queued tasks. Test through real DOM interactions (clicks, input events) rather than mocking framework internals.
+
+**Basic test pattern:**
+
+```tsx
+import { expect } from "vitest";
+import { createRoot } from "remix/component";
+
+let container = document.createElement("div");
+let root = createRoot(container);
+
+root.render(<Counter label="Count" />);
+root.flush();
+
+// Initial state
+expect(container.textContent).toContain("Count: 0");
+
+// Interact
+container.querySelector("button")?.click();
+root.flush();
+
+// Updated state
+expect(container.textContent).toContain("Count: 1");
+```
+
+**Why `root.flush()` is needed:**
+
+- After `root.render()` — so listeners and queued tasks from the initial render are attached
+- After user interactions that call `handle.update()` — so the DOM reflects the new state
+- After async work resolves if the component uses `handle.queueTask()` — so post-render effects have run
+
+**Cleanup:**
+
+```tsx
+root.dispose();
+```
+
+Use `root.dispose()` to verify cleanup behavior when relevant (e.g., checking that global listeners are removed, timers are cleared).
+
+**High-value testing patterns:**
+
+- **Minimal component state:** Test the fewest state transitions that prove the behavior
+- **Work in event handlers first:** Verify that click/submit/input handlers produce the right DOM changes
+- **Use `queueTask` assertions:** When a component uses `handle.queueTask()`, flush and then assert the post-render effect (focus moved, scroll position changed, etc.)
+- **Prefer browser or CSS state:** For hover/focus behavior, test the actual focus state on DOM nodes rather than checking CSS classes
+
+**What to avoid:**
+
+- Testing implementation-only markers (data attributes, internal class names) unless they're the only stable assertion point
+- Over-mocking framework behavior that can be exercised with real DOM interactions
+- Repeating the same navigation assertion across many paths when one representative flow proves the behavior
+
+---
+
+### 33. How do I manage sessions and cookies?
+
+**Decision:** How do I persist user data across requests (sessions, preferences, flash messages)?
+
+**Heuristic:** Use the `session()` middleware to automatically load and save sessions per request. Never manipulate `document.cookie` directly — use Remix's cookie utilities. Always sign session cookies.
+
+**Setting up session middleware:**
+
+```tsx
+import { createCookie } from "remix/cookie";
+import { Session } from "remix/session";
+import { session } from "remix/session-middleware";
+import { createCookieSessionStorage } from "remix/session/cookie-storage";
+
+// 1. Create a signed cookie (secrets are required)
+let sessionCookie = createCookie("__session", {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    secrets: [env.SESSION_SECRET],
+});
+
+// 2. Choose a storage strategy
+let sessionStorage = createCookieSessionStorage();
+
+// 3. Add the middleware to your router
+let router = createRouter({
+    middleware: [
+        // ... other middleware
+        session(sessionCookie, sessionStorage),
+    ],
+});
+```
+
+The middleware reads the session from the cookie on each request, makes it available as `context.get(Session)`, and automatically saves changes and sets the response cookie.
+
+**Reading and writing session data in controllers:**
+
+```tsx
+router.map(routes.user, {
+    actions: {
+        // POST
+        preferences(context) {
+            let session = context.get(Session);
+            let { theme } = s.parse(ThemeSchema, context.get(FormData));
+            session.set("theme", theme);
+            return redirect(routes.user.settings.href());
+        },
+        // GET
+        settings(context) {
+            let session = context.get(Session);
+            let theme = session.get("theme") ?? "system";
+            return frame(<Settings theme={theme} />);
+        },
+    },
+});
+```
+
+**Flash messages (persist for one request only):**
+
+```tsx
+router.map(routes.contacts, {
+    actions: {
+        // In the action — set the flash
+        async create(context) {
+            let contact = await createContact(context.get(FormData));
+            let session = context.get(Session);
+            session.flash("message", `Created ${contact.name}`);
+            return redirect(routes.contacts.show.href({ id: contact.id }));
+        },
+        // In the next request — read and display it
+        async show(context) {
+            let session = context.get(Session);
+            let flash = session.get("message"); // Available once, then gone
+            let contact = await getContact(context.params.id);
+            return frame(<ContactDetail contact={contact} flash={flash} />);
+        },
+    },
+});
+```
+
+Flash values are available on the next request after they're set, then automatically cleared. This is the standard pattern for success/error notifications after form submissions.
+
+**Storage strategies:**
+
+| Strategy           | Import                         | Best for                                             |
+| ------------------ | ------------------------------ | ---------------------------------------------------- |
+| Cookie storage     | `remix/session/cookie-storage` | Small session data (< 4KB), no server storage needed |
+| Filesystem storage | `remix/session/fs-storage`     | Production servers with persistent disk              |
+| Memory storage     | `remix/session/memory-storage` | Development and testing only                         |
+
+**Cookie security:**
+
+- Always provide `secrets` — session cookies must be signed to prevent tampering
+- Use `httpOnly: true` to prevent client-side JavaScript access
+- Use `secure: true` in production (HTTPS only)
+- Use `sameSite: "lax"` to prevent CSRF on cross-site requests
+
+**Secret rotation:** When rotating secrets, add the new secret to the beginning of the array. Existing cookies signed with old secrets can still be parsed, and new cookies will be signed with the new secret:
+
+```tsx
+let sessionCookie = createCookie("__session", {
+    secrets: [env.NEW_SECRET, env.OLD_SECRET], // New first, old second
+});
+```
+
+**Session security:** Regenerate the session ID after privilege changes (login, role change) to prevent session fixation attacks:
+
+```tsx
+session.regenerateId(); // New ID, keeps data
+session.regenerateId(true); // New ID, deletes old session data
+```
+
+**Destroying sessions (logout):**
+
+```tsx
+session.destroy(); // Clears all data, clears client cookie on next response
+```
+
+---
+
+### 34. How do I add authentication?
+
+**Decision:** How do I implement login/logout with session-based auth, and optionally external OAuth providers?
+
+**Heuristic:** Use `remix/auth` for the login flow (verifying credentials or handling OAuth callbacks) and `remix/auth-middleware` for protecting routes on subsequent requests. Auth forms should use standard `<form>` submissions for progressive enhancement — authentication must work without client-side JavaScript.
+
+**The auth middleware stack:**
+
+```tsx
+import { auth, createSessionAuthScheme, requireAuth } from "remix/auth-middleware";
+import { Session } from "remix/session";
+import { session } from "remix/session-middleware";
+
+let router = createRouter({
+    middleware: [
+        session(sessionCookie, sessionStorage),
+        formData(),
+        auth({
+            schemes: [
+                createSessionAuthScheme({
+                    // Read the auth record from the session
+                    read(session) {
+                        return session.get("auth") as { userId: string } | null;
+                    },
+                    // Verify the record is still valid (look up user)
+                    verify(value) {
+                        return users.getById(value.userId);
+                    },
+                    // Clean up on invalidation
+                    invalidate(session) {
+                        session.unset("auth");
+                    },
+                }),
+            ],
+        }),
+    ],
+});
+```
+
+**Credentials login (email/password):**
+
+```tsx
+import { completeAuth, createCredentialsAuthProvider, verifyCredentials } from "remix/auth";
+
+let passwordProvider = createCredentialsAuthProvider({
+    parse(context) {
+        let formData = context.get(FormData);
+        let { email, password } = s.parse(AuthSchema, formData);
+        return { email, password };
+    },
+    async verify({ email, password }) {
+        return await users.verifyPassword(email, password);
+    },
+});
+
+router.map(routes.auth.login.action, {
+    async handler(context) {
+        let user = await verifyCredentials(passwordProvider, context);
+
+        if (user === null) {
+            let session = context.get(Session);
+            session.flash("error", "Invalid email or password");
+            return redirect(routes.auth.login.href());
+        }
+
+        // Rotate session ID (prevents session fixation) and write auth record
+        let session = completeAuth(context);
+        session.set("auth", { userId: user.id });
+        return redirect(routes.dashboard.href());
+    },
+});
+```
+
+**The login form (progressive enhancement):**
+
+```tsx
+export function LoginForm() {
+    return (props: { error?: string }) => (
+        <form action={routes.auth.login.action.href()} method={routes.auth.login.action.method}>
+            {props.error && <p class="error">{props.error}</p>}
+            <label>
+                Email
+                <input name="email" type="email" required />
+            </label>
+            <label>
+                Password
+                <input name="password" type="password" required />
+            </label>
+            <button type="submit">Log in</button>
+        </form>
+    );
+}
+```
+
+This form works with JavaScript disabled — it's a standard HTML POST. No `clientEntry` needed for the basic flow.
+
+**Logout:**
+
+```tsx
+router.map(routes.auth.logout, {
+    handler({ get }) {
+        let session = get(Session);
+        session.unset("auth");
+        session.regenerateId(true); // Delete old session data
+        return redirect(routes.auth.login.href());
+    },
+});
+```
+
+The logout form is also a plain `<form method="POST">` — no JavaScript required:
+
+```tsx
+<form action={routes.auth.logout.href()} method={routes.auth.logout.method}>
+    <button type="submit">Log out</button>
+</form>
+```
+
+**Protecting routes:**
+
+```tsx
+import { Auth, requireAuth } from "remix/auth-middleware";
+import type { GoodAuth } from "remix/auth-middleware";
+
+router.map(routes.dashboard, {
+    middleware: [requireAuth()],
+    handler(context) {
+        let { identity } = context.get(Auth) as GoodAuth<User>;
+        return document(<Dashboard user={identity} />);
+    },
+});
+```
+
+`requireAuth()` returns `401 Unauthorized` by default. Customize with `onFailure` to redirect to login or return a frame-aware response:
+
+```tsx
+let requireLogin = requireAuth({
+    onFailure(context) {
+        let isFrame = context.request.headers.get("x-remix-frame") === "true";
+        if (isFrame) {
+            return frame(<p>Please log in</p>, { status: 401 });
+        }
+        return redirect(routes.auth.login.href());
+    },
+});
+```
+
+**External auth (OAuth/OIDC — e.g., Google):**
+
+```tsx
+import {
+    completeAuth,
+    createGoogleAuthProvider,
+    finishExternalAuth,
+    startExternalAuth,
+} from "remix/auth";
+
+let googleProvider = createGoogleAuthProvider({
+    clientId: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    redirectUri: new URL(routes.auth.google.callback.href(), process.env.APP_ORIGIN),
+});
+
+// Start the OAuth redirect
+router.map(routes.auth.google.login, {
+    handler: context =>
+        startExternalAuth(googleProvider, context, {
+            returnTo: context.url.searchParams.get("returnTo"),
+        }),
+});
+
+// Handle the callback
+router.map(routes.auth.google.callback, {
+    async handler(context) {
+        let { result, returnTo } = await finishExternalAuth(googleProvider, context);
+        let user = await users.upsertFromGoogle(result.profile);
+        let session = completeAuth(context);
+        session.set("auth", { userId: user.id });
+        return redirect(returnTo ?? routes.dashboard.href());
+    },
+});
+```
+
+**Built-in providers:** Google, Microsoft, Okta, Auth0 (OIDC); GitHub, Facebook, X (OAuth). Create providers at module scope for boot-time validation. For custom OIDC providers, use `createOIDCAuthProvider()`.
+
+**The external auth flow:**
+
+1. Create the provider once at module scope
+2. Call `startExternalAuth()` from the login route — redirects to the provider
+3. Call `finishExternalAuth()` from the callback route — validates the response
+4. Call `completeAuth(context)` to rotate the session ID
+5. Write your auth record and redirect
+
+**Multiple auth schemes:** The `auth()` middleware tries each scheme in order. Use this for APIs that accept both session cookies and bearer tokens:
+
+```tsx
+import { createBearerTokenAuthScheme, createSessionAuthScheme } from "remix/auth-middleware";
+
+auth({
+    schemes: [
+        createSessionAuthScheme({
+            /* ... */
+        }),
+        createBearerTokenAuthScheme({
+            async verify(token) {
+                return apiKeys.validate(token);
+            },
+        }),
+    ],
+});
+```
