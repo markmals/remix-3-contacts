@@ -58,7 +58,7 @@ export function UserProfile() {
 **Hydrated component** (ships JS to client):
 
 ```tsx
-export const LikeButton = clientEntry(import.meta.url, (handle: Handle) => {
+export let LikeButton = clientEntry(import.meta.url, (handle: Handle) => {
     let submitting = false;
     let liked!: boolean;
 
@@ -116,7 +116,7 @@ This works with JavaScript disabled. The browser POSTs, the server handles the a
 **Level 2 - Enhanced with `navigate()` (frame-targeted):**
 
 ```tsx
-export const EditButton = clientEntry(import.meta.url, () => {
+export let EditButton = clientEntry(import.meta.url, () => {
     return (props: { itemId: number }) => (
         <form
             action={routes.items.edit.href({ id: props.itemId })}
@@ -134,14 +134,25 @@ export const EditButton = clientEntry(import.meta.url, () => {
 
 The `target: "content"` tells the navigation system to only update the named frame, leaving the rest of the page untouched.
 
-**Level 3 - Fetch-based submission (optimistic UI, custom flow):**
+**Level 3 - Pre-submission guard (confirmation dialog):**
+
+```tsx
+mix={on("submit", event => {
+    if (!confirm("Delete this record?")) {
+        event.preventDefault();
+    }
+})}
+```
+
+Call `event.preventDefault()` to cancel the submission. If not cancelled, the form submits normally -- the client entry's navigate listener handles POSTing via `fetch` and following the redirect. You don't need to manage `fetch` yourself here.
+
+**Level 4 - Fetch-based submission (optimistic UI, custom response handling):**
 
 ```tsx
 mix={on("submit", async event => {
     event.preventDefault();
-    if (!confirm("Delete this record?")) return;
 
-    const response = await fetch(event.currentTarget.action, {
+    let response = await fetch(event.currentTarget.action, {
         method: "POST",
         body: new FormData(event.currentTarget, event.submitter),
     });
@@ -149,7 +160,7 @@ mix={on("submit", async event => {
 })}
 ```
 
-Use this when you need to intercept the response (e.g., follow the redirect URL yourself) or add pre-submission logic like confirmation dialogs.
+Use this when you need full control over the response (e.g., optimistic UI, reading response data, conditional redirects).
 
 **Method override for PUT/PATCH/DELETE:** HTML forms only support GET and POST. For other HTTP methods, use a hidden `_method` field with the `methodOverride()` middleware:
 
@@ -183,7 +194,7 @@ The `methodOverride()` middleware in your server entry reads `_method` from the 
 5. On failure: revert local state, call `handle.update()` again
 
 ```tsx
-export const LikeButton = clientEntry(import.meta.url, (handle: Handle) => {
+export let LikeButton = clientEntry(import.meta.url, (handle: Handle) => {
     let submitting = false;
     let liked!: boolean;
 
@@ -199,11 +210,11 @@ export const LikeButton = clientEntry(import.meta.url, (handle: Handle) => {
                     // 1. Optimistic update
                     liked = !liked;
                     submitting = true;
-                    const signal = await handle.update();
+                    let signal = await handle.update();
 
                     try {
                         // 2. Send to server
-                        const response = await fetch(event.currentTarget.action, {
+                        let response = await fetch(event.currentTarget.action, {
                             method: event.currentTarget.method,
                             body: new FormData(event.currentTarget, event.submitter),
                             signal,
@@ -247,7 +258,7 @@ export const LikeButton = clientEntry(import.meta.url, (handle: Handle) => {
 **The pattern:**
 
 ```tsx
-export const SearchInput = clientEntry(import.meta.url, (handle: Handle) => {
+export let SearchInput = clientEntry(import.meta.url, (handle: Handle) => {
     // Re-render when navigation state changes (for loading indicator)
     addEventListeners(navigating, handle.signal, {
         destinationchange() {
@@ -256,14 +267,14 @@ export const SearchInput = clientEntry(import.meta.url, (handle: Handle) => {
     });
 
     return (props: { query?: string }) => {
-        const searching = Boolean(navigating.to.url?.searchParams.has("q"));
+        let searching = Boolean(navigating.to.url?.searchParams.has("q"));
 
         return (
             <form method="GET">
                 <input
                     defaultValue={props.query ?? undefined}
                     mix={on("input", async event => {
-                        const url = new URL(location.href);
+                        let url = new URL(location.href);
 
                         if (!event.currentTarget.value.trim()) {
                             url.searchParams.delete("q");
@@ -271,7 +282,7 @@ export const SearchInput = clientEntry(import.meta.url, (handle: Handle) => {
                             url.searchParams.set("q", event.currentTarget.value);
                         }
 
-                        const isFirstSearch = new URL(location.href).searchParams.get("q") === null;
+                        let isFirstSearch = new URL(location.href).searchParams.get("q") === null;
 
                         navigate(url.toString(), {
                             target: "results",
@@ -344,7 +355,7 @@ navigate(url, { target: "content" });
 **Server-side frame detection:** The server knows which frame is being requested via the `x-remix-target` header. Your controller checks this to decide what to render:
 
 ```tsx
-const target = request.headers.get("x-remix-target");
+let target = request.headers.get("x-remix-target");
 
 if (target === "nav") return frame(<NavList items={items} />);
 if (target === "content") return frame(<ItemDetail item={item} />);
@@ -364,8 +375,8 @@ You'll typically build helper functions on top of these for your app's specific 
 renderToStream(<Document />, {
     frameSrc: context.url,
     async resolveFrame(src, target, ctx) {
-        const url = new URL(src, ctx?.currentFrameSrc ?? context.url);
-        const headers = new Headers({ accept: "text/html" });
+        let url = new URL(src, ctx?.currentFrameSrc ?? context.url);
+        let headers = new Headers({ accept: "text/html" });
         if (target) headers.set("x-remix-target", target);
         return (await router.fetch(new Request(url, { headers }))).body;
     },
@@ -385,7 +396,7 @@ renderToStream(<Document />, {
 ```tsx
 import { route, resources } from "remix/fetch-router/routes";
 
-export const routes = route({
+export let routes = route({
     home: "/",
     posts: {
         ...resources("/posts"),
@@ -431,7 +442,7 @@ router.map(routes.posts, postsController); // Maps all sub-routes to a controlle
 **Recommended middleware stack:**
 
 ```tsx
-export const router = createRouter({
+export let router = createRouter({
     middleware: [
         staticFiles("./public"), // 1. Serve static files (short-circuits)
         staticFiles("./dist/client"), // 2. Serve built client assets
@@ -527,17 +538,17 @@ import * as coerce from "remix/data-schema/coerce";
 import * as f from "remix/data-schema/form-data";
 
 // Search params: optional string
-const SearchSchema = f.object({
+let SearchSchema = f.object({
     q: f.field(s.union([s.string(), s.undefined_()])),
 });
 
 // Form data with coercion: string "true"/"false" -> boolean
-const ToggleSchema = f.object({
+let ToggleSchema = f.object({
     enabled: f.field(coerce.boolean()),
 });
 
 // Form data with defaults: missing fields become empty strings
-const ProfileSchema = f.object({
+let ProfileSchema = f.object({
     name: f.field(s.defaulted(s.string(), "")),
     email: f.field(s.defaulted(s.string(), "")),
     bio: f.field(s.defaulted(s.string(), "")),
@@ -548,11 +559,11 @@ const ProfileSchema = f.object({
 
 ```tsx
 // Parse search params (URLSearchParams)
-const { q } = s.parse(SearchSchema, context.url.searchParams);
+let { q } = s.parse(SearchSchema, context.url.searchParams);
 
 // Parse form data (FormData from request body)
-const { enabled } = s.parse(ToggleSchema, context.get(FormData));
-const profile = s.parse(ProfileSchema, context.get(FormData));
+let { enabled } = s.parse(ToggleSchema, context.get(FormData));
+let profile = s.parse(ProfileSchema, context.get(FormData));
 ```
 
 **Key concepts:**
@@ -577,19 +588,20 @@ The `Navigating` class wraps the browser's Navigation API and emits `destination
 
 ```tsx
 // lib/navigating.ts - a singleton
-export const navigating = new Navigating();
+export let navigating = new Navigating();
 ```
 
 It exposes:
 
 - `navigating.to.state` - `"idle"`, `"loading"`, or `"submitting"`
-- `navigating.to.url` - the destination URL (or `undefined` when idle)
-- `navigating.to.formData` - form data if submitting (or `undefined`)
+- `navigating.to.url` - the destination URL (or `null` when idle)
+- `navigating.to.formData` - form data if submitting (or `null`)
+- `navigating.from.url` - the URL that was active when the navigation started (or `null`)
 
 **Listening for navigation changes in a component:**
 
 ```tsx
-export const MyComponent = clientEntry(import.meta.url, (handle: Handle) => {
+export let MyComponent = clientEntry(import.meta.url, (handle: Handle) => {
     addEventListeners(navigating, handle.signal, {
         destinationchange() {
             handle.update();
@@ -597,7 +609,7 @@ export const MyComponent = clientEntry(import.meta.url, (handle: Handle) => {
     });
 
     return () => {
-        const isLoading = navigating.to.state === "loading";
+        let isLoading = navigating.to.state === "loading";
         return <div class={isLoading ? "loading" : ""}>...</div>;
     };
 });
@@ -606,11 +618,13 @@ export const MyComponent = clientEntry(import.meta.url, (handle: Handle) => {
 **Deriving pending state for specific items** (e.g., which list item is about to become active):
 
 ```tsx
-const destination = navigating.to.url ? matcher.match(navigating.to.url.href) : null;
-const isPending = Number(destination?.params.id) === item.id;
+let destination = navigating.to.url ? matcher.match(navigating.to.url.href) : null;
+let isPending = Number(destination?.params.id) === item.id;
 ```
 
 This avoids managing per-item loading state. The navigation destination tells you which item is being navigated to.
+
+**Idle values are `null`, not `undefined`:** When no navigation is in progress, `navigating.to.url` and `navigating.to.formData` are `null`. Use optional chaining (`navigating.to.url?.searchParams`) to safely access properties.
 
 **Server safety:** `Navigating` is safe to instantiate on the server -- it skips event listener registration when `typeof window === "undefined"`. Components can reference `navigating` without conditional imports, but should guard client-only logic with `isServer` checks.
 
@@ -620,58 +634,79 @@ This avoids managing per-item loading state. The navigation destination tells yo
 
 **Decision:** How do I set up client-side navigation that works with the frame system?
 
-**Heuristic:** The client entry (`entry.browser.ts`) sets up two things: the Remix runtime via `run()`, and navigation interception via the Navigation API. Both are required for SPA-like behavior.
+**Heuristic:** The client entry (`entry.browser.ts`) sets up three things in a specific order: a form submission listener, the Remix runtime via `run()`, and a focus-reset listener. The ordering matters because the Navigation API uses "last `intercept()` call wins" semantics for options like `focusReset`.
 
-**Client entry setup:**
-
-```tsx
-run({
-    async loadModule(moduleUrl, exportName) {
-        const mod = await import(/* @vite-ignore */ moduleUrl);
-        return mod[exportName];
-    },
-    async resolveFrame(src, signal, target) {
-        const headers = new Headers({ accept: "text/html", "x-remix-frame": "true" });
-        if (target) headers.set("x-remix-target", target);
-        const response = await fetch(src, { headers, signal });
-        return response.body ?? (await response.text());
-    },
-});
-```
-
-- `loadModule` tells the runtime how to dynamically import hydrated components
-- `resolveFrame` tells the runtime how to fetch frame content (with the right headers so the server knows it's a frame request)
-
-**Navigation interception:**
+**The three-phase client entry:**
 
 ```tsx
-navigation.addEventListener("navigate", event => {
+import { navigate, run } from "remix/component";
+
+// Phase 1: Form submission handler (before `run`)
+navigation.addEventListener("navigate", async event => {
     if (!event.canIntercept) return;
 
+    // Programmatic navigations: handled by built-in listener
+    if (!event.sourceElement) return;
+    // Anchors: handled by built-in listener
+    if (event.sourceElement.closest("a, area")) return;
+
+    // sourceElement is <button type="submit"> inside form submissions.
+    // Read rmx-* attributes from the button for frame targeting.
+    let target = event.sourceElement.getAttribute("rmx-target") ?? undefined;
+    let src = event.sourceElement.getAttribute("rmx-src") ?? undefined;
+    let resetScroll = event.sourceElement.hasAttribute("rmx-reset-scroll") ?? undefined;
+
+    // Form POST submission
     if (event.formData) {
-        // Form submissions: POST via fetch, navigate to redirect URL
         event.intercept({
             focusReset: "manual",
             async handler() {
-                const response = await fetch(event.destination.url, {
+                let response = await fetch(event.destination.url, {
                     method: "POST",
                     body: event.formData,
                     signal: event.signal,
                 });
-                navigate(response.url);
+                navigate(response.url, { target, src, resetScroll });
             },
         });
         return;
     }
 
-    // GET navigations: just prevent browser focus reset
-    if (event.navigationType !== "traverse") {
-        event.intercept({ focusReset: "manual" });
+    // Form GET submission
+    event.preventDefault();
+    navigate(event.destination.url, { target, src, resetScroll });
+});
+
+// Phase 2: Remix runtime
+run({
+    async loadModule(moduleUrl, exportName) {
+        let mod = await import(/* @vite-ignore */ moduleUrl);
+        return mod[exportName];
+    },
+    async resolveFrame(src, signal, target) {
+        let headers = new Headers({ accept: "text/html", "x-remix-frame": "true" });
+        if (target) headers.set("x-remix-target", target);
+        let response = await fetch(src, { headers, signal });
+        return response.body ?? (await response.text());
+    },
+});
+
+// Phase 3: Focus reset (after `run`, last intercept() call wins)
+navigation.addEventListener("navigate", event => {
+    if (!event.canIntercept || event.defaultPrevented || event.navigationType === "traverse") {
+        return;
     }
+    event.intercept({ focusReset: "manual" });
 });
 ```
 
-**Why `focusReset: "manual"`:** The browser's default behavior resets focus to the top of the page on navigation. Since frame updates only change part of the page, you want to manage focus yourself.
+**Why three phases:**
+
+1. **Phase 1 (before `run`):** Handles form submissions. Must register before `run()` so that `event.preventDefault()` on GET forms works before the Remix listener sees the event. Reads `rmx-target`, `rmx-src`, and `rmx-reset-scroll` from the submit button's attributes.
+2. **Phase 2 (`run`):** Initializes the Remix runtime — module loading for hydrated components and frame resolution for fetching frame content.
+3. **Phase 3 (after `run`):** Sets `focusReset: "manual"` for all non-traverse navigations. Registered last so its `intercept()` call wins, preventing the browser from resetting focus to the top of the page during frame updates.
+
+**Why `event.sourceElement`:** For form submissions triggered by a submit button, `event.sourceElement` is that `<button>`. This is how `rmx-*` attributes on form buttons work -- the listener reads them directly from the submitting element and passes them to `navigate()`.
 
 **Why traverse navigations are left alone:** Back/forward navigations are handled by the built-in Remix listener. Intercepting them again would conflict.
 
@@ -711,14 +746,14 @@ navigate(url, { history: "replace" });
 
 ```tsx
 import { createContextKey } from "remix/fetch-router";
-export const Database = createContextKey<DataTable>();
+export let Database = createContextKey<DataTable>();
 ```
 
 **Set it in middleware:**
 
 ```tsx
 export async function loadDatabase(): Promise<Middleware> {
-    const db = createDatabase(sqliteAdapter(new SQLite(":memory:")));
+    let db = createDatabase(sqliteAdapter(new SQLite(":memory:")));
     // ... setup (create tables, seed, etc.) ...
 
     return async (context, next) => {
@@ -732,11 +767,11 @@ export async function loadDatabase(): Promise<Middleware> {
 
 ```tsx
 // In a controller action:
-const db = context.get(Database);
+let db = context.get(Database);
 
 // In a utility function (via async context):
 import { getContext } from "remix/async-context-middleware";
-const db = getContext().get(Database);
+let db = getContext().get(Database);
 ```
 
 The `asyncContext()` middleware makes the request context available anywhere via `getContext()` without threading it through function arguments. This is especially useful in data access functions that are called from controllers but don't directly receive the request context.
@@ -766,7 +801,7 @@ For server-only components, the setup phase is minimal -- there's no persistent 
 **Hydrated component:**
 
 ```tsx
-export const SearchInput = clientEntry(import.meta.url, (handle: Handle) => {
+export let SearchInput = clientEntry(import.meta.url, (handle: Handle) => {
     // Setup: runs once on hydration
     addEventListeners(navigating, handle.signal, {
         destinationchange() {
@@ -776,7 +811,7 @@ export const SearchInput = clientEntry(import.meta.url, (handle: Handle) => {
 
     return (props: { query?: string }) => {
         // Render: runs on every update
-        const searching = Boolean(navigating.to.url?.searchParams.has("q"));
+        let searching = Boolean(navigating.to.url?.searchParams.has("q"));
         return <input defaultValue={props.query} />;
     };
 });
@@ -800,11 +835,13 @@ This is the islands architecture pattern: the server renders the full page, but 
 
 ---
 
-### 15. How do I use `rmx-target` for frame-targeted links?
+### 15. How do I use `rmx-*` attributes for declarative frame targeting?
 
-**Decision:** How do I make a plain `<a>` tag navigate within a specific frame?
+**Decision:** How do I target a specific frame from links and forms without writing JavaScript?
 
-**Heuristic:** Use the `rmx-target` attribute on links to target a named frame without any JavaScript:
+**Heuristic:** Use `rmx-*` attributes to declaratively control frame navigation. These work on both `<a>` tags and form `<button type="submit">` elements.
+
+**On links:**
 
 ```tsx
 <a href={routes.posts.show.href({ id: post.id })} rmx-target="content">
@@ -814,13 +851,33 @@ This is the islands architecture pattern: the server renders the full page, but 
 
 When the Remix client runtime intercepts this navigation, it reads the `rmx-target` attribute and passes it as the `target` parameter to `resolveFrame`. The server receives it as the `x-remix-target` header.
 
-This is the declarative equivalent of:
+**On form buttons:**
 
 ```tsx
-navigate(url, { target: "content" });
+<form action={routes.posts.create.href()} method="POST">
+    <button rmx-target="content" type="submit">
+        New
+    </button>
+</form>
 ```
 
-**Use `rmx-target` for links and `navigate()` with `target` for programmatic navigation.** They work identically under the hood.
+For form submissions, the client entry's navigate listener reads `rmx-*` attributes from `event.sourceElement` -- the submit button, not the `<form>`. This means a server-only form can target a specific frame without hydration.
+
+**Available attributes:**
+
+| Attribute          | Purpose                               | Example                      |
+| ------------------ | ------------------------------------- | ---------------------------- |
+| `rmx-target`       | Target a named frame                  | `rmx-target="content"`       |
+| `rmx-src`          | Override the frame content source URL | `rmx-src="/posts/sidebar"`   |
+| `rmx-reset-scroll` | Reset scroll position on frame update | `rmx-reset-scroll` (boolean) |
+
+All three are the declarative equivalents of the options you can pass to `navigate()`:
+
+```tsx
+navigate(url, { target: "content", src: "/posts/sidebar", resetScroll: true });
+```
+
+**Use `rmx-*` attributes for links and form buttons. Use `navigate()` with options for programmatic navigation.** They work identically under the hood.
 
 ---
 
@@ -832,7 +889,7 @@ navigate(url, { target: "content" });
 
 ```tsx
 async function renderPage(context, contentRenderer) {
-    const target = getContext().request.headers.get("x-remix-target");
+    let target = getContext().request.headers.get("x-remix-target");
 
     // A specific frame was targeted -- return just that frame's content
     if (target === "nav") {
@@ -857,36 +914,78 @@ async function renderPage(context, contentRenderer) {
 
 ---
 
-### 17. How should I define database tables and queries?
+### 17. How should I define database tables, migrations, and queries?
 
 **Decision:** How do I set up typed database access with `remix/data-table`?
 
-**Heuristic:** Define table schemas using `column` and `table`, derive TypeScript types with `TableRow`, and access the database through the request context.
+**Heuristic:** Define table schemas using `column` and `table`, derive TypeScript types with `TableRow`, use migration utilities to create tables, and access the database through the request context.
 
 **Table definition:**
 
 ```tsx
 import { column as c, table, type TableRow } from "remix/data-table";
 
-export const Posts = table({
+export let Posts = table({
     name: "posts",
     columns: {
         id: c.integer().primaryKey(),
         title: c.text().notNull(),
         body: c.text().notNull(),
         published: c.boolean().default(false),
-        createdAt: c.integer().notNull(),
+        createdAt: c.timestamp().defaultNow(),
     },
 });
 
 export type Post = TableRow<typeof Posts>;
 ```
 
+**Timestamp columns:** Use `c.timestamp().defaultNow()` for creation timestamps. The value is automatically populated on insert -- you don't need to pass it when creating records:
+
+```tsx
+// createdAt is filled in automatically
+let post = await db.create(Posts, { title: "Hello", body: "World" }, { returnRow: true });
+```
+
+**Migrations:** Use `remix/data-table/migrations` to create and manage tables. Migrations derive table structure from the `table()` definition, so the schema is defined once.
+
+```tsx
+import {
+    createMigration,
+    createMigrationRegistry,
+    createMigrationRunner,
+} from "remix/data-table/migrations";
+
+let createPosts = createMigration({
+    async up({ schema }) {
+        await schema.createTable(Posts);
+        await schema.createIndex(Posts, ["title", "createdAt"]);
+    },
+    async down({ schema }) {
+        await schema.dropTable(Posts, { ifExists: true });
+    },
+});
+```
+
+**Running migrations** in your database middleware:
+
+```tsx
+let registry = createMigrationRegistry();
+registry.register({
+    id: crypto.randomUUID(),
+    name: "create_posts",
+    migration: createPosts,
+});
+let runner = createMigrationRunner(adapter, registry);
+await runner.up();
+```
+
+`schema.createTable()` reads column definitions directly from the `table()` call, so you never write raw SQL for table creation. `schema.createIndex()` takes the table and an array of column names.
+
 **Query functions** access the database through context:
 
 ```tsx
 export async function getPosts(): Promise<Post[]> {
-    const db = getContext().get(Database);
+    let db = getContext().get(Database);
     return await db.findMany(Posts);
 }
 ```
@@ -895,7 +994,162 @@ export async function getPosts(): Promise<Post[]> {
 
 ---
 
-### 18. How do I handle redirects after mutations?
+### 18. How do I evolve my database schema over time?
+
+**Decision:** My app is already running in production and I need to add a column, rename a table, or make another schema change. How do I manage this?
+
+**Heuristic:** Use migration files -- one per schema change, timestamped and ordered. Each migration has an `up` (apply) and `down` (revert) function. A migration runner tracks which migrations have been applied in a journal table and only runs new ones.
+
+**Project structure:**
+
+```
+app/
+  db/
+    migrations/
+      20260228090000_create_posts.ts
+      20260315140000_add_published_at.ts
+      20260320100000_add_tags.ts
+    migrate.ts
+```
+
+Name each file as `YYYYMMDDHHmmss_name.ts`. The `id` and `name` are inferred from the filename. Each file default-exports a `createMigration(...)`.
+
+**Writing a migration that adds a column:**
+
+```tsx
+import { column as c } from "remix/data-table";
+import { createMigration } from "remix/data-table/migrations";
+import { Posts } from "../tables.ts";
+
+export default createMigration({
+    async up({ schema }) {
+        await schema.alterTable(Posts, table => {
+            table.addColumn("publishedAt", c.timestamp({ withTimezone: true }));
+        });
+    },
+    async down({ schema }) {
+        await schema.alterTable(Posts, table => {
+            table.dropColumn("publishedAt");
+        });
+    },
+});
+```
+
+**Other common `alterTable` operations:**
+
+```tsx
+await schema.alterTable(Posts, table => {
+    // Add columns
+    table.addColumn("subtitle", c.text());
+
+    // Drop columns
+    table.dropColumn("subtitle");
+
+    // Add keys and constraints
+    table.addPrimaryKey("id");
+    table.addForeignKey("author_id", "authors", "id");
+    table.addForeignKey(["tenant_id", "author_id"], "authors", ["tenant_id", "id"]);
+});
+```
+
+You can also run data migrations alongside schema changes using the `db` handle:
+
+```tsx
+import { sql } from "remix/data-table";
+
+export default createMigration({
+    async up({ db, schema }) {
+        await schema.alterTable(Posts, table => {
+            table.addColumn("status", c.text().notNull().default("draft"));
+        });
+
+        // Backfill: set existing published posts to "published"
+        await db.exec(sql`update posts set status = 'published' where published = true`);
+    },
+    async down({ schema }) {
+        await schema.alterTable(Posts, table => {
+            table.dropColumn("status");
+        });
+    },
+});
+```
+
+**Defensive checks:** Use `schema.hasTable()` and `schema.hasColumn()` when you need conditional behavior:
+
+```tsx
+async up({ schema }) {
+    if (await schema.hasColumn(Posts, "legacy_field")) {
+        await schema.alterTable(Posts, table => {
+            table.dropColumn("legacy_field");
+        });
+    }
+}
+```
+
+**Creating a runner script** (`app/db/migrate.ts`):
+
+```tsx
+import path from "node:path";
+import { createSqliteDatabaseAdapter as sqliteAdapter } from "remix/data-table-sqlite";
+import { createMigrationRunner } from "remix/data-table/migrations";
+import { loadMigrations } from "remix/data-table/migrations/node";
+
+let adapter = sqliteAdapter(/* your database connection */);
+let migrations = await loadMigrations(path.resolve("app/db/migrations"));
+let runner = createMigrationRunner(adapter, migrations);
+
+let direction = process.argv[2] === "down" ? "down" : "up";
+let result = direction === "up" ? await runner.up() : await runner.down();
+
+console.log(direction + " complete", {
+    applied: result.applied.map(entry => entry.id),
+    reverted: result.reverted.map(entry => entry.id),
+});
+```
+
+**Runner options:**
+
+| Option         | Purpose                                       | Example                                                                          |
+| -------------- | --------------------------------------------- | -------------------------------------------------------------------------------- |
+| `to`           | Migrate up/down to a specific migration ID    | `runner.up({ to: "20260315140000" })`                                            |
+| `step`         | Apply or revert a fixed number of migrations  | `runner.down({ step: 1 })`                                                       |
+| `dryRun`       | Compile and inspect SQL without applying      | `runner.up({ dryRun: true })`                                                    |
+| `journalTable` | Custom name for the migrations tracking table | `createMigrationRunner(adapter, migrations, { journalTable: "app_migrations" })` |
+
+```sh
+node ./app/db/migrate.ts up
+node ./app/db/migrate.ts up 20260315140000   # migrate to a specific version
+node ./app/db/migrate.ts down                # revert all
+node ./app/db/migrate.ts down 20260228090000 # revert to a specific version
+```
+
+**The development workflow:**
+
+When you need to change your schema, you update two things together in the same commit:
+
+1. **Update the `table()` definition** in your source code to reflect the desired schema (e.g., add the new column to the `columns` object)
+2. **Write a migration file** that transitions the database from the old schema to the new one (e.g., `schema.alterTable` with `table.addColumn`)
+
+The `table()` definition is the source of truth for what the schema looks like *now*. The migration file describes *how to get there* from the previous state. Both ship together in the same deploy.
+
+**At deploy time**, run migrations before starting the app:
+
+```sh
+node ./app/db/migrate.ts up && node ./server.ts
+```
+
+This ensures the database schema matches what the new code expects. The runner's journal table tracks which migrations have already been applied, so running `up` is always safe -- it only applies new migrations.
+
+**Key principles:**
+
+- **One migration per change:** Each migration should do one logical thing (add a column, create a table, backfill data). This keeps rollbacks predictable.
+- **Migrations are append-only:** Never edit a migration that has already been applied in production. Write a new migration instead.
+- **Table definition and migration in the same commit:** The `table()` definition describes the *current* state; the migration describes the *transition*. Shipping them together guarantees the code and database stay in sync.
+- **Use `dryRun` in CI:** Review generated SQL before deploying to catch dialect-specific issues.
+
+---
+
+### 19. How do I handle redirects after mutations?
 
 **Decision:** What should happen after a create/update/delete?
 
@@ -904,13 +1158,13 @@ export async function getPosts(): Promise<Post[]> {
 ```tsx
 // After create: redirect to the edit page for the new record
 async create() {
-    const id = await createPost();
+    let id = await createPost();
     return redirect(routes.posts.edit.href({ id }));
 }
 
 // After update: redirect to the show page
 async update(context) {
-    const data = s.parse(PostSchema, context.get(FormData));
+    let data = s.parse(PostSchema, context.get(FormData));
     await updatePost(Number(context.params.id), data);
     return redirect(routes.posts.show.href({ id: context.params.id }));
 }
@@ -928,8 +1182,8 @@ async destroy(context) {
 
 ```tsx
 async toggle(context) {
-    const { enabled } = s.parse(ToggleSchema, context.get(FormData));
-    const updated = await updateItem(Number(context.params.id), { enabled });
+    let { enabled } = s.parse(ToggleSchema, context.get(FormData));
+    let updated = await updateItem(Number(context.params.id), { enabled });
     return Response.json(updated);
 }
 ```
@@ -938,7 +1192,7 @@ The client handles the state update optimistically and doesn't need a redirect.
 
 ---
 
-### 19. How do I configure Vite+ for a Remix project?
+### 20. How do I configure Vite+ for a Remix project?
 
 **Decision:** What does my `vite.config.ts` need?
 
@@ -978,7 +1232,7 @@ export default defineConfig({
 
 ---
 
-### 20. How do I derive active/pending state for navigation items?
+### 21. How do I derive active/pending state for navigation items?
 
 **Decision:** How does a list item know if it's currently active or being navigated to?
 
@@ -988,22 +1242,72 @@ export default defineConfig({
 import { ArrayMatcher } from "remix/route-pattern";
 
 // Set up a matcher for the routes this item could match
-const matcher = new ArrayMatcher<true>();
-matcher.add(routes.posts.show.pattern.source, true);
-matcher.add(routes.posts.edit.pattern.source, true);
+let matcher = new ArrayMatcher<true>();
+matcher.add(routes.posts.show.pattern, true);
+matcher.add(routes.posts.edit.pattern, true);
 
 // In the render function:
-const currentMatch = !isServer ? matcher.match(window.location.href) : null;
-const isActive = Number(currentMatch?.params?.id ?? selected) === item.id;
+let currentMatch = !isServer ? matcher.match(location.href) : null;
+let isActive = Number(currentMatch?.params?.id ?? selected) === item.id;
 
 // Pending: destination matches this item but isn't the current page
-const destination = navigating.to.url ? matcher.match(navigating.to.url.href) : null;
-const isPending =
+let destination = navigating.to.url ? matcher.match(navigating.to.url.href) : null;
+let isPending =
     !isActive &&
-    navigating.to.url?.pathname !== window.location.pathname &&
+    navigating.to.url?.pathname !== location.pathname &&
     Number(destination?.params.id) === item.id;
 ```
 
 **Why derive from URL instead of props:** Frame-targeted navigations don't re-render components outside the targeted frame. A server-provided `selected` prop becomes stale after client-side navigation. Reading `window.location.href` directly gives the true current state.
 
 **The `selected` prop serves as a server fallback** for the initial render and non-JS environments. On the client, the URL-derived state takes precedence.
+
+---
+
+### 22. How do I update the document title during frame navigations?
+
+**Decision:** How do I change `<title>` when frame content changes without a full page load?
+
+**Heuristic:** When using frames, navigating between frame content doesn't trigger a full page load, so the `<title>` in `<head>` never changes. Use a hydrated `<Title>` component that sets `document.title` on both the server and the client.
+
+**The pattern:**
+
+```tsx
+import { clientEntry } from "remix/component";
+import { isServer } from "~/lib/navigating.ts";
+
+export let Title = clientEntry(import.meta.url, () => {
+    return ({ children }: { children: string | string[] }) => {
+        let title = Array.isArray(children) ? children.join("") : children;
+
+        if (isServer) {
+            // Inline script sets document.title during HTML parsing, before
+            // hydration JS loads, eliminating the flash of the default title.
+            return <script>{`document.title=${JSON.stringify(title)}`}</script>;
+        } else {
+            // Client title changes for when navigating between frames.
+            document.title = title;
+        }
+    };
+});
+```
+
+**Usage in frame content components:**
+
+```tsx
+export function PostDetail() {
+    return (props: { post: Post }) => (
+        <div>
+            <Title>{props.post.title} | My App</Title>
+            <h1>{props.post.title}</h1>
+        </div>
+    );
+}
+```
+
+**How it works:**
+
+- **Server:** Renders an inline `<script>` tag that sets `document.title` during HTML parsing. This runs before hydration JS loads, avoiding a flash of the default title set in `<head>`.
+- **Client:** Sets `document.title` directly during the render phase when navigating between frames.
+
+Place `<Title>` in any frame content component that should update the document title. The base `<title>` tag in your document's `<head>` serves as the default for initial load and no-JS environments.
