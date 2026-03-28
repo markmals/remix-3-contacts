@@ -1,7 +1,8 @@
-import fullstack from "@hiogawa/vite-plugin-fullstack";
 import type { Program } from "oxc-parser";
-import { parseSync } from "oxc-parser";
 import type { PluginOption } from "vite-plus";
+
+import fullstack from "@hiogawa/vite-plugin-fullstack";
+import { parseSync } from "oxc-parser";
 
 const CLIENT_ENTRY_PATTERN = /\bclientEntry\b/;
 
@@ -17,13 +18,18 @@ interface RolldownTransformMeta {
 }
 
 export function remix({
+    clientEntry = "app/entry.browser",
+    serverEntry = "app/entry.server",
     serverEnvironments: _environments = ["ssr"],
     serverHandler = true,
 }: {
+    clientEntry?: string | false;
+    serverEntry?: string;
     serverEnvironments?: string[];
     serverHandler?: boolean;
 } = {}): PluginOption {
     let environments = new Set(_environments);
+    let hasClientEntry = clientEntry !== false;
 
     return [
         fullstack({
@@ -34,24 +40,31 @@ export function remix({
             name: "remix-build",
             async buildApp(builder) {
                 await builder.build(builder.environments.ssr);
-                await builder.build(builder.environments.client);
+                if (hasClientEntry) {
+                    await builder.build(builder.environments.client);
+                }
             },
             config() {
                 return {
+                    build: {
+                        assetsInlineLimit: 0,
+                    },
                     environments: {
-                        client: {
-                            build: {
-                                outDir: "dist/client",
-                                rollupOptions: {
-                                    input: "app/entry.browser",
+                        ...(hasClientEntry && {
+                            client: {
+                                build: {
+                                    outDir: "dist/client",
+                                    rollupOptions: {
+                                        input: clientEntry || undefined,
+                                    },
                                 },
                             },
-                        },
+                        }),
                         ssr: {
                             build: {
                                 outDir: "dist/ssr",
                                 rollupOptions: {
-                                    input: "app/entry.server",
+                                    input: { index: serverEntry },
                                 },
                             },
                         },
@@ -63,10 +76,8 @@ export function remix({
             name: "remix-preview-server",
             async configurePreviewServer(server) {
                 let ssrOutDir = server.config.environments.ssr?.build?.outDir ?? "dist/ssr";
-                let entryPath = new URL(
-                    `${ssrOutDir}/entry.server.js`,
-                    `file://${server.config.root}/`,
-                ).href;
+                let entryPath = new URL(`${ssrOutDir}/index.js`, `file://${server.config.root}/`)
+                    .href;
 
                 let mod = await import(/* @vite-ignore */ entryPath);
                 let router = mod.default ?? mod.router;
