@@ -1,7 +1,9 @@
 import type { RemixNode } from "remix/component";
 import type { Controller, RequestContext } from "remix/fetch-router";
+
 import * as s from "remix/data-schema";
 import { redirect } from "remix/response/redirect";
+
 import { EditContact } from "~/components/EditContact.tsx";
 import { ShowContact } from "~/components/ShowContact.tsx";
 import { ZeroState } from "~/components/ZeroState.tsx";
@@ -14,6 +16,7 @@ import {
 } from "~/lib/database/contacts.ts";
 import { document, isDetailRequest, isSidebarRequest, frame, sidebar } from "~/lib/render.tsx";
 import { routes } from "~/routes.ts";
+
 import { FavoriteSchema, QuerySchema, UpdateSchema } from "./lib/schemas.ts";
 
 async function contactPage(

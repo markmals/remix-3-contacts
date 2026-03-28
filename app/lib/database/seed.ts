@@ -1,4 +1,5 @@
 import type { Database } from "remix/data-table";
+
 import { Contacts } from "./contacts.ts";
 
 const CONTACTS = [

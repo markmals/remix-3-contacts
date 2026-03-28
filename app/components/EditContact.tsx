@@ -1,8 +1,10 @@
-import { CancelButton } from "~/components/Buttons.tsx";
 import type { Contact } from "~/lib/database/contacts.ts";
-import { routes } from "~/routes.ts";
-import { Title } from "./Title.tsx";
+
+import { CancelButton } from "~/components/Buttons.tsx";
 import { SITE } from "~/lib/meta.ts";
+import { routes } from "~/routes.ts";
+
+import { Title } from "./Title.tsx";
 
 export function EditContact() {
     return (props: { contact: Contact }) => (

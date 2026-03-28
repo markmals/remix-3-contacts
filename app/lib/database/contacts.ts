@@ -1,8 +1,8 @@
-import { setTimeout as sleep } from "node:timers/promises";
-import { matchSorter } from "match-sorter";
-import { getContext } from "remix/async-context-middleware";
-import { column as c, table, type TableRow } from "remix/data-table";
 import { sortBy } from "es-toolkit/array";
+import { matchSorter } from "match-sorter";
+import { setTimeout as sleep } from "node:timers/promises";
+import { getContext } from "remix/async-context-middleware";
+import { column as c, ColumnBuilder, table, type TableRow } from "remix/data-table";
 import { Database } from "remix/data-table";
 
 export let Contacts = table({
@@ -15,7 +15,7 @@ export let Contacts = table({
         bsky: c.text().notNull(),
         notes: c.text().notNull(),
         favorite: c.boolean().default(false),
-        createdAt: c.timestamp().defaultNow(),
+        createdAt: c.timestamp().defaultNow() as ColumnBuilder<string>,
     },
 });
 

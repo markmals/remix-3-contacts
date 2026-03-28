@@ -1,4 +1,5 @@
 import { clientEntry, navigate, on } from "remix/component";
+
 import { routes } from "~/routes.ts";
 
 export let Favorite = clientEntry(import.meta.url, handle => {

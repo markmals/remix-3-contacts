@@ -1,9 +1,11 @@
+import type { Contact } from "~/lib/database/contacts.ts";
+
 import { DeleteButton } from "~/components/Buttons.tsx";
 import { Favorite } from "~/components/Favorite.tsx";
-import type { Contact } from "~/lib/database/contacts.ts";
-import { routes } from "~/routes.ts";
-import { Title } from "./Title.tsx";
 import { SITE } from "~/lib/meta.ts";
+import { routes } from "~/routes.ts";
+
+import { Title } from "./Title.tsx";
 
 const AVATAR_PLACEHOLDER =
     "https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png";

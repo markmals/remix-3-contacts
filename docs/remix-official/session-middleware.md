@@ -17,30 +17,30 @@ npm i remix
 ## Usage
 
 ```ts
-import { createRouter } from 'remix/fetch-router'
-import { createCookie } from 'remix/cookie'
-import { Session } from 'remix/session'
-import { createCookieSessionStorage } from 'remix/session/cookie-storage'
-import { session } from 'remix/session-middleware'
+import { createRouter } from "remix/fetch-router";
+import { createCookie } from "remix/cookie";
+import { Session } from "remix/session";
+import { createCookieSessionStorage } from "remix/session/cookie-storage";
+import { session } from "remix/session-middleware";
 
-let sessionCookie = createCookie('__session', {
-  secrets: ['s3cr3t'], // session cookies must be signed!
-  httpOnly: true,
-  secure: true,
-  sameSite: 'lax',
-})
+let sessionCookie = createCookie("__session", {
+    secrets: ["s3cr3t"], // session cookies must be signed!
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+});
 
-let sessionStorage = createCookieSessionStorage()
+let sessionStorage = createCookieSessionStorage();
 
 let router = createRouter({
-  middleware: [session(sessionCookie, sessionStorage)],
-})
+    middleware: [session(sessionCookie, sessionStorage)],
+});
 
-router.get('/', (context) => {
-  let session = context.get(Session)
-  session.set('count', Number(session.get('count') ?? 0) + 1)
-  return new Response(`Count: ${session.get('count')}`)
-})
+router.get("/", context => {
+    let session = context.get(Session);
+    session.set("count", Number(session.get("count") ?? 0) + 1);
+    return new Response(`Count: ${session.get("count")}`);
+});
 ```
 
 The middleware:

@@ -7,6 +7,7 @@ import {
     createMigrationRunner,
 } from "remix/data-table/migrations";
 import { type Middleware } from "remix/fetch-router";
+
 import { Contacts } from "./contacts.ts";
 import { seed } from "./seed.ts";
 

@@ -2,13 +2,14 @@ import { mergeAssets } from "@hiogawa/vite-plugin-fullstack/runtime";
 import { getContext } from "remix/async-context-middleware";
 import { Frame } from "remix/component";
 import * as s from "remix/data-schema";
-import clientAssets from "~/entry.browser.ts?assets=client";
+
 import { SearchBar } from "~/components/SearchBar.tsx";
+import clientAssets from "~/entry.browser.ts?assets=client";
 import serverAssets from "~/entry.server.tsx?assets=ssr";
-import { QuerySchema } from "~/lib/schemas.ts";
 import styles from "~/index.css?url";
-import { routes } from "~/routes.ts";
 import { SITE } from "~/lib/meta.ts";
+import { QuerySchema } from "~/lib/schemas.ts";
+import { routes } from "~/routes.ts";
 
 export function Document() {
     let { url } = getContext();

@@ -1,5 +1,6 @@
 import { addEventListeners, clientEntry, type SerializableProps } from "remix/component";
 import { ArrayMatcher } from "remix/route-pattern";
+
 import { isServer, navigating } from "~/lib/navigating.ts";
 import { routes } from "~/routes.ts";
 

@@ -1,4 +1,5 @@
 import { defineConfig } from "vite-plus";
+
 import { remix } from "./remix.plugin.ts";
 
 export default defineConfig({
@@ -16,7 +17,18 @@ export default defineConfig({
         printWidth: 100,
         tabWidth: 4,
         arrowParens: "avoid",
-        organizeImports: true,
+        sortImports: {
+            groups: [
+                "type-import",
+                ["value-builtin", "value-external"],
+                "type-internal",
+                "value-internal",
+                ["type-parent", "type-sibling", "type-index"],
+                ["value-parent", "value-sibling", "value-index"],
+                "unknown",
+            ],
+            partitionByComment: true,
+        },
     },
     lint: {
         options: {

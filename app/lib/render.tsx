@@ -1,12 +1,15 @@
-import { getContext } from "remix/async-context-middleware";
 import type { RemixNode } from "remix/component";
+
+import { getContext } from "remix/async-context-middleware";
 import { renderToStream } from "remix/component/server";
 import * as s from "remix/data-schema";
 import { createHtmlResponse as html } from "remix/response/html";
-import { SidebarItem } from "~/components/SidebarItem.tsx";
+
 import { Document } from "~/components/Document.tsx";
+import { SidebarItem } from "~/components/SidebarItem.tsx";
 import { router } from "~/entry.server.tsx";
 import { getContacts } from "~/lib/database/contacts.ts";
+
 import { QuerySchema } from "./schemas.ts";
 
 function frameTarget(): string | null {
