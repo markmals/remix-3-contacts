@@ -9,35 +9,35 @@
         "source.fixAll.oxc": "explicit",
         "source.fixAll": "explicit",
         "source.addMissingImports.ts": "explicit",
-        "source.removeUnused.ts": "never"
+        "source.removeUnused.ts": "never",
     },
     "editor.defaultFormatter": "oxc.oxc-vscode",
     "editor.formatOnSave": true,
     "editor.formatOnSaveMode": "file",
 
     "[typescript]": {
-        "editor.defaultFormatter": "oxc.oxc-vscode"
+        "editor.defaultFormatter": "oxc.oxc-vscode",
     },
     "[tsx]": {
-        "editor.defaultFormatter": "oxc.oxc-vscode"
+        "editor.defaultFormatter": "oxc.oxc-vscode",
     },
     "[javascript]": {
-        "editor.defaultFormatter": "oxc.oxc-vscode"
+        "editor.defaultFormatter": "oxc.oxc-vscode",
     },
     "[jsx]": {
-        "editor.defaultFormatter": "oxc.oxc-vscode"
+        "editor.defaultFormatter": "oxc.oxc-vscode",
     },
     "[css]": {
-        "editor.defaultFormatter": "oxc.oxc-vscode"
+        "editor.defaultFormatter": "oxc.oxc-vscode",
     },
     "[json]": {
-        "editor.defaultFormatter": "oxc.oxc-vscode"
+        "editor.defaultFormatter": "oxc.oxc-vscode",
     },
     "[jsonc]": {
-        "editor.defaultFormatter": "oxc.oxc-vscode"
+        "editor.defaultFormatter": "oxc.oxc-vscode",
     },
     "[markdown]": {
-        "editor.defaultFormatter": "oxc.oxc-vscode"
+        "editor.defaultFormatter": "oxc.oxc-vscode",
     },
 
     "explorer.fileNesting.enabled": true,
@@ -45,8 +45,10 @@
     "explorer.fileNesting.patterns": {
         "package.json": ".github*, .npmrc, .prettierignore, .vscode*, .node-version, biome.json*, bun.lock*, components.json, eslint.config.*, mise.toml, pnpm-*.yaml, prettier.config.*, tsconfig.*, wrangler.toml, wrangler.*.toml, wrangler.json*, wrangler.*.json, wrangler.*.jsonc, workspace.json",
         "readme*": "agent*, authors, backers*, changelog*, citation*, claude*, code_of_conduct*, codeowners, contributing*, contributors, copying, credits, governance.md, history.md, license*, maintainers, readme*, security.md, sponsors*",
-        "vite.config.*": "vitest.config.*, *.plugin.ts"
+        "vite.config.*": "vitest.config.*, *.plugin.ts",
     },
+
+    "npmx.ignore.vulnerability": ["@hiogawa/vite-plugin-fullstack@0.0.11"],
 
     "biome.enabled": false,
     "prettier.enable": false,
@@ -55,5 +57,5 @@
     "deno.enable": false,
     "unocss.disable": true,
     "vitest.disableWorkspaceWarning": true,
-    "vitest.ignoreWorkspace": true
+    "vitest.ignoreWorkspace": true,
 }

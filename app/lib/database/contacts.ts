@@ -2,7 +2,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { matchSorter } from "match-sorter";
 import { getContext } from "remix/async-context-middleware";
 import { column as c, table, type TableRow } from "remix/data-table";
-import sortBy from "sort-by";
+import { sortBy } from "es-toolkit/array";
 import { Database } from "./middleware.ts";
 
 export let Contacts = table({
@@ -31,7 +31,7 @@ export async function getContacts(query?: string): Promise<Contact[]> {
         contacts = matchSorter(contacts, query, { keys: ["first", "last"] });
     }
 
-    return contacts.toSorted(sortBy("last", "createdAt"));
+    return sortBy(contacts, ["last", "createdAt"]);
 }
 
 export async function createContact(): Promise<number> {
