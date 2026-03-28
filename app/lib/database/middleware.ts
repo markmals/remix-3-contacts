@@ -1,16 +1,14 @@
 import SQLite from "better-sqlite3";
-import { createDatabase, type Database as DataTable } from "remix/data-table";
+import { Database } from "remix/data-table";
 import { createSqliteDatabaseAdapter as sqliteAdapter } from "remix/data-table-sqlite";
 import {
     createMigration,
     createMigrationRegistry,
     createMigrationRunner,
 } from "remix/data-table/migrations";
-import { createContextKey, type Middleware } from "remix/fetch-router";
+import { type Middleware } from "remix/fetch-router";
 import { Contacts } from "./contacts.ts";
 import { seed } from "./seed.ts";
-
-export let Database = createContextKey<DataTable>();
 
 let createContacts = createMigration({
     async up({ schema }) {
@@ -25,7 +23,7 @@ let createContacts = createMigration({
 export async function loadDatabase(): Promise<Middleware> {
     let sqlite = new SQLite(":memory:");
     let adapter = sqliteAdapter(sqlite);
-    let db = createDatabase(adapter);
+    let db = new Database(adapter);
 
     // Initialize table using migration helpers
     let registry = createMigrationRegistry();

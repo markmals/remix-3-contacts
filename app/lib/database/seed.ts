@@ -1,4 +1,4 @@
-import type { Database as DataTable } from "remix/data-table";
+import type { Database } from "remix/data-table";
 import { Contacts } from "./contacts.ts";
 
 const CONTACTS = [
@@ -34,7 +34,7 @@ const CONTACTS = [
     },
 ];
 
-export async function seed(db: DataTable) {
+export async function seed(db: Database) {
     await db.deleteMany(Contacts, {
         where: {},
     });

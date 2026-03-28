@@ -3,7 +3,7 @@ import { matchSorter } from "match-sorter";
 import { getContext } from "remix/async-context-middleware";
 import { column as c, table, type TableRow } from "remix/data-table";
 import { sortBy } from "es-toolkit/array";
-import { Database } from "./middleware.ts";
+import { Database } from "remix/data-table";
 
 export let Contacts = table({
     name: "contacts",
