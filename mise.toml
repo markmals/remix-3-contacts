@@ -1,5 +1,9 @@
+[plugins]
+vite-plus = "https://github.com/markmals/mise-vite-plus"
+
 [tools]
 bun = "latest"
+vite-plus = "latest"
 
 [env]
 _.path = [
@@ -24,7 +28,7 @@ bun install
 
 [tasks.dev]
 description = "Run the development server"
-run = "vp dev --host"
+run = "bunx --bun vp dev --host"
 
 [tasks.build]
 description = "Build the app"
@@ -36,12 +40,12 @@ sources = [
     "app/**/*.{ts,tsx,css}",
 ]
 outputs = ["build"]
-run = "vp build"
+run = "bunx --bun vp build"
 
 [tasks.preview]
 description = "Preview the built application"
 depends = "build"
-run = "vp preview"
+run = "bunx --bun vp preview"
 
 [tasks.fmt]
 description = "Format the entire project"
