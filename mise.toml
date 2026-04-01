@@ -47,6 +47,11 @@ description = "Preview the built application"
 depends = "build"
 run = "bunx --bun vp preview"
 
+[tasks.serve]
+description = "Serve the production application"
+depends = "build"
+run = "bun run server.ts"
+
 [tasks.fmt]
 description = "Format the entire project"
 run = "vp fmt"

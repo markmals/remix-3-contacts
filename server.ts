@@ -1,35 +1,21 @@
-import * as http from "node:http";
-import { createRequestListener } from "remix/node-fetch-server";
+import { serve } from "bun";
 
-import { router } from "./dist/ssr/entry.server.js";
+import { router } from "./dist/ssr/index.js";
 
-let server = http.createServer(
-    createRequestListener(request => router.fetch(request), {
-        onError(error) {
-            // Client disconnects mid-stream cause AbortErrors — not actionable
-            if (error instanceof DOMException && error.name === "AbortError") {
-                return new Response(null, { status: 499 });
-            }
-            console.error(error);
-            return new Response("Internal Server Error", { status: 500 });
-        },
-    }),
-);
-
-let port = process.env.PORT ? Number.parseInt(process.env.PORT, 10) : 1612;
-
-server.listen(port, () => {
-    console.log(`Contacts demo is running on http://localhost:${port}`);
+let server = serve({
+    port: process.env.PORT || 1612,
+    fetch: request => router.fetch(request),
 });
+
+console.log(`Contacts demo is running on ${server.url}`);
 
 let shuttingDown = false;
 
-function shutdown() {
+async function shutdown() {
     if (shuttingDown) return;
     shuttingDown = true;
-    server.close(() => {
-        process.exit(0);
-    });
+    await server.stop();
+    process.exit(0);
 }
 
 process.on("SIGINT", shutdown);
