@@ -38,14 +38,16 @@ export function remix({
         }),
         {
             name: "remix-build",
-            async buildApp(builder) {
-                await builder.build(builder.environments.ssr);
-                if (hasClientEntry) {
-                    await builder.build(builder.environments.client);
-                }
-            },
             config() {
                 return {
+                    builder: {
+                        async buildApp(builder) {
+                            await builder.build(builder.environments.ssr);
+                            if (hasClientEntry) {
+                                await builder.build(builder.environments.client);
+                            }
+                        },
+                    },
                     build: {
                         assetsInlineLimit: 0,
                     },

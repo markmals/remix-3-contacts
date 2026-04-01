@@ -17,6 +17,7 @@ export default defineConfig({
         printWidth: 100,
         tabWidth: 4,
         arrowParens: "avoid",
+        sortPackageJson: true,
         sortImports: {
             groups: [
                 "type-import",
