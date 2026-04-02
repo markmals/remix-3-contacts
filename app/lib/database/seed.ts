@@ -48,7 +48,7 @@ export async function seed(db: Database) {
             bsky: contact.bsky,
             notes: "",
             favorite: false,
-            createdAt: Date.now(),
+            createdAt: `${Date.now()}`,
         });
     }
 }

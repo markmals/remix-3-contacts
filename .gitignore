@@ -5,3 +5,6 @@
 
 # Vite
 /dist
+
+# Cloudflare
+.wrangler

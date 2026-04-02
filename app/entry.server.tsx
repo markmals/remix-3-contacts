@@ -8,6 +8,7 @@ import { ZeroState } from "~/components/ZeroState.tsx";
 
 import contacts from "./contacts.tsx";
 import { loadDatabase } from "./lib/database/middleware.ts";
+import { provideEnv } from "./lib/env.ts";
 import { document, isDetailRequest, isSidebarRequest, frame, sidebar } from "./lib/render.tsx";
 import { routes } from "./routes.ts";
 
@@ -18,7 +19,7 @@ export let router = createRouter({
         formData(),
         methodOverride(),
         asyncContext(),
-        await loadDatabase(),
+        loadDatabase(),
     ],
 });
 
@@ -29,7 +30,11 @@ router.map(routes.home, async () => {
 });
 router.map(routes.contacts, contacts);
 
-export default router;
+export default {
+    async fetch(request, env) {
+        return provideEnv(request, env, router);
+    },
+} satisfies ExportedHandler<Env>;
 
 if (import.meta.hot) {
     import.meta.hot.accept();

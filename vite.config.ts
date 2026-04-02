@@ -1,9 +1,10 @@
+import { cloudflare } from "@cloudflare/vite-plugin";
 import { defineConfig } from "vite-plus";
 
 import { remix } from "./remix.plugin.ts";
 
 export default defineConfig({
-    plugins: [remix()],
+    plugins: [remix({ serverHandler: false }), cloudflare({ viteEnvironment: { name: "ssr" } })],
     server: {
         port: 1612,
     },
@@ -13,10 +14,30 @@ export default defineConfig({
     resolve: {
         tsconfigPaths: true,
     },
+    run: {
+        tasks: {
+            deploy: {
+                command: "wrangler deploy",
+            },
+            typegen: {
+                command: "wrangler types",
+            },
+            typecheck: {
+                dependsOn: ["typegen"],
+                command: "tsgo --noEmit",
+            },
+            check: {
+                dependsOn: ["typegen"],
+                command: "vp check --fix",
+            },
+        },
+    },
     fmt: {
+        ignorePatterns: ["**/worker-configuration.d.ts", "dist/**"],
         printWidth: 100,
         tabWidth: 4,
         arrowParens: "avoid",
+        sortPackageJson: true,
         sortImports: {
             groups: [
                 "type-import",
@@ -29,8 +50,23 @@ export default defineConfig({
             ],
             partitionByComment: true,
         },
+        overrides: [
+            {
+                files: ["**/*.jsonc"],
+                options: {
+                    trailingComma: "none",
+                },
+            },
+            {
+                files: ["**/.vscode/**"],
+                options: {
+                    trailingComma: "all",
+                },
+            },
+        ],
     },
     lint: {
+        ignorePatterns: ["**/worker-configuration.d.ts", "dist/**"],
         options: {
             typeAware: true,
             typeCheck: true,
