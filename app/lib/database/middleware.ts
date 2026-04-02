@@ -1,5 +1,6 @@
-import { SQL } from "bun";
+import SQLite from "better-sqlite3";
 import { Database } from "remix/data-table";
+import { createSqliteDatabaseAdapter as sqliteAdapter } from "remix/data-table-sqlite";
 import {
     createMigration,
     createMigrationRegistry,
@@ -7,7 +8,6 @@ import {
 } from "remix/data-table/migrations";
 import { type Middleware } from "remix/fetch-router";
 
-import { createBunSqlDatabaseAdapter as bunAdapter } from "./adapter.ts";
 import { Contacts } from "./contacts.ts";
 import { seed } from "./seed.ts";
 
@@ -22,8 +22,8 @@ let createContacts = createMigration({
 });
 
 export async function loadDatabase(): Promise<Middleware> {
-    let sql = new SQL("sqlite://:memory:");
-    let adapter = bunAdapter(sql, { dialect: "sqlite" });
+    let sqlite = new SQLite(":memory:");
+    let adapter = sqliteAdapter(sqlite);
     let db = new Database(adapter);
 
     // Initialize table using migration helpers
