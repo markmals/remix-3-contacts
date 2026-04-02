@@ -1,10 +1,15 @@
 import { cloudflare } from "@cloudflare/vite-plugin";
+import devtoolsJson from "vite-plugin-devtools-json";
 import { defineConfig } from "vite-plus";
 
 import { remix } from "./remix.plugin.ts";
 
 export default defineConfig({
-    plugins: [remix({ serverHandler: false }), cloudflare({ viteEnvironment: { name: "ssr" } })],
+    plugins: [
+        remix({ serverHandler: false }),
+        cloudflare({ viteEnvironment: { name: "ssr" } }),
+        devtoolsJson(),
+    ],
     server: {
         port: 1612,
     },
@@ -16,10 +21,8 @@ export default defineConfig({
     },
     run: {
         tasks: {
-            deploy: {
-                command: "wrangler deploy",
-            },
             typegen: {
+                input: ["wrangler.jsonc"],
                 command: "wrangler types",
             },
             typecheck: {
@@ -29,6 +32,10 @@ export default defineConfig({
             check: {
                 dependsOn: ["typegen"],
                 command: "vp check --fix",
+            },
+            deploy: {
+                command: "wrangler deploy",
+                cache: false,
             },
         },
     },
