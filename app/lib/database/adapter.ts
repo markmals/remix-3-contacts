@@ -90,7 +90,10 @@ export class D1DatabaseAdapter implements DatabaseAdapter {
     async migrate(request: DataMigrationRequest): Promise<DataMigrationResult> {
         let statements = this.compileSql(request.operation);
         for (let statement of statements) {
-            await this.#d1.prepare(statement.text).bind(...statement.values).run();
+            await this.#d1
+                .prepare(statement.text)
+                .bind(...statement.values)
+                .run();
         }
         return { affectedOperations: statements.length };
     }
@@ -112,9 +115,7 @@ export class D1DatabaseAdapter implements DatabaseAdapter {
         _transaction?: TransactionToken,
     ): Promise<boolean> {
         let result = await this.#d1
-            .prepare(
-                "select name from pragma_table_info(" + quoteIdentifier(table.name) + ")",
-            )
+            .prepare("select name from pragma_table_info(" + quoteIdentifier(table.name) + ")")
             .all();
         return (result.results as Record<string, unknown>[]).some(row => row.name === column);
     }
@@ -158,21 +159,13 @@ function quoteIdentifier(value: string): string {
 }
 
 function isReaderOperation(operation: DataManipulationOperation): boolean {
-    if (
-        operation.kind === "select" ||
-        operation.kind === "count" ||
-        operation.kind === "exists"
-    ) {
+    if (operation.kind === "select" || operation.kind === "count" || operation.kind === "exists") {
         return true;
     }
     // Raw SQL: inspect the statement text to determine read vs write
     if (operation.kind === "raw") {
         let text = operation.sql.text.trimStart().toLowerCase();
-        return (
-            text.startsWith("select") ||
-            text.startsWith("pragma") ||
-            text.startsWith("explain")
-        );
+        return text.startsWith("select") || text.startsWith("pragma") || text.startsWith("explain");
     }
     // Write operations with a RETURNING clause produce rows
     if ("returning" in operation && operation.returning) {
