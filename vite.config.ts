@@ -21,6 +21,16 @@ export default defineConfig({
     },
     run: {
         tasks: {
+            dev: {
+                dependsOn: ["typegen", "db:seed"],
+                command: "vp dev --host",
+            },
+            "db:seed": {
+                command: "node scripts/seed.ts",
+            },
+            "db:create": {
+                command: "node scripts/create-contacts.ts",
+            },
             typegen: {
                 input: ["wrangler.jsonc"],
                 command: "wrangler types",

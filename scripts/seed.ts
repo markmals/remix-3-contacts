@@ -1,6 +1,9 @@
-import type { Database } from "remix/data-table";
+import { Database } from "remix/data-table";
+import { getPlatformProxy } from "wrangler";
 
-import { Contacts } from "./contacts.ts";
+import { createD1DatabaseAdapter as d1Adapter } from "../app/lib/database/adapter.ts";
+import { Contacts } from "../app/lib/database/contacts.ts";
+import { createContactsTable } from "./create-contacts.ts";
 
 const CONTACTS = [
     {
@@ -35,20 +38,33 @@ const CONTACTS = [
     },
 ];
 
-export async function seed(db: Database) {
-    await db.deleteMany(Contacts, {
-        where: {},
-    });
+let proxy = await getPlatformProxy<Env>({
+    configPath: "./wrangler.jsonc",
+    persist: true,
+});
 
-    for (let contact of CONTACTS) {
-        await db.create(Contacts, {
-            first: contact.first,
-            last: contact.last,
-            avatar: contact.avatar,
-            bsky: contact.bsky,
-            notes: "",
-            favorite: false,
-            createdAt: `${Date.now()}`,
-        });
-    }
+let adapter = d1Adapter(proxy.env.DB);
+let db = new Database(adapter);
+
+await createContactsTable(adapter);
+
+await db.deleteMany(Contacts, {
+    where: {},
+});
+
+for (let contact of CONTACTS) {
+    await db.create(Contacts, {
+        first: contact.first,
+        last: contact.last,
+        avatar: contact.avatar,
+        bsky: contact.bsky,
+        notes: "",
+        favorite: false,
+        createdAt: `${Date.now()}`,
+    });
 }
+
+console.log("Seeded database");
+
+await proxy.dispose();
+process.exit(0);
