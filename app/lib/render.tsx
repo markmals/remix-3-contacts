@@ -1,4 +1,5 @@
 import type { RemixNode } from "remix/component";
+import type { RequestContext } from "remix/fetch-router";
 
 import { getContext } from "remix/async-context-middleware";
 import { renderToStream } from "remix/component/server";
@@ -12,16 +13,10 @@ import { getContacts } from "~/lib/database/contacts.ts";
 
 import { QuerySchema } from "./schemas.ts";
 
-function frameTarget(): string | null {
-    return getContext().request.headers.get("x-remix-target");
-}
+type FrameName = "detail" | "sidebar";
 
-export function isDetailRequest(): boolean {
-    return frameTarget() === "detail";
-}
-
-export function isSidebarRequest(): boolean {
-    return frameTarget() === "sidebar";
+export function isFrame(context: RequestContext, name: FrameName): boolean {
+    return context.request.headers.get("x-remix-target") === name;
 }
 
 export async function sidebar(selected?: string | number): Promise<Response> {

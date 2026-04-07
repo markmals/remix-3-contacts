@@ -14,23 +14,23 @@ import {
     getContact,
     updateContact,
 } from "~/lib/database/contacts.ts";
-import { document, isDetailRequest, isSidebarRequest, frame, sidebar } from "~/lib/render.tsx";
+import { document, isFrame, frame, sidebar } from "~/lib/render.tsx";
 import { routes } from "~/routes.ts";
 
 import { FavoriteSchema, QuerySchema, UpdateSchema } from "./lib/schemas.ts";
 
 async function contactPage(
-    context: RequestContext<{ id: string }>,
+    ctx: RequestContext<{ id: string }>,
     detail: (contact: Contact) => RemixNode,
 ) {
-    if (!context.params.id) {
+    if (!ctx.params.id) {
         return redirect(routes.home.href());
     }
 
-    if (isSidebarRequest()) return await sidebar(context.params.id);
+    if (isFrame(ctx, "sidebar")) return await sidebar(ctx.params.id);
 
-    if (isDetailRequest()) {
-        let contact = await getContact(Number(context.params.id));
+    if (isFrame(ctx, "detail")) {
+        let contact = await getContact(Number(ctx.params.id));
         if (!contact) return frame(<ZeroState />);
         return frame(detail(contact));
     }
@@ -40,41 +40,39 @@ async function contactPage(
 
 export default {
     actions: {
-        async show(context) {
-            let { q } = s.parse(QuerySchema, context.url.searchParams);
-            return await contactPage(context, contact => (
-                <ShowContact contact={contact} query={q} />
-            ));
+        async show(ctx) {
+            let { q } = s.parse(QuerySchema, ctx.url.searchParams);
+            return await contactPage(ctx, contact => <ShowContact contact={contact} query={q} />);
         },
-        async edit(context) {
-            return await contactPage(context, contact => <EditContact contact={contact} />);
+        async edit(ctx) {
+            return await contactPage(ctx, contact => <EditContact contact={contact} />);
         },
         async create() {
             let id = await createContact();
             return redirect(routes.contacts.edit.href({ id }));
         },
-        async destroy(context) {
-            await deleteContact(Number(context.params.id));
+        async destroy(ctx) {
+            await deleteContact(Number(ctx.params.id));
             return redirect(routes.home.href());
         },
-        async favorite(context) {
-            let { favorite } = s.parse(FavoriteSchema, context.get(FormData));
-            let update = await updateContact(Number(context.params.id), {
+        async favorite(ctx) {
+            let { favorite } = s.parse(FavoriteSchema, ctx.get(FormData));
+            let update = await updateContact(Number(ctx.params.id), {
                 favorite,
             });
             return Response.json(update);
         },
-        async update(context) {
-            let contact = await getContact(Number(context.params.id));
+        async update(ctx) {
+            let contact = await getContact(Number(ctx.params.id));
 
             if (!contact) {
                 return redirect(routes.home.href());
             }
 
-            let updates = s.parse(UpdateSchema, context.get(FormData));
-            await updateContact(Number(context.params.id), updates);
+            let updates = s.parse(UpdateSchema, ctx.get(FormData));
+            await updateContact(Number(ctx.params.id), updates);
 
-            return redirect(routes.contacts.show.href({ id: context.params.id }));
+            return redirect(routes.contacts.show.href({ id: ctx.params.id }));
         },
     },
 } satisfies Controller<typeof routes.contacts>;

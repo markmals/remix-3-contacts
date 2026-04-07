@@ -8,8 +8,7 @@ import { ZeroState } from "~/components/ZeroState.tsx";
 
 import contacts from "./contacts.tsx";
 import { loadDatabase } from "./lib/database/middleware.ts";
-import { provideEnv } from "./lib/env.ts";
-import { document, isDetailRequest, isSidebarRequest, frame, sidebar } from "./lib/render.tsx";
+import { document, isFrame, frame, sidebar } from "./lib/render.tsx";
 import { routes } from "./routes.ts";
 
 export let router = createRouter({
@@ -23,18 +22,15 @@ export let router = createRouter({
     ],
 });
 
-router.map(routes.home, async () => {
-    if (isSidebarRequest()) return await sidebar();
-    if (isDetailRequest()) return frame(<ZeroState />);
+router.map(routes.home, async ctx => {
+    if (isFrame(ctx, "sidebar")) return await sidebar();
+    if (isFrame(ctx, "detail")) return frame(<ZeroState />);
     return document();
 });
+
 router.map(routes.contacts, contacts);
 
-export default {
-    async fetch(request, env) {
-        return provideEnv(request, env, router);
-    },
-} satisfies ExportedHandler<Env>;
+export default router;
 
 if (import.meta.hot) {
     import.meta.hot.accept();
