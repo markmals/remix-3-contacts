@@ -1,6 +1,7 @@
 import type { Contact } from "#/data/contacts.ts";
 
 import { CancelButton } from "#/components/Buttons.tsx";
+import { ALLOWED_TYPES } from "#/controllers/uploads.ts";
 import { SITE } from "#/data/meta.ts";
 import { routes } from "#/routes.ts";
 
@@ -19,7 +20,7 @@ export function EditContact() {
                 id="contact-form"
                 method={routes.contacts.update.method}
             >
-                <p>
+                <label>
                     <span>Name</span>
                     <input
                         aria-label="First name"
@@ -35,7 +36,7 @@ export function EditContact() {
                         type="text"
                         value={props.contact.last || undefined}
                     />
-                </p>
+                </label>
 
                 <label>
                     <span>Bluesky</span>
@@ -49,14 +50,24 @@ export function EditContact() {
 
                 <label>
                     <span>Avatar</span>
-                    {props.contact.avatar ? (
+                    <div id="contact-form-avatar">
                         <img
                             alt="Current avatar"
-                            src={props.contact.avatar}
-                            style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin-bottom: 0.5rem;"
+                            src={
+                                props.contact.avatar ||
+                                "https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png"
+                            }
                         />
-                    ) : null}
-                    <input accept="image/*" name="avatar" type="file" />
+                        <label class="avatar-upload">
+                            <input
+                                accept={ALLOWED_TYPES.join(",")}
+                                hidden
+                                name="avatar"
+                                type="file"
+                            />
+                            <span>Choose Photo</span>
+                        </label>
+                    </div>
                 </label>
 
                 <label>
