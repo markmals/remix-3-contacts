@@ -2,10 +2,11 @@ import type { Contact } from "~/lib/database/contacts.ts";
 
 import { DeleteButton } from "~/components/Buttons.tsx";
 import { Favorite } from "~/components/Favorite.tsx";
-import { Frame } from "~/lib/frame.tsx";
+import { link } from "~/lib/frame.tsx";
 import { SITE } from "~/lib/meta.ts";
 import { routes } from "~/routes.ts";
 
+import { RestfulForm } from "./RestfulForm.tsx";
 import { Title } from "./Title.tsx";
 
 const AVATAR_PLACEHOLDER =
@@ -57,17 +58,17 @@ export function ShowContact() {
                         {props.contact.notes ? <p>{props.contact.notes}</p> : null}
 
                         <div>
-                            <form
+                            <RestfulForm
                                 action={routes.contacts.edit.href(
                                     { id: props.contact.id },
                                     { q: props.query },
                                 )}
-                                method="GET"
+                                method={routes.contacts.edit.method}
                             >
-                                <Frame.Button rmx:target="detail" type="submit">
+                                <button mix={link({ target: "detail" })} type="submit">
                                     Edit
-                                </Frame.Button>
-                            </form>
+                                </button>
+                            </RestfulForm>
                             <DeleteButton contactId={props.contact.id} />
                         </div>
                     </div>

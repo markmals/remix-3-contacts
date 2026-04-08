@@ -15,7 +15,7 @@ import {
     getContact,
     updateContact,
 } from "~/lib/database/contacts.ts";
-import { frame, Frame } from "~/lib/frame.tsx";
+import { createFrameResponse as frame, Frame } from "~/lib/frame.tsx";
 import { document, sidebar } from "~/lib/render.tsx";
 import { FavoriteSchema, QuerySchema, UpdateSchema } from "~/lib/schemas.ts";
 import { routes } from "~/routes.ts";

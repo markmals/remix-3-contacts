@@ -4,6 +4,7 @@ import { CancelButton } from "~/components/Buttons.tsx";
 import { SITE } from "~/lib/meta.ts";
 import { routes } from "~/routes.ts";
 
+import { RestfulForm } from "./RestfulForm.tsx";
 import { Title } from "./Title.tsx";
 
 export function EditContact() {
@@ -12,13 +13,11 @@ export function EditContact() {
             <Title>
                 Edit {props.contact.first} {props.contact.last} | {SITE.title}
             </Title>
-            <form
+            <RestfulForm
                 action={routes.contacts.update.href({ id: props.contact.id })}
                 id="contact-form"
-                method="POST"
+                method={routes.contacts.update.method}
             >
-                <input name="_method" type="hidden" value={routes.contacts.update.method} />
-
                 <p>
                     <span>Name</span>
                     <input
@@ -67,7 +66,7 @@ export function EditContact() {
                     <button type="submit">Save</button>
                     <CancelButton />
                 </p>
-            </form>
+            </RestfulForm>
         </div>
     );
 }

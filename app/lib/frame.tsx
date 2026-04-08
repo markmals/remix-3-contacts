@@ -1,6 +1,6 @@
 import type { Middleware } from "remix/fetch-router";
 
-import { Frame as RemixFrame, type RemixNode } from "remix/component";
+import { createMixin, Frame as RemixFrame, type RemixNode } from "remix/component";
 import { renderToStream } from "remix/component/server";
 import * as s from "remix/data-schema";
 
@@ -11,7 +11,7 @@ export function Frame() {
 }
 
 export namespace Frame {
-    export let Name = s.union([s.literal("detail" as const), s.literal("sidebar" as const)]);
+    export const Name = s.union([s.literal("detail" as const), s.literal("sidebar" as const)]);
     export type Name = s.InferOutput<typeof Name>;
 
     export class Target {
@@ -30,89 +30,28 @@ export namespace Frame {
             return success;
         }
     }
-
-    // Preserve the href/role accessibility discriminant from the anchor type
-    type AnchorElement = JSX.IntrinsicHTMLElements["a"];
-    type AnchorBase = Omit<
-        AnchorElement,
-        "href" | "role" | "rmx-target" | "rmx-src" | "rmx-reset-scroll"
-    >;
-    type HrefRole = Extract<AnchorElement, { href: string }>["role"];
-    type NoHrefRole = Exclude<AnchorElement, { href: string }>["role"];
-
-    export type LinkProps = AnchorBase &
-        (
-            | {
-                  "rmx:target"?: Name;
-                  "rmx:src": URL;
-                  href?: never;
-                  role?: NoHrefRole;
-                  "rmx:resetScroll"?: boolean;
-              }
-            | {
-                  "rmx:target"?: Name;
-                  "rmx:src"?: never;
-                  href: string;
-                  role?: HrefRole;
-                  "rmx:resetScroll"?: boolean;
-              }
-        );
-
-    export function Link() {
-        return (props: LinkProps) => {
-            let {
-                "rmx:target": target,
-                "rmx:src": src,
-                "rmx:resetScroll": resetScroll,
-                ...rest
-            } = props;
-
-            return (
-                <a
-                    {...rest}
-                    rmx-reset-scroll={resetScroll != null ? `${resetScroll}` : undefined}
-                    rmx-src={src?.toString()}
-                    rmx-target={target}
-                />
-            );
-        };
-    }
-
-    export type ButtonProps = JSX.IntrinsicHTMLElements["button"] & {
-        "rmx:target"?: Name;
-        "rmx:src"?: URL;
-        "rmx:resetScroll"?: boolean;
-    };
-
-    export function Button() {
-        return (props: ButtonProps) => {
-            let {
-                "rmx:target": target,
-                "rmx:src": src,
-                "rmx:resetScroll": resetScroll,
-                ...rest
-            } = props;
-
-            return (
-                <button
-                    {...rest}
-                    rmx-reset-scroll={resetScroll != null ? `${resetScroll}` : undefined}
-                    rmx-src={src?.toString()}
-                    rmx-target={target}
-                />
-            );
-        };
-    }
 }
 
-export function frameRequest(): Middleware {
+export type LinkProps = { target?: Frame.Name; src?: URL; resetScroll?: boolean };
+
+export const link = createMixin<HTMLButtonElement | HTMLAnchorElement, [LinkProps]>(handle => {
+    return (props: LinkProps) => (
+        <handle.element
+            rmx-reset-scroll={props.resetScroll != null ? `${props.resetScroll}` : undefined}
+            rmx-src={props.src?.toString()}
+            rmx-target={props.target}
+        />
+    );
+});
+
+export function frameTarget(): Middleware {
     return (ctx, next) => {
         ctx.set(Frame.Target, new Frame.Target(ctx.headers));
         return next();
     };
 }
 
-export function frame(node: RemixNode): Response {
+export function createFrameResponse(node: RemixNode): Response {
     return new Response(renderToStream(node), {
         headers: { "Content-Type": "text/html; charset=utf-8" },
     });

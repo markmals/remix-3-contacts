@@ -1,9 +1,9 @@
-import { route, resources } from "remix/fetch-router/routes";
+import { route, resources, get, patch } from "remix/fetch-router/routes";
 
 export let routes = route({
-    home: "/",
+    home: get("/"),
     contacts: {
         ...resources("/contacts", { exclude: ["index", "new"] }),
-        favorite: { method: "PATCH", pattern: "/contacts/:id/favorite" },
+        favorite: patch("/contacts/:id/favorite"),
     },
 });

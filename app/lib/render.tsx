@@ -8,7 +8,7 @@ import { SidebarItem } from "~/components/SidebarItem.tsx";
 import { router } from "~/entry.server.tsx";
 import { getContacts } from "~/lib/database/contacts.ts";
 
-import { frame } from "./frame.tsx";
+import { createFrameResponse as frame } from "./frame.tsx";
 import { QuerySchema } from "./schemas.ts";
 
 export async function sidebar(selected?: string | number): Promise<Response> {

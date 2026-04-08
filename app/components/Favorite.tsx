@@ -2,6 +2,8 @@ import { clientEntry, navigate, on } from "remix/component";
 
 import { routes } from "~/routes.ts";
 
+import { RestfulForm } from "./RestfulForm.tsx";
+
 export let Favorite = clientEntry(import.meta.url, handle => {
     let submitting = false;
     let favorite!: boolean;
@@ -12,9 +14,9 @@ export let Favorite = clientEntry(import.meta.url, handle => {
         }
 
         return (
-            <form
+            <RestfulForm
                 action={routes.contacts.favorite.href({ id: props.contactId })}
-                method="POST"
+                method={routes.contacts.favorite.method}
                 mix={on("submit", async event => {
                     event.preventDefault();
 
@@ -42,7 +44,6 @@ export let Favorite = clientEntry(import.meta.url, handle => {
                     }
                 })}
             >
-                <input name="_method" type="hidden" value={routes.contacts.favorite.method} />
                 <button
                     aria-label={favorite ? "Remove from favorites" : "Add to favorites"}
                     name="favorite"
@@ -51,7 +52,7 @@ export let Favorite = clientEntry(import.meta.url, handle => {
                 >
                     {favorite ? "★" : "☆"}
                 </button>
-            </form>
+            </RestfulForm>
         );
     };
 });

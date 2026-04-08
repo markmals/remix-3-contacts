@@ -11,6 +11,8 @@ import { SITE } from "~/lib/meta.ts";
 import { QuerySchema } from "~/lib/schemas.ts";
 import { routes } from "~/routes.ts";
 
+import { RestfulForm } from "./RestfulForm.tsx";
+
 export function Document() {
     let { url } = getContext();
     let { q } = s.parse(QuerySchema, url.searchParams);
@@ -45,12 +47,12 @@ export function Document() {
                         <h1>{SITE.title}</h1>
                         <div>
                             <SearchBar query={q} />
-                            <form
+                            <RestfulForm
                                 action={routes.contacts.create.href()}
                                 method={routes.contacts.create.method}
                             >
                                 <button type="submit">New</button>
-                            </form>
+                            </RestfulForm>
                         </div>
                         <Frame name="sidebar" url={url} />
                     </div>

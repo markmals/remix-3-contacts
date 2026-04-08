@@ -2,6 +2,8 @@ import { clientEntry, on } from "remix/component";
 
 import { routes } from "~/routes.ts";
 
+import { RestfulForm } from "./RestfulForm.tsx";
+
 export let CancelButton = clientEntry(import.meta.url, () => {
     return () => (
         <button
@@ -17,17 +19,16 @@ export let CancelButton = clientEntry(import.meta.url, () => {
 
 export let DeleteButton = clientEntry(import.meta.url, () => {
     return (props: { contactId: number }) => (
-        <form
+        <RestfulForm
             action={routes.contacts.destroy.href({ id: props.contactId })}
-            method="POST"
+            method={routes.contacts.destroy.method}
             mix={on("submit", async event => {
                 if (!confirm("Please confirm you want to delete this record.")) {
                     event.preventDefault();
                 }
             })}
         >
-            <input name="_method" type="hidden" value={routes.contacts.destroy.method} />
             <button type="submit">Delete</button>
-        </form>
+        </RestfulForm>
     );
 });

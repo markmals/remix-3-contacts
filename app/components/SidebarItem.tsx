@@ -1,7 +1,7 @@
 import { addEventListeners, clientEntry, type SerializableProps } from "remix/component";
 import { ArrayMatcher } from "remix/route-pattern";
 
-import { Frame } from "~/lib/frame.tsx";
+import { link } from "~/lib/frame.tsx";
 import { isServer, navigating } from "~/lib/navigating.ts";
 import { routes } from "~/routes.ts";
 
@@ -44,10 +44,10 @@ export let SidebarItem = clientEntry(import.meta.url, handle => {
 
         return (
             <li>
-                <Frame.Link
+                <a
                     class={isActive ? "active" : isPending ? "pending" : undefined}
                     href={routes.contacts.show.href({ id: contact.id }, { q: query })}
-                    rmx:target="detail"
+                    mix={link({ target: "detail" })}
                 >
                     {contact.first || contact.last ? (
                         <>
@@ -57,7 +57,7 @@ export let SidebarItem = clientEntry(import.meta.url, handle => {
                         <i>No Name</i>
                     )}
                     {contact.favorite ? <span>{"\u2605"}</span> : null}
-                </Frame.Link>
+                </a>
             </li>
         );
     };

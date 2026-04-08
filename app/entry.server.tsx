@@ -7,7 +7,7 @@ import { staticFiles } from "remix/static-middleware";
 import { ZeroState } from "~/components/ZeroState.tsx";
 import contacts from "~/contacts.tsx";
 import { loadDatabase } from "~/lib/database/middleware.ts";
-import { frame, Frame, frameRequest } from "~/lib/frame.tsx";
+import { createFrameResponse as frame, Frame, frameTarget } from "~/lib/frame.tsx";
 import { document, sidebar } from "~/lib/render.tsx";
 import { routes } from "~/routes.ts";
 
@@ -19,7 +19,7 @@ export let router = createRouter({
         methodOverride(),
         asyncContext(),
         loadDatabase(),
-        frameRequest(),
+        frameTarget(),
     ],
 });
 
