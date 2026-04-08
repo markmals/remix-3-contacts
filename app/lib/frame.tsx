@@ -2,6 +2,7 @@ import type { Middleware } from "remix/fetch-router";
 
 import { Frame as RemixFrame, type RemixNode } from "remix/component";
 import { renderToStream } from "remix/component/server";
+import * as s from "remix/data-schema";
 
 export function Frame() {
     return (props: { name: Frame.Name; url: URL }) => (
@@ -10,7 +11,8 @@ export function Frame() {
 }
 
 export namespace Frame {
-    export type Name = "detail" | "sidebar";
+    export let Name = s.union([s.literal("detail" as const), s.literal("sidebar" as const)]);
+    export type Name = s.InferOutput<typeof Name>;
 
     export class Target {
         #name: string | null;
@@ -21,6 +23,11 @@ export namespace Frame {
 
         is(name: Frame.Name): boolean {
             return this.#name === name;
+        }
+
+        get exists() {
+            let { success } = s.parseSafe(Frame.Name, this.#name);
+            return success;
         }
     }
 }

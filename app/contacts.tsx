@@ -1,13 +1,13 @@
 import type { RemixNode } from "remix/component";
-import type { Controller, RequestContext } from "remix/fetch-router";
+import type { Controller } from "remix/fetch-router";
 
+import { getContext } from "remix/async-context-middleware";
 import * as s from "remix/data-schema";
 import * as coerce from "remix/data-schema/coerce";
 import { redirect } from "remix/response/redirect";
 
 import { EditContact } from "~/components/EditContact.tsx";
 import { ShowContact } from "~/components/ShowContact.tsx";
-import { ZeroState } from "~/components/ZeroState.tsx";
 import {
     type Contact,
     createContact,
@@ -22,24 +22,24 @@ import { routes } from "~/routes.ts";
 
 let ParamsSchema = s.object({ id: coerce.number() });
 
-async function contactPage(
-    ctx: RequestContext<{ id: string }>,
-    detail: (contact: Contact) => RemixNode,
-) {
+async function contactPage(detail: (contact: Contact) => RemixNode) {
     try {
+        let ctx = getContext();
+        let target = ctx.get(Frame.Target);
         let { id } = s.parse(ParamsSchema, ctx.params);
 
-        if (ctx.get(Frame.Target).is("sidebar")) {
+        if (target.is("sidebar")) {
             return sidebar(id);
-        }
-
-        if (ctx.get(Frame.Target).is("detail")) {
+        } else {
             let contact = await getContact(id);
-            if (!contact) return frame(<ZeroState />);
-            return frame(detail(contact));
-        }
+            if (!contact) throw contact;
 
-        return document();
+            if (target.is("detail")) {
+                return frame(detail(contact));
+            }
+
+            return document();
+        }
     } catch {
         return redirect(routes.home.href());
     }
@@ -49,10 +49,10 @@ export default {
     actions: {
         async show(ctx) {
             let { q } = s.parse(QuerySchema, ctx.url.searchParams);
-            return await contactPage(ctx, contact => <ShowContact contact={contact} query={q} />);
+            return await contactPage(contact => <ShowContact contact={contact} query={q} />);
         },
-        async edit(ctx) {
-            return await contactPage(ctx, contact => <EditContact contact={contact} />);
+        async edit() {
+            return await contactPage(contact => <EditContact contact={contact} />);
         },
         async create() {
             let id = await createContact();
