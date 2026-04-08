@@ -1,6 +1,3 @@
-import type { RemixNode } from "remix/component";
-import type { RequestContext } from "remix/fetch-router";
-
 import { getContext } from "remix/async-context-middleware";
 import { renderToStream } from "remix/component/server";
 import * as s from "remix/data-schema";
@@ -11,13 +8,8 @@ import { SidebarItem } from "~/components/SidebarItem.tsx";
 import { router } from "~/entry.server.tsx";
 import { getContacts } from "~/lib/database/contacts.ts";
 
+import { frame } from "./frame.tsx";
 import { QuerySchema } from "./schemas.ts";
-
-type FrameName = "detail" | "sidebar";
-
-export function isFrame(context: RequestContext, name: FrameName): boolean {
-    return context.request.headers.get("x-remix-target") === name;
-}
 
 export async function sidebar(selected?: string | number): Promise<Response> {
     let { url } = getContext();
@@ -64,10 +56,4 @@ export function document(): Response {
             },
         }),
     );
-}
-
-export function frame(node: RemixNode): Response {
-    return new Response(renderToStream(node), {
-        headers: { "Content-Type": "text/html; charset=utf-8" },
-    });
 }

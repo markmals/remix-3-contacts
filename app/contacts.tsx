@@ -14,10 +14,10 @@ import {
     getContact,
     updateContact,
 } from "~/lib/database/contacts.ts";
-import { document, isFrame, frame, sidebar } from "~/lib/render.tsx";
+import { frame, Frame } from "~/lib/frame.tsx";
+import { document, sidebar } from "~/lib/render.tsx";
+import { FavoriteSchema, QuerySchema, UpdateSchema } from "~/lib/schemas.ts";
 import { routes } from "~/routes.ts";
-
-import { FavoriteSchema, QuerySchema, UpdateSchema } from "./lib/schemas.ts";
 
 async function contactPage(
     ctx: RequestContext<{ id: string }>,
@@ -27,9 +27,11 @@ async function contactPage(
         return redirect(routes.home.href());
     }
 
-    if (isFrame(ctx, "sidebar")) return await sidebar(ctx.params.id);
+    if (ctx.get(Frame.Target).is("sidebar")) {
+        return sidebar(ctx.params.id);
+    }
 
-    if (isFrame(ctx, "detail")) {
+    if (ctx.get(Frame.Target).is("detail")) {
         let contact = await getContact(Number(ctx.params.id));
         if (!contact) return frame(<ZeroState />);
         return frame(detail(contact));

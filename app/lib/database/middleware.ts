@@ -2,13 +2,14 @@ import { env } from "cloudflare:workers";
 import { Database } from "remix/data-table";
 import { type Middleware } from "remix/fetch-router";
 
-import { createD1DatabaseAdapter as d1Adapter } from "./adapter.ts";
+import { createD1DatabaseAdapter } from "./adapter.ts";
 
 export function loadDatabase(): Middleware {
-    let db = new Database(d1Adapter(env.DB));
+    let adapter = createD1DatabaseAdapter(env.DB);
+    let db = new Database(adapter);
 
-    return async (context, next) => {
-        context.set(Database, db);
+    return (ctx, next) => {
+        ctx.set(Database, db);
         return next();
     };
 }

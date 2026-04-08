@@ -1,12 +1,12 @@
 import { mergeAssets } from "@hiogawa/vite-plugin-fullstack/runtime";
 import { getContext } from "remix/async-context-middleware";
-import { Frame } from "remix/component";
 import * as s from "remix/data-schema";
 
 import { SearchBar } from "~/components/SearchBar.tsx";
 import clientAssets from "~/entry.browser.ts?assets=client";
 import serverAssets from "~/entry.server.tsx?assets=ssr";
 import styles from "~/index.css?url";
+import { Frame } from "~/lib/frame.tsx";
 import { SITE } from "~/lib/meta.ts";
 import { QuerySchema } from "~/lib/schemas.ts";
 import { routes } from "~/routes.ts";
@@ -52,9 +52,9 @@ export function Document() {
                                 <button type="submit">New</button>
                             </form>
                         </div>
-                        <Frame name="sidebar" src={url.toString()} />
+                        <Frame name="sidebar" url={url} />
                     </div>
-                    <Frame name="detail" src={url.toString()} />
+                    <Frame name="detail" url={url} />
                 </div>
             </body>
         </html>
