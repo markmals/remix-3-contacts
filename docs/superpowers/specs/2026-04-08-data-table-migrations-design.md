@@ -15,24 +15,23 @@ Reorganize the local migration and seed scripts to follow the idiomatic Remix `d
 ```
 app/db/
   migrations/
-    20260408000000_create_contacts.ts
-    20260408000001_seed_contacts.ts
+    20260213161402_create_contacts.ts
+    20260402234741_seed_contacts.ts
   migrate.ts
-  reset.ts
 ```
 
 `scripts/` directory is deleted entirely.
 
 ### Migration files
 
-Each file default-exports `createMigration({ up, down })`. IDs and names are inferred from filenames by `loadMigrations()`.
+Each file default-exports `createMigration({ up, down })`. IDs and names are inferred from filenames by `loadMigrations()`. Timestamps match the original git creation dates of the source scripts.
 
-**`20260408000000_create_contacts.ts`**
+**`20260213161402_create_contacts.ts`** (from `seed.ts` creation — when the schema was first established)
 
 - `up`: creates the `contacts` table using the `Contacts` table definition from `app/lib/database/contacts.ts`, then creates a composite index on `(last, createdAt)`
 - `down`: drops the `contacts` table with `ifExists: true`
 
-**`20260408000001_seed_contacts.ts`**
+**`20260402234741_seed_contacts.ts`** (from `create-contacts.ts` creation — when the scripts were separated)
 
 - `up`: queries the contacts table; if empty, inserts the 5 seed contacts (Brooks Lybrand, Mark Dalgleish, Pedro Cattori, Kent C. Dodds, Jacob Ebey)
 - `down`: deletes all rows from the contacts table (seed data only, safe to wipe)
@@ -46,15 +45,10 @@ Each file default-exports `createMigration({ up, down })`. IDs and names are inf
 - Logs applied/reverted migration IDs
 - Calls `proxy.dispose()` and `process.exit(0)` on completion
 
-### Reset script (`reset.ts`)
-
-- Deletes `.wrangler/state/v3/d1/` using `node:fs` `rmSync` with `recursive: true` and `force: true`
-- Logs confirmation message
-
 ### Vite task changes in `vite.config.ts`
 
 - Add `"db:migrate"` task: `node app/db/migrate.ts`
-- Add `"db:reset"` task: `node app/db/reset.ts`
+- Add `"db:reset"` task: `rm -rf .wrangler/state/v3/d1` (inline shell command, no script needed)
 - Remove `"db:seed"` and `"db:create"` tasks
 - Update `"dev"` to depend on `["typegen", "db:migrate"]` instead of `["typegen", "db:seed"]`
 
