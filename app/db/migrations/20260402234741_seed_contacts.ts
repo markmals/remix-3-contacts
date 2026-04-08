@@ -1,9 +1,8 @@
-import { Database, sql } from "remix/data-table";
 import { createMigration } from "remix/data-table/migrations";
 
 import { Contacts } from "~/db/contacts.ts";
 
-let SEED_CONTACTS = [
+const SEED_CONTACTS = [
     {
         first: "Brooks",
         last: "Lybrand",
@@ -38,14 +37,11 @@ let SEED_CONTACTS = [
 
 export default createMigration({
     async up({ db }) {
-        let result = await db.exec(sql`select count(*) as count from contacts`);
-        let count = (result as { count: number }[])[0]?.count ?? 0;
-
+        let count = await db.count(Contacts);
         if (count > 0) return;
 
-        let database = new Database(db.adapter);
         for (let contact of SEED_CONTACTS) {
-            await database.create(Contacts, {
+            await db.create(Contacts, {
                 first: contact.first,
                 last: contact.last,
                 avatar: contact.avatar,
@@ -57,6 +53,6 @@ export default createMigration({
         }
     },
     async down({ db }) {
-        await db.exec(sql`delete from contacts`);
+        await db.deleteMany(Contacts, { where: {} });
     },
 });
