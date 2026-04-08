@@ -4,7 +4,7 @@ import { createMigrationRunner } from "remix/data-table/migrations";
 import { loadMigrations } from "remix/data-table/migrations/node";
 import { getPlatformProxy } from "wrangler";
 
-import { createD1DatabaseAdapter } from "~/db/adapter.ts";
+import { createD1DatabaseAdapter } from "./adapter.ts";
 
 let Direction = s.union([s.literal("up" as const), s.literal("down" as const)]);
 let direction = s.parse(s.defaulted(Direction, "up"), process.argv[2]);
