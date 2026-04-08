@@ -1,4 +1,4 @@
-# Remix 3 & Vite Best Practices Cookbook
+# Remix 3, Vite+, & Cloudflare Workers Best Practices Cookbook
 
 A decision-oriented guide for building Remix 3 applications. Each recipe is self-contained: find the decision you're facing, read the heuristic, follow the pattern. This supplements the official API docs in `docs/remix-official/` with practical wisdom that isn't obvious from reading API surfaces alone.
 
@@ -14,11 +14,19 @@ app/
   index.css           # Global styles
   controllers/        # Route handlers (one file per resource/domain)
   components/         # UI components (server-only and hydrated)
-  lib/
-    schemas.ts        # Data validation schemas
-    render.tsx        # Server rendering utilities (document, frame helpers)
+  data/
+    contacts.ts       # Table definition, typed queries, business logic
+    schemas.ts        # Data validation schemas (form + search params)
+    meta.ts           # Site-wide metadata constants
+    adapters/         # Platform-specific database/storage adapters
+  middleware/          # Request middleware (database, file storage)
+  utils/
+    frame.tsx         # Frame primitives (Target class, link mixin, helpers)
+    render.tsx        # Server rendering utilities (document, sidebar, frame)
     navigating.ts     # Client navigation state tracking
-    database/         # Database layer (middleware, queries, seed data)
+db/
+  migrate.ts          # Migration runner script
+  migrations/         # Timestamped migration files
 vite.config.ts        # Unified config: build, dev, fmt, lint, typecheck
 remix.plugin.ts       # Vite plugin for Remix (build, SSR, client entries)
 ```
@@ -162,16 +170,47 @@ mix={on("submit", async event => {
 
 Use this when you need full control over the response (e.g., optimistic UI, reading response data, conditional redirects).
 
-**Method override for PUT/PATCH/DELETE:** HTML forms only support GET and POST. For other HTTP methods, use a hidden `_method` field with the `methodOverride()` middleware:
+**Method override for PUT/PATCH/DELETE:** HTML forms only support GET and POST. For other HTTP methods, use a hidden `_method` field with the `methodOverride()` middleware. Wrap this pattern in a `RestfulForm` component to avoid repeating the boilerplate:
 
 ```tsx
-<form action={route.href({ id })} method="POST">
-    <input name="_method" type="hidden" value="DELETE" />
-    <button type="submit">Delete</button>
-</form>
+import type { RequestMethod } from "remix/fetch-router";
+
+export function RestfulForm() {
+    return ({
+        children,
+        method,
+        ...props
+    }: JSX.IntrinsicHTMLElements["form"] & { method?: RequestMethod | "ANY" }) => {
+        let isGET = method === "GET" || typeof method === "undefined";
+        return (
+            <form method={isGET ? "GET" : "POST"} {...props}>
+                {!isGET && <input name="_method" type="hidden" value={method} />}
+                {children}
+            </form>
+        );
+    };
+}
 ```
 
-The `methodOverride()` middleware in your server entry reads `_method` from the form data and rewrites the request method before it reaches your controller.
+Now any form can use the route's actual HTTP method without manually managing hidden fields:
+
+```tsx
+<RestfulForm
+    action={routes.contacts.update.href({ id })}
+    method={routes.contacts.update.method}
+>
+    <button type="submit">Save</button>
+</RestfulForm>
+
+<RestfulForm
+    action={routes.contacts.destroy.href({ id })}
+    method={routes.contacts.destroy.method}
+>
+    <button type="submit">Delete</button>
+</RestfulForm>
+```
+
+The `methodOverride()` middleware in your server entry reads `_method` from the form data and rewrites the request method before it reaches your controller. Using `routes.*.method` ensures the form always matches the route definition — if you change a route from `PATCH` to `PUT`, the forms update automatically.
 
 ---
 
@@ -258,7 +297,7 @@ export let LikeButton = clientEntry(import.meta.url, (handle: Handle) => {
 **The pattern:**
 
 ```tsx
-export let SearchInput = clientEntry(import.meta.url, (handle: Handle) => {
+export let SearchBar = clientEntry(import.meta.url, handle => {
     // Re-render when navigation state changes (for loading indicator)
     addEventListeners(navigating, handle.signal, {
         destinationchange() {
@@ -274,20 +313,26 @@ export let SearchInput = clientEntry(import.meta.url, (handle: Handle) => {
                 <input
                     defaultValue={props.query ?? undefined}
                     mix={on("input", async event => {
-                        let url = new URL(location.href);
+                        try {
+                            let url = new URL(location.href);
 
-                        if (!event.currentTarget.value.trim()) {
-                            url.searchParams.delete("q");
-                        } else {
+                            // Clear the param when the input is empty
+                            if (!event.currentTarget.value.trim()) {
+                                url.searchParams.delete("q");
+                                await navigate(url.toString(), { target: "sidebar" });
+                                return;
+                            }
+
+                            let isFirstSearch = url.searchParams.get("q") === null;
+
                             url.searchParams.set("q", event.currentTarget.value);
+                            await navigate(url.toString(), {
+                                target: "sidebar",
+                                history: isFirstSearch ? "replace" : "push",
+                            });
+                        } catch {
+                            // Ignore navigation errors caused by abortions during typing
                         }
-
-                        let isFirstSearch = new URL(location.href).searchParams.get("q") === null;
-
-                        navigate(url.toString(), {
-                            target: "results",
-                            history: isFirstSearch ? "replace" : "push",
-                        });
                     })}
                     name="q"
                     type="search"
@@ -302,6 +347,10 @@ export let SearchInput = clientEntry(import.meta.url, (handle: Handle) => {
 **Why `replace` for the first search, `push` after:** When the user starts typing, the first keystroke replaces the current history entry (so pressing back doesn't step through "s", "sa", "sam" one character at a time). Subsequent keystrokes push new entries so the user can still navigate between meaningful search states.
 
 **Why use a `target`:** If your search results live in a specific frame, targeting that frame keeps the rest of the page stable during search. If your app doesn't use frames, omit the `target` option.
+
+**Why `try/catch` around `navigate`:** When the user types rapidly, each keystroke triggers a new `navigate()` call that aborts the previous one. The aborted navigation rejects with an `AbortError`. Wrapping in `try/catch` prevents these expected errors from surfacing as unhandled rejections.
+
+**Why clear the param separately:** When the search input is emptied, the `q` param is deleted from the URL and the navigation fires immediately without checking `isFirstSearch`. This ensures the sidebar returns to the full contact list without creating unnecessary history entries.
 
 **Loading state:** The `navigating` singleton tracks pending navigation state. When a navigation is in flight with a `q` param, show a spinner. The `destinationchange` event fires when navigation starts and completes, triggering re-renders.
 
@@ -344,21 +393,61 @@ Each `<Frame>` is a named region. The `src` tells the server where to fetch the 
 
 ```tsx
 // From JavaScript:
-navigate(url, { target: "content" });
+navigate(url, { target: "detail" });
 
-// From HTML (no JS required):
-<a href={url} rmx-target="content">
+// From HTML (type-safe via the link mixin — see Recipe 15):
+<a href={url} mix={link({ target: "detail" })}>
     Click me
 </a>;
 ```
 
-**Server-side frame detection:** The server knows which frame is being requested via the `x-remix-target` header. Your controller checks this to decide what to render:
+**Server-side frame detection:** The server knows which frame is being requested via the `x-remix-target` header. Rather than reading raw headers in every controller, use a `Frame.Target` class and middleware to provide type-safe frame detection:
 
 ```tsx
-let target = request.headers.get("x-remix-target");
+import * as s from "remix/data-schema";
+import { createMixin, Frame as RemixFrame, type RemixNode } from "remix/component";
+import { renderToStream } from "remix/component/server";
+import type { Middleware } from "remix/fetch-router";
 
-if (target === "nav") return frame(<NavList items={items} />);
-if (target === "content") return frame(<ItemDetail item={item} />);
+// Define your app's valid frame names as a union type
+export namespace Frame {
+    export const Name = s.union([s.literal("sidebar" as const), s.literal("detail" as const)]);
+    export type Name = s.InferOutput<typeof Name>;
+
+    export class Target {
+        #name: string | null;
+
+        constructor(headers: Headers) {
+            this.#name = headers.get("x-remix-target");
+        }
+
+        is(name: Frame.Name): boolean {
+            return this.#name === name;
+        }
+
+        get exists() {
+            let { success } = s.parseSafe(Frame.Name, this.#name);
+            return success;
+        }
+    }
+}
+
+// Middleware that parses the header once per request
+export function frameTarget(): Middleware {
+    return (ctx, next) => {
+        ctx.set(Frame.Target, new Frame.Target(ctx.headers));
+        return next();
+    };
+}
+```
+
+Add `frameTarget()` to your middleware stack (see Recipe 7), then use `ctx.get(Frame.Target)` in controllers:
+
+```tsx
+let target = ctx.get(Frame.Target);
+
+if (target.is("sidebar")) return sidebar();
+if (target.is("detail")) return frame(<ItemDetail item={item} />);
 return document(); // Full page (initial load, hard refresh, no JS)
 ```
 
@@ -367,7 +456,7 @@ return document(); // Full page (initial load, hard refresh, no JS)
 - `document()` - Full HTML page with `<html>`, `<head>`, `<body>`. Used for initial page loads and no-JS fallback.
 - `frame(node)` - An HTML fragment for a specific frame region. Used when a named frame is targeted.
 
-You'll typically build helper functions on top of these for your app's specific layout patterns (e.g., a helper that renders a nav frame with the current item highlighted, or a content frame with common wrappers).
+You'll typically build helper functions on top of these for your app's specific layout patterns. For example, a `sidebar()` helper that fetches contacts, parses the current search query, and returns a rendered nav frame — eliminating duplication across every route that needs to update the sidebar.
 
 **Frame resolution on the server:** When rendering a full document, nested `<Frame>` components need their content resolved. The `resolveFrame` callback in `renderToStream` handles this by internally routing the frame's `src` through the router:
 
@@ -394,32 +483,42 @@ renderToStream(<Document />, {
 **Basic route definition:**
 
 ```tsx
-import { route, resources } from "remix/fetch-router/routes";
+import { route, resources, get, patch } from "remix/fetch-router/routes";
 
 export let routes = route({
-    home: "/",
-    posts: {
-        ...resources("/posts"),
-        publish: { method: "POST", pattern: "/posts/:id/publish" },
+    home: get("/"),
+    uploads: get("/uploads/*key"),
+    contacts: {
+        ...resources("/contacts", { exclude: ["index", "new"] }),
+        favorite: patch("/contacts/:id/favorite"),
     },
-    settings: "/settings",
 });
 ```
 
-**What `resources()` generates:** RESTful route patterns following REST conventions. `resources("/posts")` creates routes for `index`, `new`, `show`, `create`, `edit`, `update`, and `destroy`. Use `exclude` to omit routes you don't need:
+**HTTP method helpers:** Use `get()`, `post()`, `put()`, `patch()`, and `del()` to define routes with explicit HTTP methods. This is the preferred style for custom routes — it's shorter and clearer than the `{ method, pattern }` object form.
+
+**What `resources()` generates:** RESTful route patterns following REST conventions. `resources("/contacts")` creates routes for `index`, `new`, `show`, `create`, `edit`, `update`, and `destroy`. Use `exclude` to omit routes you don't need:
 
 ```tsx
-resources("/posts", { exclude: ["index", "new"] });
+resources("/contacts", { exclude: ["index", "new"] });
 ```
 
-**Custom routes:** Add any custom route as an object with `method` and `pattern`. Parameters use `:name` syntax.
+**Wildcard parameters:** Use `*name` for catch-all segments. In the example above, `get("/uploads/*key")` matches `/uploads/avatar/123-abc.jpg` with `params.key = "avatar/123-abc.jpg"`.
 
 **Using routes in components (type-safe URL generation):**
 
 ```tsx
-routes.posts.show.href({ id: 42 }); // "/posts/42"
-routes.posts.edit.href({ id: 42 }, { tab: "meta" }); // "/posts/42/edit?tab=meta"
+routes.contacts.show.href({ id: 42 }); // "/contacts/42"
+routes.contacts.edit.href({ id: 42 }, { q: "sam" }); // "/contacts/42/edit?q=sam"
 routes.home.href(); // "/"
+```
+
+**Accessing the HTTP method:** Each route exposes a `.method` property that returns the HTTP method string. Use this with `RestfulForm` (see Recipe 2) to keep forms in sync with route definitions:
+
+```tsx
+routes.contacts.update.method; // "PATCH"
+routes.contacts.destroy.method; // "DELETE"
+routes.contacts.create.method; // "POST"
 ```
 
 **Mapping routes to controllers in the server entry:**
@@ -446,10 +545,12 @@ export let router = createRouter({
     middleware: [
         staticFiles("./public"), // 1. Serve static files (short-circuits)
         staticFiles("./dist/client"), // 2. Serve built client assets
-        formData(), // 3. Parse multipart/urlencoded form data
+        formData({ uploadHandler }), // 3. Parse form data + file uploads
         methodOverride(), // 4. Rewrite _method field to real HTTP method
         asyncContext(), // 5. Enable request-scoped context (getContext())
-        await loadDatabase(), // 6. Initialize database, inject into context
+        loadDatabase(), // 6. Initialize database, inject into context
+        loadFileStorage(), // 7. Inject file storage into context
+        frameTarget(), // 8. Parse x-remix-target header into Frame.Target
     ],
 });
 ```
@@ -457,8 +558,9 @@ export let router = createRouter({
 **Why this order matters:**
 
 1. **Static files first:** Most requests for CSS/JS/images should return immediately without touching form parsing or database setup.
-2. **Form data before method override:** `methodOverride()` reads from the parsed form data, so `formData()` must run first.
+2. **Form data before method override:** `methodOverride()` reads from the parsed form data, so `formData()` must run first. Pass an `uploadHandler` to `formData()` if your app handles file uploads (see Recipe 35).
 3. **Async context before database:** The database middleware uses `context.set()` which requires async context to be active.
+4. **Frame target last:** The `frameTarget()` middleware (see Recipe 5) parses the `x-remix-target` header into a `Frame.Target` instance. It's cheap and only reads a header, but placing it after async context ensures `getContext()` works in frame-related utilities.
 
 **HMR support:** Add this at the bottom of your server entry so the dev server picks up changes:
 
@@ -479,11 +581,13 @@ if (import.meta.hot) {
 | Logic type                                     | Where it goes                   | Why                          |
 | ---------------------------------------------- | ------------------------------- | ---------------------------- |
 | Request handling for a specific route          | **Controller** (`controllers/`) | Tied to a route's URL/method |
-| Cross-cutting concern (auth, logging, parsing) | **Middleware** (`lib/`)         | Runs across many routes      |
+| Cross-cutting concern (auth, logging, parsing) | **Middleware** (`middleware/`)  | Runs across many routes      |
 | UI rendering                                   | **Component** (`components/`)   | Presentation layer           |
-| Data access / business rules                   | **Lib utilities** (`lib/`)      | Reusable, testable           |
-| Validation schemas                             | **`lib/schemas.ts`**            | Shared between controllers   |
-| Rendering helpers (document, frame)            | **`lib/render.tsx`**            | Shared rendering logic       |
+| Data access / business rules                   | **Data layer** (`data/`)        | Reusable, testable           |
+| Validation schemas                             | **`data/schemas.ts`**           | Shared between controllers   |
+| Rendering helpers (document, frame)            | **`utils/render.tsx`**          | Shared rendering logic       |
+| Frame primitives and link mixin                | **`utils/frame.tsx`**           | Shared frame utilities       |
+| Platform adapters (D1, R2)                     | **`data/adapters/`**            | Swappable implementations    |
 
 **Controllers** are objects that satisfy the `Controller` type. They map route actions to handler functions:
 
@@ -587,7 +691,7 @@ let profile = s.parse(ProfileSchema, context.get(FormData));
 The `Navigating` class wraps the browser's Navigation API and emits `destinationchange` events:
 
 ```tsx
-// lib/navigating.ts - a singleton
+// utils/navigating.ts - a singleton
 export let navigating = new Navigating();
 ```
 
@@ -742,25 +846,35 @@ navigate(url, { history: "replace" });
 
 **Heuristic:** Use context keys and middleware injection. Context keys are type-safe tokens that middleware `set()`s and handlers `get()`.
 
-**Define a context key:**
+**Using built-in context keys:** Some packages export pre-defined context keys. For example, `remix/data-table` exports a `Database` key:
 
 ```tsx
-import { createContextKey } from "remix/fetch-router";
-export let Database = createContextKey<DataTable>();
+import { Database } from "remix/data-table";
 ```
 
 **Set it in middleware:**
 
 ```tsx
-export async function loadDatabase(): Promise<Middleware> {
-    let db = createDatabase(sqliteAdapter(new SQLite(":memory:")));
-    // ... setup (create tables, seed, etc.) ...
+import { D1DatabaseAdapter } from "#/data/adapters/d1-data-table.ts";
+import { Database } from "remix/data-table";
+import { type Middleware } from "remix/fetch-router";
 
-    return async (context, next) => {
-        context.set(Database, db);
+export function loadDatabase(): Middleware {
+    let adapter = new D1DatabaseAdapter(env.DB);
+    let db = new Database(adapter);
+
+    return (ctx, next) => {
+        ctx.set(Database, db);
         return next();
     };
 }
+```
+
+**Define custom context keys** when no built-in key exists:
+
+```tsx
+import { createContextKey } from "remix/fetch-router";
+export let MyService = createContextKey<MyServiceType>();
 ```
 
 **Read it in controllers or utilities:**
@@ -835,49 +949,72 @@ This is the islands architecture pattern: the server renders the full page, but 
 
 ---
 
-### 15. How do I use `rmx-*` attributes for declarative frame targeting?
+### 15. How do I target a specific frame from links and forms?
 
-**Decision:** How do I target a specific frame from links and forms without writing JavaScript?
+**Decision:** How do I make a link or form button update a specific frame instead of the whole page?
 
-**Heuristic:** Use `rmx-*` attributes to declaratively control frame navigation. These work on both `<a>` tags and form `<button type="submit">` elements.
+**Heuristic:** Use the `link()` mixin from your frame utilities. It accepts a `LinkProps` object where `target` is typed as `Frame.Name` — the same union type used by `Frame.Target.is()` on the server. This gives you compile-time safety: if you misspell a frame name or use one that doesn't exist, TypeScript catches it.
 
 **On links:**
 
 ```tsx
-<a href={routes.posts.show.href({ id: post.id })} rmx-target="content">
-    {post.title}
-</a>
-```
+import { link } from "#/utils/frame.tsx";
 
-When the Remix client runtime intercepts this navigation, it reads the `rmx-target` attribute and passes it as the `target` parameter to `resolveFrame`. The server receives it as the `x-remix-target` header.
+<a href={routes.contacts.show.href({ id: contact.id })} mix={link({ target: "detail" })}>
+    {contact.first} {contact.last}
+</a>;
+```
 
 **On form buttons:**
 
 ```tsx
-<form action={routes.posts.create.href()} method="POST">
-    <button rmx-target="content" type="submit">
-        New
+<RestfulForm
+    action={routes.contacts.edit.href({ id: contact.id })}
+    method={routes.contacts.edit.method}
+>
+    <button mix={link({ target: "detail" })} type="submit">
+        Edit
     </button>
-</form>
+</RestfulForm>
 ```
 
-For form submissions, the client entry's navigate listener reads `rmx-*` attributes from `event.sourceElement` -- the submit button, not the `<form>`. This means a server-only form can target a specific frame without hydration.
+For form submissions, the client entry's navigate listener reads the resulting `rmx-*` attributes from `event.sourceElement` — the submit button, not the `<form>`. This means a server-only form can target a specific frame without hydration.
 
-**Available attributes:**
-
-| Attribute          | Purpose                               | Example                      |
-| ------------------ | ------------------------------------- | ---------------------------- |
-| `rmx-target`       | Target a named frame                  | `rmx-target="content"`       |
-| `rmx-src`          | Override the frame content source URL | `rmx-src="/posts/sidebar"`   |
-| `rmx-reset-scroll` | Reset scroll position on frame update | `rmx-reset-scroll` (boolean) |
-
-All three are the declarative equivalents of the options you can pass to `navigate()`:
+**The `link` mixin definition:**
 
 ```tsx
-navigate(url, { target: "content", src: "/posts/sidebar", resetScroll: true });
+import { createMixin } from "remix/component";
+
+export type LinkProps = { target?: Frame.Name; src?: URL; resetScroll?: boolean };
+
+export let link = createMixin<HTMLAnchorElement | HTMLButtonElement, [LinkProps]>(handle => {
+    return props => (
+        <handle.element
+            rmx-reset-scroll={props.resetScroll != null ? `${props.resetScroll}` : undefined}
+            rmx-src={props.src?.toString()}
+            rmx-target={props.target}
+        />
+    );
+});
 ```
 
-**Use `rmx-*` attributes for links and form buttons. Use `navigate()` with options for programmatic navigation.** They work identically under the hood.
+The mixin renders `rmx-*` attributes onto the host element. Because `target` is typed as `Frame.Name` (e.g., `"sidebar" | "detail"`), you get autocompletion and type errors for invalid frame names — something raw string attributes can't provide.
+
+**Available props:**
+
+| Prop          | Type         | Purpose                               |
+| ------------- | ------------ | ------------------------------------- |
+| `target`      | `Frame.Name` | Target a named frame                  |
+| `src`         | `URL`        | Override the frame content source URL |
+| `resetScroll` | `boolean`    | Reset scroll position on frame update |
+
+These are the declarative equivalents of the options you can pass to `navigate()`:
+
+```tsx
+navigate(url, { target: "detail", src: someUrl, resetScroll: true });
+```
+
+**Use the `link()` mixin for links and form buttons. Use `navigate()` with options for programmatic navigation.** They produce the same `rmx-*` attributes under the hood, but the mixin gives you type safety for frame names.
 
 ---
 
@@ -885,23 +1022,43 @@ navigate(url, { target: "content", src: "/posts/sidebar", resetScroll: true });
 
 **Decision:** My controller handles the same route for initial loads and frame updates. How do I return the right response?
 
-**Heuristic:** Check the `x-remix-target` header to determine which frame (if any) is being requested. Each controller action should handle both full-page and frame-targeted requests.
+**Heuristic:** Use the `Frame.Target` class (see Recipe 5) to determine which frame is being requested. Each controller action should handle both full-page and frame-targeted requests.
 
 ```tsx
-async function renderPage(context, contentRenderer) {
-    let target = getContext().request.headers.get("x-remix-target");
+async function contactPage(detail: (contact: Contact) => RemixNode) {
+    try {
+        let ctx = getContext();
+        let target = ctx.get(Frame.Target);
+        let { id } = s.parse(IdSchema, ctx.params);
 
-    // A specific frame was targeted -- return just that frame's content
-    if (target === "nav") {
-        return frame(<NavList items={await getItems()} />);
-    }
-    if (target === "content") {
-        return frame(contentRenderer());
-    }
+        if (target.is("sidebar")) {
+            return sidebar(id);
+        } else {
+            let contact = await getContact(id);
+            if (!contact) throw contact;
 
-    // No target -- full page load (initial navigation, hard refresh, no JS)
-    return document();
+            if (target.is("detail")) {
+                return frame(detail(contact));
+            }
+
+            return document();
+        }
+    } catch {
+        return redirect(routes.home.href());
+    }
 }
+```
+
+This helper accepts a render function for the detail frame and handles all three cases: sidebar-only updates, detail-only updates, and full-page loads. Controllers become one-liners:
+
+```tsx
+async show(ctx) {
+    let { q } = s.parse(QuerySchema, ctx.url.searchParams);
+    return await contactPage(contact => <ShowContact contact={contact} query={q} />);
+},
+async edit() {
+    return await contactPage(contact => <EditContact contact={contact} />);
+},
 ```
 
 **Why this pattern matters:** The same URL serves different content depending on context:
@@ -910,7 +1067,7 @@ async function renderPage(context, contentRenderer) {
 - **Frame navigation:** Returns just the targeted frame's HTML fragment
 - **No JavaScript:** Falls back to full document -- progressive enhancement still works
 
-**Extract this into a reusable helper** when multiple routes share the same layout. Each app will have its own set of frame names and rendering helpers based on its layout structure.
+**Extract this into a reusable helper** when multiple routes share the same layout. The `try/catch` wrapper provides a single place to handle missing records -- redirecting to the home page rather than showing an error.
 
 ---
 
@@ -946,19 +1103,17 @@ export type Post = TableRow<typeof Posts>;
 let post = await db.create(Posts, { title: "Hello", body: "World" }, { returnRow: true });
 ```
 
-**Migrations:** Use `remix/data-table/migrations` to create and manage tables. Migrations derive table structure from the `table()` definition, so the schema is defined once.
+**Migrations:** Use `remix/data-table/migrations` to create and manage tables. Each migration is a file in `db/migrations/` that default-exports a `createMigration(...)`. Migrations derive table structure from the `table()` definition, so the schema is defined once.
 
 ```tsx
-import {
-    createMigration,
-    createMigrationRegistry,
-    createMigrationRunner,
-} from "remix/data-table/migrations";
+// db/migrations/20260213161402_create_posts.ts
+import { Posts } from "#/data/posts.ts";
+import { createMigration } from "remix/data-table/migrations";
 
-let createPosts = createMigration({
+export default createMigration({
     async up({ schema }) {
-        await schema.createTable(Posts);
-        await schema.createIndex(Posts, ["title", "createdAt"]);
+        await schema.createTable(Posts, { ifNotExists: true });
+        await schema.createIndex(Posts, ["title", "createdAt"], { ifNotExists: true });
     },
     async down({ schema }) {
         await schema.dropTable(Posts, { ifExists: true });
@@ -966,20 +1121,38 @@ let createPosts = createMigration({
 });
 ```
 
-**Running migrations** in your database middleware:
+**Running migrations** with `loadMigrations` — reads a directory of migration files sorted by timestamp:
 
 ```tsx
-let registry = createMigrationRegistry();
-registry.register({
-    id: crypto.randomUUID(),
-    name: "create_posts",
-    migration: createPosts,
-});
-let runner = createMigrationRunner(adapter, registry);
+import path from "node:path";
+import { createMigrationRunner } from "remix/data-table/migrations";
+import { loadMigrations } from "remix/data-table/migrations/node";
+
+let migrations = await loadMigrations(path.resolve("db/migrations"));
+let runner = createMigrationRunner(adapter, migrations);
 await runner.up();
 ```
 
-`schema.createTable()` reads column definitions directly from the `table()` call, so you never write raw SQL for table creation. `schema.createIndex()` takes the table and an array of column names.
+`schema.createTable()` reads column definitions directly from the `table()` call, so you never write raw SQL for table creation. `schema.createIndex()` takes the table and an array of column names. Use `{ ifNotExists: true }` / `{ ifExists: true }` for idempotent migrations.
+
+**Seed data migrations:** Use a separate migration file for seed data. Access the `db` handle to insert rows, and guard with a count check to avoid duplicating seeds on re-runs:
+
+```tsx
+// db/migrations/20260402234741_seed_posts.ts
+export default createMigration({
+    async up({ db }) {
+        let count = await db.count(Posts);
+        if (count > 0) return;
+
+        for (let post of SEED_POSTS) {
+            await db.create(Posts, post);
+        }
+    },
+    async down({ db }) {
+        await db.deleteMany(Posts, { where: {} });
+    },
+});
+```
 
 **Query functions** access the database through context:
 
@@ -1003,13 +1176,12 @@ export async function getPosts(): Promise<Post[]> {
 **Project structure:**
 
 ```
-app/
-  db/
-    migrations/
-      20260228090000_create_posts.ts
-      20260315140000_add_published_at.ts
-      20260320100000_add_tags.ts
-    migrate.ts
+db/
+  migrations/
+    20260228090000_create_posts.ts
+    20260315140000_add_published_at.ts
+    20260320100000_add_tags.ts
+  migrate.ts
 ```
 
 Name each file as `YYYYMMDDHHmmss_name.ts`. The `id` and `name` are inferred from the filename. Each file default-exports a `createMigration(...)`.
@@ -1086,26 +1258,49 @@ async up({ schema }) {
 }
 ```
 
-**Creating a runner script** (`app/db/migrate.ts`):
+**Creating a runner script** (`db/migrate.ts`):
 
 ```tsx
+import { D1DatabaseAdapter } from "#/data/adapters/d1-data-table.ts";
 import path from "node:path";
-import { createSqliteDatabaseAdapter as sqliteAdapter } from "remix/data-table-sqlite";
+import * as s from "remix/data-schema";
 import { createMigrationRunner } from "remix/data-table/migrations";
 import { loadMigrations } from "remix/data-table/migrations/node";
+import { getPlatformProxy } from "wrangler";
 
-let adapter = sqliteAdapter(/* your database connection */);
-let migrations = await loadMigrations(path.resolve("app/db/migrations"));
+let Direction = s.union([s.literal("up" as const), s.literal("down" as const)]);
+let direction = s.parse(s.defaulted(Direction, "up"), process.argv[2]);
+
+let to = process.argv[3];
+
+let proxy = await getPlatformProxy<Env>({
+    configPath: "./wrangler.jsonc",
+    persist: true,
+});
+
+let adapter = new D1DatabaseAdapter(proxy.env.DB);
+let migrations = await loadMigrations(path.resolve("db/migrations"));
 let runner = createMigrationRunner(adapter, migrations);
 
-let direction = process.argv[2] === "down" ? "down" : "up";
-let result = direction === "up" ? await runner.up() : await runner.down();
-
-console.log(direction + " complete", {
-    applied: result.applied.map(entry => entry.id),
-    reverted: result.reverted.map(entry => entry.id),
-});
+try {
+    let result = await runner[direction]({ to });
+    console.log(direction + " complete", {
+        applied: result.applied.map(entry => entry.id),
+        reverted: result.reverted.map(entry => entry.id),
+    });
+} finally {
+    await proxy.dispose();
+    process.exit(0);
+}
 ```
+
+**Key details:**
+
+- `getPlatformProxy()` from `wrangler` creates a local proxy to Cloudflare bindings (D1, R2, etc.) — the same bindings your app uses at runtime, but available in a standalone script
+- `persist: true` ensures state is saved to `.wrangler/state/` between runs, matching dev server behavior
+- `proxy.dispose()` in a `finally` block ensures cleanup even if migration fails
+- The `to` argument allows migrating to a specific version: `node db/migrate.ts up 20260315140000`
+- Direction defaults to `"up"` when no argument is provided, validated with `remix/data-schema`
 
 **Runner options:**
 
@@ -1117,10 +1312,10 @@ console.log(direction + " complete", {
 | `journalTable` | Custom name for the migrations tracking table | `createMigrationRunner(adapter, migrations, { journalTable: "app_migrations" })` |
 
 ```sh
-node ./app/db/migrate.ts up
-node ./app/db/migrate.ts up 20260315140000   # migrate to a specific version
-node ./app/db/migrate.ts down                # revert all
-node ./app/db/migrate.ts down 20260228090000 # revert to a specific version
+node ./db/migrate.ts up
+node ./db/migrate.ts up 20260315140000   # migrate to a specific version
+node ./db/migrate.ts down                # revert all
+node ./db/migrate.ts down 20260228090000 # revert to a specific version
 ```
 
 **The development workflow:**
@@ -1135,7 +1330,7 @@ The `table()` definition is the source of truth for what the schema looks like _
 **At deploy time**, run migrations before starting the app:
 
 ```sh
-node ./app/db/migrate.ts up && node ./server.ts
+node ./db/migrate.ts up && node ./server.ts
 ```
 
 This ensures the database schema matches what the new code expects. The runner's journal table tracks which migrations have already been applied, so running `up` is always safe -- it only applies new migrations.
@@ -1196,17 +1391,45 @@ The client handles the state update optimistically and doesn't need a redirect.
 
 **Decision:** What does my `vite.config.ts` need?
 
-**Heuristic:** Keep it minimal. The Remix plugin handles most of the build configuration.
+**Heuristic:** Keep it minimal. The Remix plugin handles most of the build configuration. When deploying to Cloudflare Workers, add the `@cloudflare/vite-plugin` to handle Workers-specific bundling and binding injection.
 
 ```tsx
+import { cloudflare } from "@cloudflare/vite-plugin";
 import { defineConfig } from "vite-plus";
+
 import { remix } from "./remix.plugin.ts";
 
 export default defineConfig({
-    plugins: [remix()],
-    server: { port: 3000 },
+    plugins: [remix({ serverHandler: false }), cloudflare({ viteEnvironment: { name: "ssr" } })],
+    server: { port: 1612 },
     css: { transformer: "lightningcss" },
-    resolve: { tsconfigPaths: true },
+    run: {
+        tasks: {
+            dev: {
+                dependsOn: ["typegen", "db:migrate"],
+                command: "vp dev --host",
+            },
+            "db:migrate": {
+                command: "node db/migrate.ts",
+            },
+            "db:reset": {
+                command: "rm -rf .wrangler/state/v3/d1",
+            },
+            typegen: {
+                input: ["wrangler.jsonc"],
+                command: "wrangler types",
+            },
+            typecheck: {
+                dependsOn: ["typegen"],
+                command: "tsgo --noEmit",
+                cache: false,
+            },
+            deploy: {
+                command: "wrangler deploy",
+                cache: false,
+            },
+        },
+    },
     fmt: {
         /* Oxfmt options */
     },
@@ -1215,6 +1438,18 @@ export default defineConfig({
     },
 });
 ```
+
+**Plugin configuration:**
+
+- `remix({ serverHandler: false })` — Disables the Remix plugin's built-in Node.js server handler since Cloudflare Workers provides its own. Without this flag, the plugin creates a Node.js request listener that isn't compatible with Workers.
+- `cloudflare({ viteEnvironment: { name: "ssr" } })` — Tells the Cloudflare Vite plugin which build environment contains the server entry. This plugin handles Workers-specific bundling, injects platform bindings (D1, R2, etc.) during dev, and produces a deployable worker bundle.
+
+**Run tasks:** The `run.tasks` config defines orchestrated commands that `vp run <task>` executes. Key patterns:
+
+- **`dependsOn`:** Ensures prerequisites run first. `dev` depends on `typegen` (generates `Env` types from `wrangler.jsonc`) and `db:migrate` (applies pending migrations).
+- **`input`:** File-based cache invalidation. `typegen` only reruns when `wrangler.jsonc` changes.
+- **`cache: false`:** Disables caching for tasks that should always run (typecheck, deploy).
+- **`db:reset`:** Deletes local D1 state for a clean slate during development.
 
 **What the `remix()` plugin provides:**
 
@@ -1225,10 +1460,12 @@ export default defineConfig({
 
 **Commands:**
 
-- `vp dev` -- start dev server with HMR
+- `vp dev` -- start dev server with HMR (runs typegen + migrations first)
 - `vp build` -- production build
 - `vp preview` -- preview production build locally
 - `vp check` -- format + lint + typecheck in one pass
+- `vp run deploy` -- deploy to Cloudflare Workers
+- `vp run db:reset` -- wipe local D1 database
 
 ---
 
@@ -1274,7 +1511,7 @@ let isPending =
 
 ```tsx
 import { clientEntry } from "remix/component";
-import { isServer } from "~/lib/navigating.ts";
+import { isServer } from "#/utils/navigating.ts";
 
 export let Title = clientEntry(import.meta.url, () => {
     return ({ children }: { children: string | string[] }) => {
@@ -1324,22 +1561,22 @@ Place `<Title>` in any frame content component that should update the document t
 
 ```tsx
 // Client entry module — resolves hydration script + its dependencies
-import clientAssets from "~/entry.browser.ts?assets=client";
+import clientAssets from "#/entry.browser.ts?assets=client";
 
 // SSR assets — resolves server-rendered module dependencies (CSS, JS preloads)
-import serverAssets from "~/entry.server.tsx?assets=ssr";
+import serverAssets from "#/entry.server.tsx?assets=ssr";
 
 // Standalone stylesheet — resolves to a URL string
-import styles from "~/index.css?url";
+import styles from "#/index.css?url";
 ```
 
 **Merging assets in the document shell:**
 
 ```tsx
 import { mergeAssets } from "@hiogawa/vite-plugin-fullstack/runtime";
-import clientAssets from "~/entry.browser.ts?assets=client";
-import serverAssets from "~/entry.server.tsx?assets=ssr";
-import styles from "~/index.css?url";
+import clientAssets from "#/entry.browser.ts?assets=client";
+import serverAssets from "#/entry.server.tsx?assets=ssr";
+import styles from "#/index.css?url";
 
 export function Document() {
     let { css, js } = mergeAssets(clientAssets, serverAssets);
@@ -1388,7 +1625,7 @@ export function Document() {
 **External CSS (default choice):**
 
 ```tsx
-import styles from "~/index.css?url";
+import styles from "#/index.css?url";
 
 // In your document shell:
 <link href={styles} rel="stylesheet" />;
@@ -1576,7 +1813,7 @@ import { animateLayout, spring } from "remix/component";
 
 **Decision:** I need keyboard shortcuts, key-specific handlers, or unified pointer+keyboard press behavior.
 
-**Heuristic:** Use the built-in interaction helpers from `remix/component` instead of writing your own keyboard/pointer normalization. Prefer `rmx-target` attributes on anchors and buttons over the `link()` mixin for navigation.
+**Heuristic:** Use the built-in interaction helpers from `remix/component` instead of writing your own keyboard/pointer normalization. For frame-targeted navigation on anchors and buttons, use the `link()` mixin (see Recipe 15) — it provides type-safe frame names.
 
 **`keysEvents()` — key-specific host events:**
 
@@ -1631,15 +1868,19 @@ import { pressEvents } from "remix/component";
 
 Use `pressEvents()` when a non-button element needs to behave like an interactive control across both pointer and keyboard input. It normalizes click, touch, and Enter/Space into a single interaction model.
 
-**`link()` — navigation behavior on non-anchor elements:**
+**`link()` — type-safe frame targeting on anchors and buttons:**
+
+The `link()` mixin (defined in your frame utilities — see Recipe 15) is the standard way to target frames from `<a>` and `<button>` elements. Its `target` prop is typed as `Frame.Name`, so invalid frame names are caught at compile time:
 
 ```tsx
-import { link } from "remix/component";
+import { link } from "#/utils/frame.tsx";
 
-<div mix={[link(routes.posts.show.href({ id }), { target: "content" })]} />;
+<a href={routes.contacts.show.href({ id })} mix={link({ target: "detail" })}>
+    View
+</a>;
 ```
 
-The `link()` mixin makes any element behave like a Remix navigation link. However, prefer real `<a>` tags or `<form><button type="submit"></button></form>` tags with `rmx-target` attributes in most cases — they're more accessible, work without JavaScript, and are easier to understand. Reserve `link()` for cases where an anchor or button tag isn't practical (e.g., a complex interactive card that needs to navigate on click).
+Prefer real `<a>` tags and `<form><button type="submit"></button></form>` tags with the `link()` mixin — they're accessible, work without JavaScript, and provide type safety for frame names. The generic `link()` from `remix/component` can make any element behave like a navigation link, but reserve that for cases where an anchor or button tag isn't practical (e.g., a complex interactive card that needs to navigate on click).
 
 ---
 
@@ -1878,7 +2119,7 @@ Only use `signal` when the work is async or cancellation-sensitive. Don't add `s
 **Importing the sprite:**
 
 ```tsx
-import iconsHref from "~/icons.svg?url";
+import iconsHref from "#/icons.svg?url";
 ```
 
 **Using icons in components:**
@@ -2302,3 +2543,384 @@ auth({
     ],
 });
 ```
+
+---
+
+### 35. How do I handle file uploads?
+
+**Decision:** How do I accept, validate, store, and serve user-uploaded files?
+
+**Heuristic:** Use the `formData()` middleware with a custom `uploadHandler` to intercept file fields during form parsing. Store files in a durable backend (R2, filesystem) and return a URL string that replaces the file field in the parsed FormData. Serve uploaded files through a dedicated route.
+
+**The upload handler:**
+
+```tsx
+import type { FileUpload } from "remix/form-data-parser";
+
+const ALLOWED_TYPES = [
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "image/webp",
+    "image/svg+xml",
+    "image/avif",
+];
+
+export async function uploadHandler(file: FileUpload): Promise<string> {
+    if (!new Set(ALLOWED_TYPES).has(file.type)) {
+        throw new Response(
+            "Unsupported image format. Please upload a JPEG, PNG, GIF, or WebP file.",
+            { status: 415 },
+        );
+    }
+
+    let ext = file.name.split(".").pop() || "jpg";
+    let key = `${file.fieldName}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
+
+    await storage.set(key, file);
+
+    return `/uploads/${key}`;
+}
+```
+
+**Key details:**
+
+- The handler receives a `FileUpload` object (a `File` with metadata) for every file field in the form
+- Return a **string** — this replaces the file in the parsed `FormData`, so your controller receives a URL string instead of binary data
+- Validate the file type early and throw a `Response` to short-circuit with an appropriate HTTP status
+- Generate unique keys using a combination of field name, timestamp, and random suffix to prevent collisions
+
+**Wiring the handler into middleware:**
+
+```tsx
+formData({ uploadHandler }),
+```
+
+Pass the handler to `formData()` in your middleware stack. Non-file fields are parsed normally; file fields are routed through your handler.
+
+**Important timing consideration:** The upload handler runs during form data parsing — before `asyncContext()` and other middleware that follow `formData()` in the stack. This means `getContext()` is not available inside the handler. Access platform bindings (like R2 buckets) directly rather than through request context:
+
+```tsx
+import { env } from "cloudflare:workers";
+let storage = new R2FileStorage(env.FILES);
+```
+
+**Serving uploaded files:**
+
+```tsx
+import { createFileResponse as sendFile } from "remix/response/file";
+
+export let serveUpload: BuildAction<"GET", typeof routes.uploads> = async ctx => {
+    let storage = ctx.get(R2FileStorage);
+    let file = await storage.get(ctx.params.key);
+
+    if (!file) {
+        return new Response("File not found", { status: 404 });
+    }
+
+    return sendFile(file, ctx.request, {
+        cacheControl: "public, max-age=31536000",
+    });
+};
+```
+
+Use `createFileResponse` from `remix/response/file` to serve files with proper headers (content type, range requests, caching). The `cacheControl` option sets a long cache lifetime for immutable uploads.
+
+**The upload form:**
+
+```tsx
+<RestfulForm
+    action={routes.items.update.href({ id })}
+    enctype="multipart/form-data"
+    method={routes.items.update.method}
+>
+    <label>
+        <span>Avatar</span>
+        <div>
+            <img alt="Current avatar" src={item.avatar || PLACEHOLDER_URL} />
+            <label class="avatar-upload">
+                <input accept={ALLOWED_TYPES.join(",")} hidden name="avatar" type="file" />
+                <span>Choose Photo</span>
+            </label>
+        </div>
+    </label>
+    <button type="submit">Save</button>
+</RestfulForm>
+```
+
+**Key rules:**
+
+- Set `enctype="multipart/form-data"` on the form — without this, the browser sends file fields as empty strings
+- Use `accept` on the file input to filter the file picker to allowed types (client-side hint only — always validate server-side too)
+- Use a hidden file input with a styled label for custom upload button appearance
+- In your controller, check whether a new file was uploaded. If no file was provided, preserve the existing value:
+
+```tsx
+let updates = s.parse(UpdateSchema, ctx.get(FormData));
+
+// Preserve existing avatar when no new file is uploaded
+if (!updates.avatar) {
+    updates.avatar = existingRecord.avatar ?? "";
+}
+```
+
+**Defining the upload route:** Use a wildcard route to match nested file keys:
+
+```tsx
+uploads: get("/uploads/*key"),
+```
+
+This matches paths like `/uploads/avatar/1712345678-abc123.jpg`, with the full path after `/uploads/` captured as `params.key`.
+
+---
+
+### 36. How should I set up import aliases?
+
+**Decision:** How do I avoid deep relative imports like `../../../components/Button.tsx`?
+
+**Heuristic:** Use `package.json#imports` (Node.js subpath imports) instead of `tsconfig.json#paths`. Subpath imports are a runtime standard — they work in Node.js, Vite, Cloudflare Workers, and every bundler without additional configuration or plugins. TypeScript paths, by contrast, are a compile-time-only feature that requires bundler-specific `tsconfigPaths` plugins and can silently diverge between what TypeScript resolves and what your runtime resolves.
+
+**Setting up the alias in `package.json`:**
+
+```json
+{
+    "imports": {
+        "#/*": "./app/*"
+    }
+}
+```
+
+The `#` prefix is required by the Node.js subpath imports spec. This maps `#/components/Button.tsx` to `./app/components/Button.tsx`.
+
+**Using aliases in source code:**
+
+```tsx
+import { SearchBar } from "#/components/SearchBar.tsx";
+import { routes } from "#/routes.ts";
+import { loadDatabase } from "#/middleware/database.ts";
+import { Frame } from "#/utils/frame.tsx";
+```
+
+**What you don't need:**
+
+- No `paths` in `tsconfig.json` — TypeScript reads `package.json#imports` natively when `moduleResolution` is set to `"bundler"` (or `"node16"` / `"nodenext"`)
+- No `resolve.alias` in `vite.config.ts` — Vite resolves `#` imports from `package.json` automatically
+- No `resolve: { tsconfigPaths: true }` — this was needed for the old `~/` convention but is unnecessary with subpath imports
+
+**Why `#` over `~` or `@`:**
+
+| Prefix | Source                       | Runtime support                    | Requires plugin       |
+| ------ | ---------------------------- | ---------------------------------- | --------------------- |
+| `#`    | Node.js subpath imports spec | Yes (Node, Vite, Workers, Bun)     | No                    |
+| `~`    | Convention (tsconfig paths)  | No — compile-time only             | Yes (`tsconfigPaths`) |
+| `@`    | Convention (tsconfig paths)  | Conflicts with npm scoped packages | Yes                   |
+
+The `#` prefix is the only one that works everywhere without configuration beyond `package.json`. It's a real module resolution feature, not a build-tool convention.
+
+**The full `tsconfig.json`** — notice no `paths` section:
+
+```json
+{
+    "include": ["**/*.ts", "**/*.tsx"],
+    "exclude": ["dist"],
+    "compilerOptions": {
+        "lib": ["DOM", "DOM.Iterable", "ESNext"],
+        "target": "ESNext",
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "jsx": "react-jsx",
+        "jsxImportSource": "remix/component",
+        "verbatimModuleSyntax": true,
+        "strict": true,
+        "noEmit": true
+    }
+}
+```
+
+**Migration from `~` or `@` aliases:** Replace the prefix in all import statements and remove the `paths` entry from `tsconfig.json` and any `tsconfigPaths` plugin from `vite.config.ts`.
+
+---
+
+### 37. How do I deploy to Cloudflare Workers with D1 and R2?
+
+**Decision:** How do I configure my Remix app to run on Cloudflare Workers with D1 (database) and R2 (file storage)?
+
+**Heuristic:** Use `wrangler.jsonc` to declare your bindings, the `@cloudflare/vite-plugin` for dev/build integration, and platform-specific adapters for D1 and R2. Access bindings through `cloudflare:workers` at the top level and through request context in middleware.
+
+**Wrangler configuration** (`wrangler.jsonc`):
+
+```jsonc
+{
+    "$schema": "node_modules/wrangler/config-schema.json",
+    "name": "my-app",
+    "main": "./app/entry.server.tsx",
+    "assets": { "directory": "dist/client" },
+    "compatibility_date": "2026-04-02",
+    "compatibility_flags": ["nodejs_compat"],
+    "d1_databases": [
+        {
+            "binding": "DB",
+            "database_name": "my-db",
+            "database_id": "local",
+        },
+    ],
+    "r2_buckets": [{ "binding": "FILES", "bucket_name": "my-files" }],
+}
+```
+
+**Key fields:**
+
+- `main` — Your server entry point. Cloudflare Workers loads this as the request handler.
+- `assets.directory` — Points to the client build output. Workers serves these as static assets before hitting your server code.
+- `compatibility_flags: ["nodejs_compat"]` — Enables Node.js API compatibility (required for `node:` imports like `node:path`, `node:timers/promises`).
+- `d1_databases` — Declares D1 database bindings. Use `"database_id": "local"` for development; replace with the real ID for production.
+- `r2_buckets` — Declares R2 object storage bindings.
+
+**Generating types from bindings:**
+
+Run `wrangler types` to generate a `worker-configuration.d.ts` file with the `Env` interface. This gives TypeScript knowledge of your bindings:
+
+```tsx
+// Auto-generated by `wrangler types`
+interface Env {
+    DB: D1Database;
+    FILES: R2Bucket;
+}
+```
+
+Wire this into your `vite.config.ts` as a run task so types are regenerated when `wrangler.jsonc` changes:
+
+```tsx
+run: {
+    tasks: {
+        typegen: {
+            input: ["wrangler.jsonc"],
+            command: "wrangler types",
+        },
+    },
+},
+```
+
+**Accessing bindings:**
+
+```tsx
+// At module scope (for code that runs outside middleware, like upload handlers)
+import { env } from "cloudflare:workers";
+let db = env.DB;
+let bucket = env.FILES;
+
+// In middleware (preferred — inject into request context)
+import { Database } from "remix/data-table";
+import { type Middleware } from "remix/fetch-router";
+
+export function loadDatabase(): Middleware {
+    let adapter = new D1DatabaseAdapter(env.DB);
+    let db = new Database(adapter);
+
+    return (ctx, next) => {
+        ctx.set(Database, db);
+        return next();
+    };
+}
+```
+
+**When to use `env` directly vs. context injection:**
+
+| Approach                                           | When to use                                                                           |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `import { env } from "cloudflare:workers"`         | Module-scope initialization, code that runs before middleware (e.g., upload handlers) |
+| `ctx.get(Database)` / `getContext().get(Database)` | Controllers and data access functions — testable, swappable                           |
+
+**Writing a D1 database adapter:**
+
+The `remix/data-table` package expects a `DatabaseAdapter`. For D1, you need an adapter that uses D1's prepared-statement API for execution while delegating SQL generation to the built-in SQLite adapter:
+
+```tsx
+import { SqliteDatabaseAdapter } from "remix/data-table-sqlite";
+
+// Reuse the SQLite adapter purely for SQL compilation (never touches the database)
+let compiler = new SqliteDatabaseAdapter(null as never);
+
+export class D1DatabaseAdapter implements DatabaseAdapter {
+    dialect = "sqlite";
+    #d1: D1Database;
+
+    constructor(d1: D1Database) {
+        this.#d1 = d1;
+    }
+
+    compileSql(operation) {
+        return compiler.compileSql(operation);
+    }
+
+    async execute(request) {
+        let statement = this.compileSql(request.operation)[0];
+        let prepared = this.#d1.prepare(statement.text).bind(...statement.values);
+        // ... execute and return results
+    }
+}
+```
+
+**D1 limitations to know:**
+
+- **No SQL transactions** — D1 forbids `BEGIN`/`COMMIT`/`ROLLBACK`/`SAVEPOINT`. Use `d1.batch()` for atomic multi-statement execution if needed, but note this is incompatible with the adapter's streaming transaction model. Set `capabilities.savepoints = false` and `capabilities.transactionalDdl = false` in your adapter.
+- **No migration locking** — Set `capabilities.migrationLock = false`. Migrations run at deploy time, so concurrent migration is unlikely, but be aware.
+
+**Writing an R2 file storage adapter:**
+
+Implement the `FileStorage` interface from `remix/file-storage` to wrap R2:
+
+```tsx
+import type { FileStorage } from "remix/file-storage";
+
+export class R2FileStorage implements FileStorage {
+    #r2: R2Bucket;
+
+    constructor(r2: R2Bucket) {
+        this.#r2 = r2;
+    }
+
+    async get(key: string): Promise<File | null> {
+        let object = await this.#r2.get(key);
+        if (!object) return null;
+        let buffer = await object.arrayBuffer();
+        return new File([buffer], object.key, {
+            type: object.httpMetadata?.contentType,
+        });
+    }
+
+    async set(key: string, file: File): Promise<void> {
+        await this.#r2.put(key, await file.arrayBuffer(), {
+            httpMetadata: { contentType: file.type },
+            customMetadata: { name: file.name },
+        });
+    }
+
+    async remove(key: string): Promise<void> {
+        await this.#r2.delete(key);
+    }
+
+    async has(key: string): Promise<boolean> {
+        return (await this.#r2.head(key)) != null;
+    }
+}
+```
+
+**The development workflow:**
+
+1. `wrangler.jsonc` declares your D1 + R2 bindings
+2. `wrangler types` generates the `Env` interface
+3. The Cloudflare Vite plugin (`@cloudflare/vite-plugin`) injects local proxies for D1/R2 during `vp dev`
+4. Local D1 state persists in `.wrangler/state/v3/d1/` — delete this directory to reset
+5. `wrangler deploy` pushes your built worker to Cloudflare
+
+**Production setup:**
+
+Before deploying, create the D1 database and R2 bucket on Cloudflare, then update `wrangler.jsonc` with the real `database_id`:
+
+```sh
+wrangler d1 create my-db
+wrangler r2 bucket create my-files
+```
+
+Replace `"database_id": "local"` with the ID returned by `wrangler d1 create`.
