@@ -1,12 +1,14 @@
 import path from "node:path";
+import * as s from "remix/data-schema";
 import { createMigrationRunner } from "remix/data-table/migrations";
 import { loadMigrations } from "remix/data-table/migrations/node";
 import { getPlatformProxy } from "wrangler";
 
 import { createD1DatabaseAdapter } from "~/db/adapter.ts";
 
-let directionArg = process.argv[2] ?? "up";
-let direction = directionArg === "down" ? "down" : "up";
+let Direction = s.union([s.literal("up" as const), s.literal("down" as const)]);
+let direction = s.parse(s.defaulted(Direction, "up"), process.argv[2]);
+
 let to = process.argv[3];
 
 let proxy = await getPlatformProxy<Env>({
@@ -19,7 +21,7 @@ let migrations = await loadMigrations(path.resolve("app/db/migrations"));
 let runner = createMigrationRunner(adapter, migrations);
 
 try {
-    let result = direction === "up" ? await runner.up({ to }) : await runner.down({ to });
+    let result = await runner[direction]({ to });
     console.log(direction + " complete", {
         applied: result.applied.map(entry => entry.id),
         reverted: result.reverted.map(entry => entry.id),
