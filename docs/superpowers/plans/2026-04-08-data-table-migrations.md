@@ -12,20 +12,21 @@
 
 ### File Map
 
-| Action | Path | Responsibility |
-|--------|------|---------------|
-| Create | `app/db/migrations/20260213161402_create_contacts.ts` | Create contacts table + index |
-| Create | `app/db/migrations/20260402234741_seed_contacts.ts` | Conditionally seed 5 contacts |
-| Create | `app/db/migrate.ts` | Runner script: load migrations, connect D1, apply up/down |
-| Modify | `vite.config.ts` | Update Vite tasks |
-| Delete | `scripts/create-contacts.ts` | Replaced by migration 1 |
-| Delete | `scripts/seed.ts` | Replaced by migration 2 |
+| Action | Path                                                  | Responsibility                                            |
+| ------ | ----------------------------------------------------- | --------------------------------------------------------- |
+| Create | `app/db/migrations/20260213161402_create_contacts.ts` | Create contacts table + index                             |
+| Create | `app/db/migrations/20260402234741_seed_contacts.ts`   | Conditionally seed 5 contacts                             |
+| Create | `app/db/migrate.ts`                                   | Runner script: load migrations, connect D1, apply up/down |
+| Modify | `vite.config.ts`                                      | Update Vite tasks                                         |
+| Delete | `scripts/create-contacts.ts`                          | Replaced by migration 1                                   |
+| Delete | `scripts/seed.ts`                                     | Replaced by migration 2                                   |
 
 ---
 
 ### Task 1: Create the `create_contacts` migration
 
 **Files:**
+
 - Create: `app/db/migrations/20260213161402_create_contacts.ts`
 
 - [ ] **Step 1: Create the migration file**
@@ -60,6 +61,7 @@ git commit -m "Add create_contacts migration"
 ### Task 2: Create the `seed_contacts` migration
 
 **Files:**
+
 - Create: `app/db/migrations/20260402234741_seed_contacts.ts`
 
 - [ ] **Step 1: Create the migration file**
@@ -143,6 +145,7 @@ git commit -m "Add seed_contacts migration"
 ### Task 3: Create the migration runner script
 
 **Files:**
+
 - Create: `app/db/migrate.ts`
 
 - [ ] **Step 1: Create the runner script**
@@ -194,6 +197,7 @@ git commit -m "Add migration runner script"
 ### Task 4: Update Vite tasks and delete old scripts
 
 **Files:**
+
 - Modify: `vite.config.ts:23-31`
 - Delete: `scripts/create-contacts.ts`
 - Delete: `scripts/seed.ts`

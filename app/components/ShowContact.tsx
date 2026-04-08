@@ -1,4 +1,4 @@
-import type { Contact } from "~/lib/database/contacts.ts";
+import type { Contact } from "~/db/contacts.ts";
 
 import { DeleteButton } from "~/components/Buttons.tsx";
 import { Favorite } from "~/components/Favorite.tsx";

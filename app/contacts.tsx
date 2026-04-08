@@ -14,7 +14,7 @@ import {
     deleteContact,
     getContact,
     updateContact,
-} from "~/lib/database/contacts.ts";
+} from "~/db/contacts.ts";
 import { createFrameResponse as frame, Frame } from "~/lib/frame.tsx";
 import { document, sidebar } from "~/lib/render.tsx";
 import { FavoriteSchema, QuerySchema, UpdateSchema } from "~/lib/schemas.ts";

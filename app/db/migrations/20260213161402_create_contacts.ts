@@ -1,6 +1,6 @@
 import { createMigration } from "remix/data-table/migrations";
 
-import { Contacts } from "../../lib/database/contacts.ts";
+import { Contacts } from "~/db/contacts.ts";
 
 export default createMigration({
     async up({ schema }) {

@@ -5,8 +5,8 @@ import { createHtmlResponse as html } from "remix/response/html";
 
 import { Document } from "~/components/Document.tsx";
 import { SidebarItem } from "~/components/SidebarItem.tsx";
+import { getContacts } from "~/db/contacts.ts";
 import { router } from "~/entry.server.tsx";
-import { getContacts } from "~/lib/database/contacts.ts";
 
 import { createFrameResponse as frame } from "./frame.tsx";
 import { QuerySchema } from "./schemas.ts";

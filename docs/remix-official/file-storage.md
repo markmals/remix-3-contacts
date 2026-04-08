@@ -20,24 +20,24 @@ npm i remix
 ### File System
 
 ```ts
-import { createFsFileStorage } from 'remix/file-storage/fs'
+import { createFsFileStorage } from "remix/file-storage/fs";
 
-let storage = createFsFileStorage('./user/files')
+let storage = createFsFileStorage("./user/files");
 
-let file = new File(['hello world'], 'hello.txt', { type: 'text/plain' })
-let key = 'hello-key'
+let file = new File(["hello world"], "hello.txt", { type: "text/plain" });
+let key = "hello-key";
 
 // Put the file in storage.
-await storage.set(key, file)
+await storage.set(key, file);
 
 // Then, sometime later...
-let fileFromStorage = await storage.get(key)
+let fileFromStorage = await storage.get(key);
 // All of the original file's metadata is intact
-fileFromStorage.name // 'hello.txt'
-fileFromStorage.type // 'text/plain'
+fileFromStorage.name; // 'hello.txt'
+fileFromStorage.type; // 'text/plain'
 
 // To remove from storage
-await storage.remove(key)
+await storage.remove(key);
 ```
 
 ## Related Packages

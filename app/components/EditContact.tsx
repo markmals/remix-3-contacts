@@ -1,4 +1,4 @@
-import type { Contact } from "~/lib/database/contacts.ts";
+import type { Contact } from "~/db/contacts.ts";
 
 import { CancelButton } from "~/components/Buttons.tsx";
 import { SITE } from "~/lib/meta.ts";

@@ -1,7 +1,7 @@
 import { Database, sql } from "remix/data-table";
 import { createMigration } from "remix/data-table/migrations";
 
-import { Contacts } from "../../lib/database/contacts.ts";
+import { Contacts } from "~/db/contacts.ts";
 
 let SEED_CONTACTS = [
     {
