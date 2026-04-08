@@ -22,14 +22,14 @@ export default defineConfig({
     run: {
         tasks: {
             dev: {
-                dependsOn: ["typegen", "db:seed"],
+                dependsOn: ["typegen", "db:migrate"],
                 command: "vp dev --host",
             },
-            "db:seed": {
-                command: "node scripts/seed.ts",
+            "db:migrate": {
+                command: "node app/db/migrate.ts",
             },
-            "db:create": {
-                command: "node scripts/create-contacts.ts",
+            "db:reset": {
+                command: "rm -rf .wrangler/state/v3/d1",
             },
             typegen: {
                 input: ["wrangler.jsonc"],
@@ -43,6 +43,7 @@ export default defineConfig({
             check: {
                 dependsOn: ["typegen"],
                 command: "vp check --fix",
+                cache: false,
             },
             deploy: {
                 command: "wrangler deploy",
