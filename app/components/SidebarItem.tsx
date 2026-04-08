@@ -1,6 +1,6 @@
-import { link } from "#/lib/util/frame.tsx";
-import { isServer, navigating } from "#/lib/util/navigating.ts";
 import { routes } from "#/routes.ts";
+import { link } from "#/utils/frame.tsx";
+import { isServer, navigating } from "#/utils/navigating.ts";
 import { addEventListeners, clientEntry, type SerializableProps } from "remix/component";
 import { ArrayMatcher } from "remix/route-pattern";
 

@@ -9,11 +9,11 @@ import {
     deleteContact,
     getContact,
     updateContact,
-} from "#/lib/contacts.ts";
-import { document, sidebar } from "#/lib/render.tsx";
-import { FavoriteSchema, QuerySchema, UpdateSchema, IdSchema } from "#/lib/schemas.ts";
-import { createFrameResponse as frame, Frame } from "#/lib/util/frame.tsx";
+} from "#/data/contacts.ts";
+import { FavoriteSchema, QuerySchema, UpdateSchema, IdSchema } from "#/data/schemas.ts";
 import { routes } from "#/routes.ts";
+import { createFrameResponse as frame, Frame } from "#/utils/frame.tsx";
+import { document, sidebar } from "#/utils/render.tsx";
 import { getContext } from "remix/async-context-middleware";
 import * as s from "remix/data-schema";
 import { redirect } from "remix/response/redirect";
@@ -76,6 +76,12 @@ export default {
             }
 
             let updates = s.parse(UpdateSchema, ctx.get(FormData));
+
+            // Preserve existing avatar when no new file is uploaded
+            if (!updates.avatar) {
+                updates.avatar = contact.avatar ?? "";
+            }
+
             await updateContact(id, updates);
 
             return redirect(routes.contacts.show.href({ id: ctx.params.id }));

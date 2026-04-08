@@ -1,11 +1,11 @@
 import { SearchBar } from "#/components/SearchBar.tsx";
+import { SITE } from "#/data/meta.ts";
+import { QuerySchema } from "#/data/schemas.ts";
 import clientAssets from "#/entry.browser.ts?assets=client";
 import serverAssets from "#/entry.server.tsx?assets=ssr";
 import styles from "#/index.css?url";
-import { SITE } from "#/lib/meta.ts";
-import { QuerySchema } from "#/lib/schemas.ts";
-import { Frame } from "#/lib/util/frame.tsx";
 import { routes } from "#/routes.ts";
+import { Frame } from "#/utils/frame.tsx";
 import { mergeAssets } from "@hiogawa/vite-plugin-fullstack/runtime";
 import { getContext } from "remix/async-context-middleware";
 import * as s from "remix/data-schema";

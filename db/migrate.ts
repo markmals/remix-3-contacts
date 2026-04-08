@@ -1,4 +1,4 @@
-import { D1DatabaseAdapter } from "#/lib/adapters/d1-data-table.ts";
+import { D1DatabaseAdapter } from "#/data/adapters/d1-data-table.ts";
 import path from "node:path";
 import * as s from "remix/data-schema";
 import { createMigrationRunner } from "remix/data-table/migrations";

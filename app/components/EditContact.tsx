@@ -1,7 +1,7 @@
-import type { Contact } from "#/lib/contacts.ts";
+import type { Contact } from "#/data/contacts.ts";
 
 import { CancelButton } from "#/components/Buttons.tsx";
-import { SITE } from "#/lib/meta.ts";
+import { SITE } from "#/data/meta.ts";
 import { routes } from "#/routes.ts";
 
 import { RestfulForm } from "./RestfulForm.tsx";
@@ -15,6 +15,7 @@ export function EditContact() {
             </Title>
             <RestfulForm
                 action={routes.contacts.update.href({ id: props.contact.id })}
+                enctype="multipart/form-data"
                 id="contact-form"
                 method={routes.contacts.update.method}
             >
@@ -47,14 +48,15 @@ export function EditContact() {
                 </label>
 
                 <label>
-                    <span>Avatar URL</span>
-                    <input
-                        aria-label="Avatar URL"
-                        name="avatar"
-                        placeholder="https://example.com/avatar.jpg"
-                        type="text"
-                        value={props.contact.avatar || undefined}
-                    />
+                    <span>Avatar</span>
+                    {props.contact.avatar ? (
+                        <img
+                            alt="Current avatar"
+                            src={props.contact.avatar}
+                            style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin-bottom: 0.5rem;"
+                        />
+                    ) : null}
+                    <input accept="image/*" name="avatar" type="file" />
                 </label>
 
                 <label>

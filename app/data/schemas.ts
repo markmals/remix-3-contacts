@@ -13,7 +13,7 @@ export let FavoriteSchema = f.object({
 export let UpdateSchema = f.object({
     first: f.field(s.defaulted(s.string(), "")),
     last: f.field(s.defaulted(s.string(), "")),
-    avatar: f.field(s.defaulted(s.string(), "")),
+    avatar: f.field(s.union([s.string(), s.undefined_()])),
     bsky: f.field(s.defaulted(s.string(), "")),
     notes: f.field(s.defaulted(s.string(), "")),
 });
