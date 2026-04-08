@@ -1,4 +1,4 @@
-import { isServer } from "#/lib/navigating.ts";
+import { isServer } from "#/lib/util/navigating.ts";
 import { clientEntry } from "remix/component";
 
 export let Title = clientEntry(import.meta.url, () => {

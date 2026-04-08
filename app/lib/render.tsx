@@ -1,14 +1,14 @@
 import { Document } from "#/components/Document.tsx";
 import { SidebarItem } from "#/components/SidebarItem.tsx";
 import { router } from "#/entry.server.tsx";
-import { getContacts } from "#/lib/data-table/contacts.ts";
+import { getContacts } from "#/lib/contacts.ts";
 import { getContext } from "remix/async-context-middleware";
 import { renderToStream } from "remix/component/server";
 import * as s from "remix/data-schema";
 import { createHtmlResponse as html } from "remix/response/html";
 
-import { createFrameResponse as frame } from "./frame.tsx";
 import { QuerySchema } from "./schemas.ts";
+import { createFrameResponse as frame } from "./util/frame.tsx";
 
 export async function sidebar(selected?: string | number): Promise<Response> {
     let { url } = getContext();

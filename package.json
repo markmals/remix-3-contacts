@@ -3,8 +3,7 @@
     "private": true,
     "type": "module",
     "imports": {
-        "#/*": "./app/*",
-        "#db/*": "./app/lib/data-table/*"
+        "#/*": "./app/*"
     },
     "dependencies": {
         "@hiogawa/vite-plugin-fullstack": "^0.0.11",

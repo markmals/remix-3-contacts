@@ -1,4 +1,4 @@
-import { Contacts } from "#db/contacts.ts";
+import { Contacts } from "#/lib/contacts.ts";
 import { createMigration } from "remix/data-table/migrations";
 
 const SEED_CONTACTS = [

@@ -1,8 +1,8 @@
 import { ZeroState } from "#/components/ZeroState.tsx";
 import contacts from "#/contacts.tsx";
-import { loadDatabase } from "#/lib/data-table/middleware.ts";
-import { createFrameResponse as frame, Frame, frameTarget } from "#/lib/frame.tsx";
 import { document, sidebar } from "#/lib/render.tsx";
+import { createFrameResponse as frame, Frame, frameTarget } from "#/lib/util/frame.tsx";
+import { loadFileStorage, loadDatabase } from "#/middleware.ts";
 import { routes } from "#/routes.ts";
 import { asyncContext } from "remix/async-context-middleware";
 import { createRouter } from "remix/fetch-router";
@@ -18,6 +18,7 @@ export let router = createRouter({
         methodOverride(),
         asyncContext(),
         loadDatabase(),
+        loadFileStorage(),
         frameTarget(),
     ],
 });

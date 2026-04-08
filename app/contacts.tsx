@@ -9,10 +9,10 @@ import {
     deleteContact,
     getContact,
     updateContact,
-} from "#/lib/data-table/contacts.ts";
-import { createFrameResponse as frame, Frame } from "#/lib/frame.tsx";
+} from "#/lib/contacts.ts";
 import { document, sidebar } from "#/lib/render.tsx";
 import { FavoriteSchema, QuerySchema, UpdateSchema, IdSchema } from "#/lib/schemas.ts";
+import { createFrameResponse as frame, Frame } from "#/lib/util/frame.tsx";
 import { routes } from "#/routes.ts";
 import { getContext } from "remix/async-context-middleware";
 import * as s from "remix/data-schema";

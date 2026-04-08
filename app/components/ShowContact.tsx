@@ -1,9 +1,9 @@
-import type { Contact } from "#/lib/data-table/contacts.ts";
+import type { Contact } from "#/lib/contacts.ts";
 
 import { DeleteButton } from "#/components/Buttons.tsx";
 import { Favorite } from "#/components/Favorite.tsx";
-import { link } from "#/lib/frame.tsx";
 import { SITE } from "#/lib/meta.ts";
+import { link } from "#/lib/util/frame.tsx";
 import { routes } from "#/routes.ts";
 
 import { RestfulForm } from "./RestfulForm.tsx";

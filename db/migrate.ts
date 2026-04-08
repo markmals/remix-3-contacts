@@ -1,4 +1,4 @@
-import { createD1DatabaseAdapter } from "#db/adapter.ts";
+import { D1DatabaseAdapter } from "#/lib/adapters/d1-data-table.ts";
 import path from "node:path";
 import * as s from "remix/data-schema";
 import { createMigrationRunner } from "remix/data-table/migrations";
@@ -15,7 +15,7 @@ let proxy = await getPlatformProxy<Env>({
     persist: true,
 });
 
-let adapter = createD1DatabaseAdapter(proxy.env.DB);
+let adapter = new D1DatabaseAdapter(proxy.env.DB);
 let migrations = await loadMigrations(path.resolve("db/migrations"));
 let runner = createMigrationRunner(adapter, migrations);
 
