@@ -17,3 +17,5 @@ export let UpdateSchema = f.object({
     bsky: f.field(s.defaulted(s.string(), "")),
     notes: f.field(s.defaulted(s.string(), "")),
 });
+
+export let IdSchema = s.object({ id: coerce.number() });

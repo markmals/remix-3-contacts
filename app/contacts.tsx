@@ -12,20 +12,17 @@ import {
 } from "#/lib/data-table/contacts.ts";
 import { createFrameResponse as frame, Frame } from "#/lib/frame.tsx";
 import { document, sidebar } from "#/lib/render.tsx";
-import { FavoriteSchema, QuerySchema, UpdateSchema } from "#/lib/schemas.ts";
+import { FavoriteSchema, QuerySchema, UpdateSchema, IdSchema } from "#/lib/schemas.ts";
 import { routes } from "#/routes.ts";
 import { getContext } from "remix/async-context-middleware";
 import * as s from "remix/data-schema";
-import * as coerce from "remix/data-schema/coerce";
 import { redirect } from "remix/response/redirect";
-
-let ParamsSchema = s.object({ id: coerce.number() });
 
 async function contactPage(detail: (contact: Contact) => RemixNode) {
     try {
         let ctx = getContext();
         let target = ctx.get(Frame.Target);
-        let { id } = s.parse(ParamsSchema, ctx.params);
+        let { id } = s.parse(IdSchema, ctx.params);
 
         if (target.is("sidebar")) {
             return sidebar(id);
@@ -58,20 +55,20 @@ export default {
             return redirect(routes.contacts.edit.href({ id }));
         },
         async destroy(ctx) {
-            let { id } = s.parse(ParamsSchema, ctx.params);
+            let { id } = s.parse(IdSchema, ctx.params);
             await deleteContact(id);
             return redirect(routes.home.href());
         },
         async favorite(ctx) {
             let { favorite } = s.parse(FavoriteSchema, ctx.get(FormData));
-            let { id } = s.parse(ParamsSchema, ctx.params);
+            let { id } = s.parse(IdSchema, ctx.params);
             let update = await updateContact(id, {
                 favorite,
             });
             return Response.json(update);
         },
         async update(ctx) {
-            let { id } = s.parse(ParamsSchema, ctx.params);
+            let { id } = s.parse(IdSchema, ctx.params);
             let contact = await getContact(id);
 
             if (!contact) {
