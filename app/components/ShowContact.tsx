@@ -2,6 +2,7 @@ import type { Contact } from "~/lib/database/contacts.ts";
 
 import { DeleteButton } from "~/components/Buttons.tsx";
 import { Favorite } from "~/components/Favorite.tsx";
+import { Frame } from "~/lib/frame.tsx";
 import { SITE } from "~/lib/meta.ts";
 import { routes } from "~/routes.ts";
 
@@ -63,9 +64,9 @@ export function ShowContact() {
                                 )}
                                 method="GET"
                             >
-                                <button rmx-target="detail" type="submit">
+                                <Frame.Button rmx:target="detail" type="submit">
                                     Edit
-                                </button>
+                                </Frame.Button>
                             </form>
                             <DeleteButton contactId={props.contact.id} />
                         </div>

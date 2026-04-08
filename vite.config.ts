@@ -38,6 +38,7 @@ export default defineConfig({
             typecheck: {
                 dependsOn: ["typegen"],
                 command: "tsgo --noEmit",
+                cache: false,
             },
             check: {
                 dependsOn: ["typegen"],

@@ -30,6 +30,79 @@ export namespace Frame {
             return success;
         }
     }
+
+    // Preserve the href/role accessibility discriminant from the anchor type
+    type AnchorElement = JSX.IntrinsicHTMLElements["a"];
+    type AnchorBase = Omit<
+        AnchorElement,
+        "href" | "role" | "rmx-target" | "rmx-src" | "rmx-reset-scroll"
+    >;
+    type HrefRole = Extract<AnchorElement, { href: string }>["role"];
+    type NoHrefRole = Exclude<AnchorElement, { href: string }>["role"];
+
+    export type LinkProps = AnchorBase &
+        (
+            | {
+                  "rmx:target"?: Name;
+                  "rmx:src": URL;
+                  href?: never;
+                  role?: NoHrefRole;
+                  "rmx:resetScroll"?: boolean;
+              }
+            | {
+                  "rmx:target"?: Name;
+                  "rmx:src"?: never;
+                  href: string;
+                  role?: HrefRole;
+                  "rmx:resetScroll"?: boolean;
+              }
+        );
+
+    export function Link() {
+        return (props: LinkProps) => {
+            let {
+                "rmx:target": target,
+                "rmx:src": src,
+                "rmx:resetScroll": resetScroll,
+                ...rest
+            } = props;
+
+            return (
+                <a
+                    {...rest}
+                    rmx-reset-scroll={resetScroll != null ? `${resetScroll}` : undefined}
+                    rmx-src={src?.toString()}
+                    rmx-target={target}
+                />
+            );
+        };
+    }
+
+    export type ButtonProps = JSX.IntrinsicHTMLElements["button"] & {
+        "rmx:target"?: Name;
+        "rmx:src"?: URL;
+        "rmx:resetScroll"?: boolean;
+    };
+
+    export function Button() {
+        return (props: ButtonProps) => {
+            let {
+                "rmx:target": target,
+                "rmx:src": src,
+                "rmx:resetScroll": resetScroll,
+                ...rest
+            } = props;
+
+            return (
+                <button
+                    {...rest}
+                    rmx-reset-scroll={resetScroll != null ? `${resetScroll}` : undefined}
+                    rmx-src={src?.toString()}
+                    rmx-target={target}
+                />
+            );
+        };
+    }
 }
 
 export function frameRequest(): Middleware {
