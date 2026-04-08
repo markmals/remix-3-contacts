@@ -34,8 +34,8 @@ export namespace Frame {
 
 export type LinkProps = { target?: Frame.Name; src?: URL; resetScroll?: boolean };
 
-export const link = createMixin<HTMLButtonElement | HTMLAnchorElement, [LinkProps]>(handle => {
-    return (props: LinkProps) => (
+export let link = createMixin<HTMLAnchorElement | HTMLButtonElement, [LinkProps]>(handle => {
+    return props => (
         <handle.element
             rmx-reset-scroll={props.resetScroll != null ? `${props.resetScroll}` : undefined}
             rmx-src={props.src?.toString()}
