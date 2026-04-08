@@ -2,6 +2,10 @@
     "name": "remix-3-contacts",
     "private": true,
     "type": "module",
+    "imports": {
+        "#/*": "./app/*",
+        "#db/*": "./app/lib/data-table/*"
+    },
     "dependencies": {
         "@hiogawa/vite-plugin-fullstack": "^0.0.11",
         "es-toolkit": "^1.45.1",

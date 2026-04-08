@@ -1,12 +1,11 @@
+import { Document } from "#/components/Document.tsx";
+import { SidebarItem } from "#/components/SidebarItem.tsx";
+import { router } from "#/entry.server.tsx";
+import { getContacts } from "#/lib/data-table/contacts.ts";
 import { getContext } from "remix/async-context-middleware";
 import { renderToStream } from "remix/component/server";
 import * as s from "remix/data-schema";
 import { createHtmlResponse as html } from "remix/response/html";
-
-import { Document } from "~/components/Document.tsx";
-import { SidebarItem } from "~/components/SidebarItem.tsx";
-import { getContacts } from "~/db/contacts.ts";
-import { router } from "~/entry.server.tsx";
 
 import { createFrameResponse as frame } from "./frame.tsx";
 import { QuerySchema } from "./schemas.ts";

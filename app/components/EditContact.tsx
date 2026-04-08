@@ -1,8 +1,8 @@
-import type { Contact } from "~/db/contacts.ts";
+import type { Contact } from "#/lib/data-table/contacts.ts";
 
-import { CancelButton } from "~/components/Buttons.tsx";
-import { SITE } from "~/lib/meta.ts";
-import { routes } from "~/routes.ts";
+import { CancelButton } from "#/components/Buttons.tsx";
+import { SITE } from "#/lib/meta.ts";
+import { routes } from "#/routes.ts";
 
 import { RestfulForm } from "./RestfulForm.tsx";
 import { Title } from "./Title.tsx";

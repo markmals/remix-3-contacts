@@ -1,4 +1,5 @@
 {
+    "$schema": "node_modules/wrangler/config-schema.json",
     "name": "remix-3-contacts",
     "main": "./app/entry.server.tsx",
     "assets": { "directory": "dist/client" },
@@ -10,5 +11,6 @@
             "database_name": "contacts-db",
             "database_id": "local"
         }
-    ]
+    ],
+    "r2_buckets": [{ "binding": "FILES", "bucket_name": "contact-pictures" }]
 }

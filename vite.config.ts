@@ -16,9 +16,6 @@ export default defineConfig({
     css: {
         transformer: "lightningcss",
     },
-    resolve: {
-        tsconfigPaths: true,
-    },
     run: {
         tasks: {
             dev: {
@@ -26,7 +23,7 @@ export default defineConfig({
                 command: "vp dev --host",
             },
             "db:migrate": {
-                command: "node app/db/migrate.ts",
+                command: "node db/migrate.ts",
             },
             "db:reset": {
                 command: "rm -rf .wrangler/state/v3/d1",

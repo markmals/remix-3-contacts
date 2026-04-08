@@ -1,6 +1,5 @@
+import { isServer } from "#/lib/navigating.ts";
 import { clientEntry } from "remix/component";
-
-import { isServer } from "~/lib/navigating.ts";
 
 export let Title = clientEntry(import.meta.url, () => {
     return ({ children }: { children: string | string[] }) => {

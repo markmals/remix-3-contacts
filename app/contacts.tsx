@@ -1,24 +1,23 @@
 import type { RemixNode } from "remix/component";
 import type { Controller } from "remix/fetch-router";
 
-import { getContext } from "remix/async-context-middleware";
-import * as s from "remix/data-schema";
-import * as coerce from "remix/data-schema/coerce";
-import { redirect } from "remix/response/redirect";
-
-import { EditContact } from "~/components/EditContact.tsx";
-import { ShowContact } from "~/components/ShowContact.tsx";
+import { EditContact } from "#/components/EditContact.tsx";
+import { ShowContact } from "#/components/ShowContact.tsx";
 import {
     type Contact,
     createContact,
     deleteContact,
     getContact,
     updateContact,
-} from "~/db/contacts.ts";
-import { createFrameResponse as frame, Frame } from "~/lib/frame.tsx";
-import { document, sidebar } from "~/lib/render.tsx";
-import { FavoriteSchema, QuerySchema, UpdateSchema } from "~/lib/schemas.ts";
-import { routes } from "~/routes.ts";
+} from "#/lib/data-table/contacts.ts";
+import { createFrameResponse as frame, Frame } from "#/lib/frame.tsx";
+import { document, sidebar } from "#/lib/render.tsx";
+import { FavoriteSchema, QuerySchema, UpdateSchema } from "#/lib/schemas.ts";
+import { routes } from "#/routes.ts";
+import { getContext } from "remix/async-context-middleware";
+import * as s from "remix/data-schema";
+import * as coerce from "remix/data-schema/coerce";
+import { redirect } from "remix/response/redirect";
 
 let ParamsSchema = s.object({ id: coerce.number() });
 

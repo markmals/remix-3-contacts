@@ -1,10 +1,9 @@
+import { createD1DatabaseAdapter } from "#db/adapter.ts";
 import path from "node:path";
 import * as s from "remix/data-schema";
 import { createMigrationRunner } from "remix/data-table/migrations";
 import { loadMigrations } from "remix/data-table/migrations/node";
 import { getPlatformProxy } from "wrangler";
-
-import { createD1DatabaseAdapter } from "./adapter.ts";
 
 let Direction = s.union([s.literal("up" as const), s.literal("down" as const)]);
 let direction = s.parse(s.defaulted(Direction, "up"), process.argv[2]);
@@ -17,7 +16,7 @@ let proxy = await getPlatformProxy<Env>({
 });
 
 let adapter = createD1DatabaseAdapter(proxy.env.DB);
-let migrations = await loadMigrations(path.resolve("app/db/migrations"));
+let migrations = await loadMigrations(path.resolve("db/migrations"));
 let runner = createMigrationRunner(adapter, migrations);
 
 try {
