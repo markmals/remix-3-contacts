@@ -1,7 +1,7 @@
 ---
 name: remix-navigation
 description: >
-  Use when showing loading indicators, tracking pending navigation states, setting up the client entry for SPA navigation with frames, choosing push vs replace history, highlighting active or pending list items with ArrayMatcher, or listening for destinationchange events.
+    Use when showing loading indicators, tracking pending navigation states, setting up the client entry for SPA navigation with frames, choosing push vs replace history, highlighting active or pending list items with ArrayMatcher, or listening for destinationchange events.
 ---
 
 # Remix Navigation
@@ -32,16 +32,16 @@ Register a `destinationchange` listener in the component setup to re-render on n
 
 ```tsx
 export let MyComponent = clientEntry(import.meta.url, (handle: Handle) => {
-  addEventListeners(navigating, handle.signal, {
-    destinationchange() {
-      handle.update();
-    },
-  });
+    addEventListeners(navigating, handle.signal, {
+        destinationchange() {
+            handle.update();
+        },
+    });
 
-  return () => {
-    let isLoading = navigating.to.state === "loading";
-    return <div class={isLoading ? "loading" : ""}>...</div>;
-  };
+    return () => {
+        let isLoading = navigating.to.state === "loading";
+        return <div class={isLoading ? "loading" : ""}>...</div>;
+    };
 });
 ```
 
@@ -64,9 +64,9 @@ let isActive = Number(currentMatch?.params?.id ?? selected) === item.id;
 // Derive pending state from navigation destination
 let destination = navigating.to.url ? matcher.match(navigating.to.url.href) : null;
 let isPending =
-  !isActive &&
-  navigating.to.url?.pathname !== location.pathname &&
-  Number(destination?.params.id) === item.id;
+    !isActive &&
+    navigating.to.url?.pathname !== location.pathname &&
+    Number(destination?.params.id) === item.id;
 ```
 
 The `selected` prop serves as a server fallback for initial render and no-JS environments. On the client, URL-derived state takes precedence.
@@ -83,37 +83,37 @@ Must register before `run()` so `event.preventDefault()` on GET forms works befo
 import { navigate, run } from "remix/component";
 
 navigation.addEventListener("navigate", async event => {
-  if (!event.canIntercept) return;
+    if (!event.canIntercept) return;
 
-  // Programmatic navigations: handled by built-in listener
-  if (!event.sourceElement) return;
-  // Anchors: handled by built-in listener
-  if (event.sourceElement.closest("a, area")) return;
+    // Programmatic navigations: handled by built-in listener
+    if (!event.sourceElement) return;
+    // Anchors: handled by built-in listener
+    if (event.sourceElement.closest("a, area")) return;
 
-  // Read rmx-* attributes from the submit button for frame targeting
-  let target = event.sourceElement.getAttribute("rmx-target") ?? undefined;
-  let src = event.sourceElement.getAttribute("rmx-src") ?? undefined;
-  let resetScroll = event.sourceElement.hasAttribute("rmx-reset-scroll") ?? undefined;
+    // Read rmx-* attributes from the submit button for frame targeting
+    let target = event.sourceElement.getAttribute("rmx-target") ?? undefined;
+    let src = event.sourceElement.getAttribute("rmx-src") ?? undefined;
+    let resetScroll = event.sourceElement.hasAttribute("rmx-reset-scroll") ?? undefined;
 
-  // Form POST submission
-  if (event.formData) {
-    event.intercept({
-      focusReset: "manual",
-      async handler() {
-        let response = await fetch(event.destination.url, {
-          method: "POST",
-          body: event.formData,
-          signal: event.signal,
+    // Form POST submission
+    if (event.formData) {
+        event.intercept({
+            focusReset: "manual",
+            async handler() {
+                let response = await fetch(event.destination.url, {
+                    method: "POST",
+                    body: event.formData,
+                    signal: event.signal,
+                });
+                navigate(response.url, { target, src, resetScroll });
+            },
         });
-        navigate(response.url, { target, src, resetScroll });
-      },
-    });
-    return;
-  }
+        return;
+    }
 
-  // Form GET submission
-  event.preventDefault();
-  navigate(event.destination.url, { target, src, resetScroll });
+    // Form GET submission
+    event.preventDefault();
+    navigate(event.destination.url, { target, src, resetScroll });
 });
 ```
 
@@ -123,16 +123,16 @@ Initializes module loading for hydrated components and frame resolution:
 
 ```tsx
 run({
-  async loadModule(moduleUrl, exportName) {
-    let mod = await import(/* @vite-ignore */ moduleUrl);
-    return mod[exportName];
-  },
-  async resolveFrame(src, signal, target) {
-    let headers = new Headers({ accept: "text/html", "x-remix-frame": "true" });
-    if (target) headers.set("x-remix-target", target);
-    let response = await fetch(src, { headers, signal });
-    return response.body ?? (await response.text());
-  },
+    async loadModule(moduleUrl, exportName) {
+        let mod = await import(/* @vite-ignore */ moduleUrl);
+        return mod[exportName];
+    },
+    async resolveFrame(src, signal, target) {
+        let headers = new Headers({ accept: "text/html", "x-remix-frame": "true" });
+        if (target) headers.set("x-remix-target", target);
+        let response = await fetch(src, { headers, signal });
+        return response.body ?? (await response.text());
+    },
 });
 ```
 
@@ -142,10 +142,10 @@ Registered last so its `intercept()` call wins, preventing the browser from rese
 
 ```tsx
 navigation.addEventListener("navigate", event => {
-  if (!event.canIntercept || event.defaultPrevented || event.navigationType === "traverse") {
-    return;
-  }
-  event.intercept({ focusReset: "manual" });
+    if (!event.canIntercept || event.defaultPrevented || event.navigationType === "traverse") {
+        return;
+    }
+    event.intercept({ focusReset: "manual" });
 });
 ```
 
@@ -153,14 +153,14 @@ Traverse (back/forward) navigations are left alone -- they are handled by the bu
 
 ## History: Push vs Replace
 
-| Scenario                                           | History mode        | Why                                                       |
-| -------------------------------------------------- | ------------------- | --------------------------------------------------------- |
-| User clicks a link to a new page                   | **push** (default)  | Back button should return to previous page                |
-| Search-as-you-type (after first keystroke)         | **push**            | Back button navigates between search states               |
-| First search keystroke                             | **replace**         | Don't create an entry for the pre-search state with `?q=` |
-| Optimistic update sync (`navigate(location.href)`) | **replace**         | Syncing server state shouldn't create history             |
+| Scenario                                           | History mode       | Why                                                       |
+| -------------------------------------------------- | ------------------ | --------------------------------------------------------- |
+| User clicks a link to a new page                   | **push** (default) | Back button should return to previous page                |
+| Search-as-you-type (after first keystroke)         | **push**           | Back button navigates between search states               |
+| First search keystroke                             | **replace**        | Don't create an entry for the pre-search state with `?q=` |
+| Optimistic update sync (`navigate(location.href)`) | **replace**        | Syncing server state shouldn't create history             |
 
 ```tsx
-navigate(url);                          // Push (new history entry)
-navigate(url, { history: "replace" });  // Replace (overwrite current entry)
+navigate(url); // Push (new history entry)
+navigate(url, { history: "replace" }); // Replace (overwrite current entry)
 ```

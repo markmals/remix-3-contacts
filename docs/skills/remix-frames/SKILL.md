@@ -1,9 +1,9 @@
 ---
 name: remix-frames
 description: >-
-  Use when working with frames, partial page updates, frame targeting, defining
-  Frame.Target, using the link() mixin, or deciding between full-page and frame
-  responses.
+    Use when working with frames, partial page updates, frame targeting, defining
+    Frame.Target, using the link() mixin, or deciding between full-page and frame
+    responses.
 ---
 
 # Remix Frames
@@ -49,10 +49,7 @@ import { Frame as RemixFrame } from "remix/component";
 import type { Middleware } from "remix/fetch-router";
 
 export namespace Frame {
-    export const Name = s.union([
-        s.literal("sidebar" as const),
-        s.literal("detail" as const),
-    ]);
+    export const Name = s.union([s.literal("sidebar" as const), s.literal("detail" as const)]);
     export type Name = s.InferOutput<typeof Name>;
 
     export class Target {
@@ -108,19 +105,15 @@ import { createMixin } from "remix/component";
 
 export type LinkProps = { target?: Frame.Name; src?: URL; resetScroll?: boolean };
 
-export let link = createMixin<HTMLAnchorElement | HTMLButtonElement, [LinkProps]>(
-    handle => {
-        return props => (
-            <handle.element
-                rmx-reset-scroll={
-                    props.resetScroll != null ? `${props.resetScroll}` : undefined
-                }
-                rmx-src={props.src?.toString()}
-                rmx-target={props.target}
-            />
-        );
-    },
-);
+export let link = createMixin<HTMLAnchorElement | HTMLButtonElement, [LinkProps]>(handle => {
+    return props => (
+        <handle.element
+            rmx-reset-scroll={props.resetScroll != null ? `${props.resetScroll}` : undefined}
+            rmx-src={props.src?.toString()}
+            rmx-target={props.target}
+        />
+    );
+});
 ```
 
 ### On Links
@@ -128,12 +121,9 @@ export let link = createMixin<HTMLAnchorElement | HTMLButtonElement, [LinkProps]
 ```tsx
 import { link } from "#/utils/frame.tsx";
 
-<a
-    href={routes.contacts.show.href({ id: contact.id })}
-    mix={link({ target: "detail" })}
->
+<a href={routes.contacts.show.href({ id: contact.id })} mix={link({ target: "detail" })}>
     {contact.first} {contact.last}
-</a>
+</a>;
 ```
 
 ### On Form Buttons
@@ -153,11 +143,11 @@ For form submissions, the client entry's navigate listener reads `rmx-*` attribu
 
 ### Available Props
 
-| Prop | Type | Purpose |
-|------|------|---------|
-| `target` | `Frame.Name` | Target a named frame |
-| `src` | `URL` | Override the frame content source URL |
-| `resetScroll` | `boolean` | Reset scroll position on frame update |
+| Prop          | Type         | Purpose                               |
+| ------------- | ------------ | ------------------------------------- |
+| `target`      | `Frame.Name` | Target a named frame                  |
+| `src`         | `URL`        | Override the frame content source URL |
+| `resetScroll` | `boolean`    | Reset scroll position on frame update |
 
 Declarative equivalents of `navigate()` options:
 
@@ -208,10 +198,10 @@ async edit() {
 
 ### The Two Response Types
 
-| Type | Content | When |
-|------|---------|------|
-| `document()` | Full HTML page (`<html>`, `<head>`, `<body>`) | Initial page load, hard refresh, no-JS fallback |
-| `frame(node)` | HTML fragment for a specific frame region | Named frame is targeted via navigation |
+| Type          | Content                                       | When                                            |
+| ------------- | --------------------------------------------- | ----------------------------------------------- |
+| `document()`  | Full HTML page (`<html>`, `<head>`, `<body>`) | Initial page load, hard refresh, no-JS fallback |
+| `frame(node)` | HTML fragment for a specific frame region     | Named frame is targeted via navigation          |
 
 ## Frame Resolution on the Server
 

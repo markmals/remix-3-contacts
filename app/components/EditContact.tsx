@@ -48,8 +48,8 @@ export let EditContact = clientEntry(import.meta.url, () => {
                             headers: { "Content-Type": avatarFile.type },
                             body: avatarFile,
                         });
-                        let { storageId } = await response.json();
-                        avatarStorageId = storageId;
+                        let result = (await response.json()) as { storageId: string };
+                        avatarStorageId = result.storageId as any;
                     }
 
                     await client.mutation(api.contacts.update, {

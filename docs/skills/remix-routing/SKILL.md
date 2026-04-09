@@ -1,7 +1,7 @@
 ---
 name: remix-routing
 description: >
-  Use when defining routes with route()/get()/patch()/resources(), generating type-safe URLs with .href(), accessing .method on routes, using wildcard params, mapping routes to controllers, or implementing Post/Redirect/Get after mutations.
+    Use when defining routes with route()/get()/patch()/resources(), generating type-safe URLs with .href(), accessing .method on routes, using wildcard params, mapping routes to controllers, or implementing Post/Redirect/Get after mutations.
 ---
 
 # Remix Routing
@@ -14,12 +14,12 @@ All routes live in a single `routes.ts` file. Use `route()` with HTTP method hel
 import { route, resources, get, patch } from "remix/fetch-router/routes";
 
 export let routes = route({
-  home: get("/"),
-  uploads: get("/uploads/*key"),
-  contacts: {
-    ...resources("/contacts", { exclude: ["index", "new"] }),
-    favorite: patch("/contacts/:id/favorite"),
-  },
+    home: get("/"),
+    uploads: get("/uploads/*key"),
+    contacts: {
+        ...resources("/contacts", { exclude: ["index", "new"] }),
+        favorite: patch("/contacts/:id/favorite"),
+    },
 });
 ```
 
@@ -40,16 +40,16 @@ resources("/contacts", { exclude: ["index", "new"] });
 Use `*name` for catch-all segments:
 
 ```tsx
-get("/uploads/*key")
+get("/uploads/*key");
 // /uploads/avatar/123-abc.jpg → params.key = "avatar/123-abc.jpg"
 ```
 
 ## Type-safe URL Generation
 
 ```tsx
-routes.contacts.show.href({ id: 42 });              // "/contacts/42"
+routes.contacts.show.href({ id: 42 }); // "/contacts/42"
 routes.contacts.edit.href({ id: 42 }, { q: "sam" }); // "/contacts/42/edit?q=sam"
-routes.home.href();                                   // "/"
+routes.home.href(); // "/"
 ```
 
 Never hardcode URL strings in components or controllers.
@@ -59,9 +59,9 @@ Never hardcode URL strings in components or controllers.
 Each route exposes its HTTP method. Use with `RestfulForm` (see remix-forms skill) to keep forms in sync:
 
 ```tsx
-routes.contacts.update.method;  // "PATCH"
+routes.contacts.update.method; // "PATCH"
 routes.contacts.destroy.method; // "DELETE"
-routes.contacts.create.method;  // "POST"
+routes.contacts.create.method; // "POST"
 ```
 
 ## Mapping Routes to Controllers
@@ -69,7 +69,9 @@ routes.contacts.create.method;  // "POST"
 In the server entry (see remix-server-entry skill):
 
 ```tsx
-router.map(routes.home, async () => { /* ... */ });
+router.map(routes.home, async () => {
+    /* ... */
+});
 router.map(routes.posts, postsController); // Maps all sub-routes
 ```
 
@@ -77,12 +79,20 @@ Controllers satisfy the `Controller` type and map route actions to handler funct
 
 ```tsx
 export default {
-  actions: {
-    async show(context) { /* ... */ },
-    async create(context) { /* ... */ },
-    async update(context) { /* ... */ },
-    async destroy(context) { /* ... */ },
-  },
+    actions: {
+        async show(context) {
+            /* ... */
+        },
+        async create(context) {
+            /* ... */
+        },
+        async update(context) {
+            /* ... */
+        },
+        async destroy(context) {
+            /* ... */
+        },
+    },
 } satisfies Controller<typeof routes.posts>;
 ```
 

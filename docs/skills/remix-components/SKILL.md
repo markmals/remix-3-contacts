@@ -1,9 +1,9 @@
 ---
 name: remix-components
 description: >-
-  Use when building or modifying Remix 3 components, deciding whether a component
-  should be server-only or hydrated, using the factory pattern, or composing
-  islands of interactivity.
+    Use when building or modifying Remix 3 components, deciding whether a component
+    should be server-only or hydrated, using the factory pattern, or composing
+    islands of interactivity.
 ---
 
 # Remix 3 Components
@@ -57,7 +57,7 @@ Default to **server-only**. Only wrap with `clientEntry` when the component need
 ## `clientEntry` Shape
 
 ```tsx
-clientEntry(import.meta.url, setupFn)
+clientEntry(import.meta.url, setupFn);
 ```
 
 - `setupFn` receives a `Handle` and returns the render function
@@ -65,10 +65,10 @@ clientEntry(import.meta.url, setupFn)
 
 ### What Goes Where
 
-| Location | Purpose |
-|----------|---------|
-| **Setup** | Event listener registration (`addEventListeners`), one-time init, state variable declarations |
-| **Render** | JSX output, derived values, conditional logic based on current props/state |
+| Location   | Purpose                                                                                       |
+| ---------- | --------------------------------------------------------------------------------------------- |
+| **Setup**  | Event listener registration (`addEventListeners`), one-time init, state variable declarations |
+| **Render** | JSX output, derived values, conditional logic based on current props/state                    |
 
 ## Serialization Constraint
 

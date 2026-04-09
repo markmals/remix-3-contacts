@@ -23,11 +23,7 @@ run({
 
 // Set focusReset to prevent browser auto-reset on non-traverse navigations
 navigation.addEventListener("navigate", event => {
-    if (
-        !event.canIntercept ||
-        event.defaultPrevented ||
-        event.navigationType === "traverse"
-    ) {
+    if (!event.canIntercept || event.defaultPrevented || event.navigationType === "traverse") {
         return;
     }
 

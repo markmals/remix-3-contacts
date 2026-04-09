@@ -1,8 +1,8 @@
 ---
 name: remix-search
 description: >-
-  Use when implementing search, search-as-you-type, URL-driven filtering, or
-  managing search query state in the URL with history management.
+    Use when implementing search, search-as-you-type, URL-driven filtering, or
+    managing search query state in the URL with history management.
 ---
 
 # Remix Search
@@ -63,11 +63,11 @@ export let SearchBar = clientEntry(import.meta.url, handle => {
 
 ## History Management
 
-| Keystroke | History mode | Why |
-|-----------|-------------|-----|
-| First search keystroke | `replace` | Don't create an entry for the pre-search URL with `?q=` |
-| Subsequent keystrokes | `push` | Back button navigates between meaningful search states |
-| Clearing the input | (navigates without `?q=`) | Sidebar returns to the full list |
+| Keystroke              | History mode              | Why                                                     |
+| ---------------------- | ------------------------- | ------------------------------------------------------- |
+| First search keystroke | `replace`                 | Don't create an entry for the pre-search URL with `?q=` |
+| Subsequent keystrokes  | `push`                    | Back button navigates between meaningful search states  |
+| Clearing the input     | (navigates without `?q=`) | Sidebar returns to the full list                        |
 
 The first keystroke replaces so pressing back doesn't step through "s", "sa", "sam" one character at a time.
 
@@ -87,7 +87,9 @@ Rapid typing triggers new `navigate()` calls that abort previous ones. The abort
 
 ```tsx
 try {
-    await navigate(url.toString(), { /* ... */ });
+    await navigate(url.toString(), {
+        /* ... */
+    });
 } catch {
     // Ignore AbortError from rapid typing
 }

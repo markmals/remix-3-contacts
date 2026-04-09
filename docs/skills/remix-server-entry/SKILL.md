@@ -1,7 +1,7 @@
 ---
 name: remix-server-entry
 description: >
-  Use when setting up the server entry file, ordering middleware in createRouter(), deciding where logic belongs (controllers vs middleware vs components vs data layer), or injecting request-scoped data with context keys and getContext().
+    Use when setting up the server entry file, ordering middleware in createRouter(), deciding where logic belongs (controllers vs middleware vs components vs data layer), or injecting request-scoped data with context keys and getContext().
 ---
 
 # Remix Server Entry
@@ -12,16 +12,16 @@ Middleware runs in order for every request. Put cheap/broad middleware first, ex
 
 ```tsx
 export let router = createRouter({
-  middleware: [
-    staticFiles("./public"),       // 1. Serve static files (short-circuits)
-    staticFiles("./dist/client"),  // 2. Serve built client assets
-    formData({ uploadHandler }),   // 3. Parse form data + file uploads
-    methodOverride(),              // 4. Rewrite _method field to real HTTP method
-    asyncContext(),                 // 5. Enable request-scoped context (getContext())
-    loadDatabase(),                // 6. Initialize database, inject into context
-    loadFileStorage(),             // 7. Inject file storage into context
-    frameTarget(),                 // 8. Parse x-remix-target header into Frame.Target
-  ],
+    middleware: [
+        staticFiles("./public"), // 1. Serve static files (short-circuits)
+        staticFiles("./dist/client"), // 2. Serve built client assets
+        formData({ uploadHandler }), // 3. Parse form data + file uploads
+        methodOverride(), // 4. Rewrite _method field to real HTTP method
+        asyncContext(), // 5. Enable request-scoped context (getContext())
+        loadDatabase(), // 6. Initialize database, inject into context
+        loadFileStorage(), // 7. Inject file storage into context
+        frameTarget(), // 8. Parse x-remix-target header into Frame.Target
+    ],
 });
 ```
 
@@ -38,7 +38,7 @@ Add at the bottom of your server entry:
 
 ```tsx
 if (import.meta.hot) {
-  import.meta.hot.accept();
+    import.meta.hot.accept();
 }
 ```
 
@@ -61,13 +61,23 @@ Objects satisfying the `Controller` type that map route actions to handler funct
 
 ```tsx
 export default {
-  actions: {
-    async index(context) { /* ... */ },
-    async show(context) { /* ... */ },
-    async create(context) { /* ... */ },
-    async update(context) { /* ... */ },
-    async destroy(context) { /* ... */ },
-  },
+    actions: {
+        async index(context) {
+            /* ... */
+        },
+        async show(context) {
+            /* ... */
+        },
+        async create(context) {
+            /* ... */
+        },
+        async update(context) {
+            /* ... */
+        },
+        async destroy(context) {
+            /* ... */
+        },
+    },
 } satisfies Controller<typeof routes.posts>;
 ```
 
@@ -77,8 +87,8 @@ A function receiving `(context, next)` that returns a `Response`:
 
 ```tsx
 async (context, next) => {
-  context.set(Database, db);
-  return next();
+    context.set(Database, db);
+    return next();
 };
 ```
 
@@ -104,13 +114,13 @@ import { Database } from "remix/data-table";
 import { type Middleware } from "remix/fetch-router";
 
 export function loadDatabase(): Middleware {
-  let adapter = new D1DatabaseAdapter(env.DB);
-  let db = new Database(adapter);
+    let adapter = new D1DatabaseAdapter(env.DB);
+    let db = new Database(adapter);
 
-  return (ctx, next) => {
-    ctx.set(Database, db);
-    return next();
-  };
+    return (ctx, next) => {
+        ctx.set(Database, db);
+        return next();
+    };
 }
 ```
 

@@ -1,5 +1,3 @@
-import type { Contact } from "#/data/contacts.ts";
-
 import { Document } from "#/components/Document.tsx";
 import { getContacts } from "#/data/contacts.ts";
 import { QuerySchema } from "#/data/schemas.ts";

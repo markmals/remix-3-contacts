@@ -27,7 +27,7 @@ The sidebar frame is removed from `Document.tsx`. Instead, the server queries co
 let contacts = await getContacts(q);
 
 // In render:
-<SidebarList contacts={contacts} query={q} />
+<SidebarList contacts={contacts} query={q} />;
 ```
 
 `SidebarList` is a `clientEntry` that:
@@ -191,7 +191,7 @@ middleware: [
     asyncContext(),
     loadConvex(),
     frameTarget(),
-]
+];
 ```
 
 Removed: `formData({ uploadHandler })` (no server-side form parsing needed), `methodOverride()` (no PUT/PATCH/DELETE to the server).
@@ -226,21 +226,21 @@ The `mutate()` mixin and its `ConvexClient` instance remain as the primary clien
 
 ## Component Summary
 
-| Component | Current | New |
-|-----------|---------|-----|
-| `Document` | Server component, renders sidebar frame | Server component, renders `SidebarList` inline with data |
-| `SidebarList` | Does not exist (sidebar is frame) | New `clientEntry`, subscribes to `api.contacts.list` |
-| `SidebarItem` | `clientEntry`, tracks active/pending | Same, but ID type changes to Convex `Id<"contacts">` |
-| `SearchBar` | `clientEntry`, triggers frame navigation | Merged into `SidebarList` |
-| `ShowContact` | `clientEntry`, subscribes to Convex | Same, already working |
-| `EditContact` | Server component, form POSTs to server | `clientEntry`, handles mutation + file upload client-side |
-| `Favorite` | `clientEntry`, fetch-based optimistic UI | `clientEntry`, uses `mutate()` with `api.contacts.toggleFavorite` |
-| `DeleteButton` | `clientEntry`, uses `mutate()` | `clientEntry`, direct `on("submit")` handler with navigation |
-| `CancelButton` | `clientEntry` | Same |
-| `NewButton` | Server-rendered form POST | New `clientEntry`, calls create mutation + navigates |
-| `RestfulForm` | Method override wrapper | Removed — no more PUT/PATCH/DELETE to server |
-| `Title` | Server component | Same |
-| `ZeroState` | Server component | Same |
+| Component      | Current                                  | New                                                               |
+| -------------- | ---------------------------------------- | ----------------------------------------------------------------- |
+| `Document`     | Server component, renders sidebar frame  | Server component, renders `SidebarList` inline with data          |
+| `SidebarList`  | Does not exist (sidebar is frame)        | New `clientEntry`, subscribes to `api.contacts.list`              |
+| `SidebarItem`  | `clientEntry`, tracks active/pending     | Same, but ID type changes to Convex `Id<"contacts">`              |
+| `SearchBar`    | `clientEntry`, triggers frame navigation | Merged into `SidebarList`                                         |
+| `ShowContact`  | `clientEntry`, subscribes to Convex      | Same, already working                                             |
+| `EditContact`  | Server component, form POSTs to server   | `clientEntry`, handles mutation + file upload client-side         |
+| `Favorite`     | `clientEntry`, fetch-based optimistic UI | `clientEntry`, uses `mutate()` with `api.contacts.toggleFavorite` |
+| `DeleteButton` | `clientEntry`, uses `mutate()`           | `clientEntry`, direct `on("submit")` handler with navigation      |
+| `CancelButton` | `clientEntry`                            | Same                                                              |
+| `NewButton`    | Server-rendered form POST                | New `clientEntry`, calls create mutation + navigates              |
+| `RestfulForm`  | Method override wrapper                  | Removed — no more PUT/PATCH/DELETE to server                      |
+| `Title`        | Server component                         | Same                                                              |
+| `ZeroState`    | Server component                         | Same                                                              |
 
 ## Removals
 

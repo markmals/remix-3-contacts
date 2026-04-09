@@ -1,8 +1,8 @@
 ---
 name: remix-optimistic-ui
 description: >-
-  Use when implementing optimistic UI updates, toggle buttons, or any pattern
-  that needs instant visual feedback before the server responds.
+    Use when implementing optimistic UI updates, toggle buttons, or any pattern
+    that needs instant visual feedback before the server responds.
 ---
 
 # Remix Optimistic UI

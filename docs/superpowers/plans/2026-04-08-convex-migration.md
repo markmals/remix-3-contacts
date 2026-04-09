@@ -16,50 +16,51 @@
 
 ### Files to create
 
-| File | Responsibility |
-|------|---------------|
-| `convex/files.ts` | Convex file storage: `generateUploadUrl` mutation |
+| File                             | Responsibility                                                                                               |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `convex/files.ts`                | Convex file storage: `generateUploadUrl` mutation                                                            |
 | `app/components/SidebarList.tsx` | `clientEntry` that renders the sidebar contact list + search + New button, subscribes to `api.contacts.list` |
 
 ### Files to modify
 
-| File | Changes |
-|------|---------|
-| `convex/schema.ts` | Change `avatar` from `v.optional(v.string())` to `v.optional(v.id("_storage"))` |
-| `convex/contacts.ts` | Resolve storage IDs to URLs in `get` and `list` queries; update `create`/`update` to accept `v.optional(v.id("_storage"))` for avatar |
-| `convex/migration.ts` | Remove `avatar` strings from seed data (they reference external URLs, not Convex storage IDs) |
-| `app/utils/convex.tsx` | Export the shared `ConvexClient` instance so all components use one client |
-| `app/data/contacts.ts` | Remove `createContact`, `updateContact`, `deleteContact`, `fakeNetwork`; keep `getContacts`, `getContact` for SSR |
-| `app/data/schemas.ts` | Remove `FavoriteSchema`, `UpdateSchema`, `DeleteSchema`; keep `QuerySchema`, `IdSchema` |
-| `app/routes.ts` | Replace `resources()` + `patch()` with explicit `get()` routes for show/edit only |
-| `app/entry.server.tsx` | Remove `formData`, `methodOverride` middleware; remove uploads route; simplify home route (no sidebar frame target) |
-| `app/entry.browser.ts` | Remove form POST interceptor (mutations are client-side now) |
-| `app/controllers/contacts.tsx` | Remove `create`, `destroy`, `favorite`, `update` actions; simplify `show`/`edit` to handle frame vs document |
-| `app/utils/frame.tsx` | Remove `"sidebar"` from `Frame.Name` union |
-| `app/utils/render.tsx` | Remove `sidebar()` function; update `document()` to query contacts and pass to `SidebarList` inline |
-| `app/components/Document.tsx` | Replace sidebar `<Frame>` with inline `<SidebarList>`; remove `RestfulForm` import |
-| `app/components/ShowContact.tsx` | Use shared `ConvexClient` from `app/utils/convex.tsx` instead of creating its own; remove `RestfulForm` usage |
-| `app/components/Favorite.tsx` | Rewrite to use `mutate()` mixin with `api.contacts.toggleFavorite`; remove fetch-based optimistic UI |
-| `app/components/Buttons.tsx` | Rewrite `DeleteButton` to use direct `on("submit")` handler with navigation; remove `RestfulForm` and `mutate` usage |
-| `app/components/EditContact.tsx` | Convert to `clientEntry`; handle form submission client-side with Convex file upload |
-| `app/components/SidebarItem.tsx` | Update `contact.id` type from `number` to `string` (Convex IDs are strings) |
-| `wrangler.jsonc` | Remove `d1_databases` and `r2_buckets` bindings |
+| File                             | Changes                                                                                                                               |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `convex/schema.ts`               | Change `avatar` from `v.optional(v.string())` to `v.optional(v.id("_storage"))`                                                       |
+| `convex/contacts.ts`             | Resolve storage IDs to URLs in `get` and `list` queries; update `create`/`update` to accept `v.optional(v.id("_storage"))` for avatar |
+| `convex/migration.ts`            | Remove `avatar` strings from seed data (they reference external URLs, not Convex storage IDs)                                         |
+| `app/utils/convex.tsx`           | Export the shared `ConvexClient` instance so all components use one client                                                            |
+| `app/data/contacts.ts`           | Remove `createContact`, `updateContact`, `deleteContact`, `fakeNetwork`; keep `getContacts`, `getContact` for SSR                     |
+| `app/data/schemas.ts`            | Remove `FavoriteSchema`, `UpdateSchema`, `DeleteSchema`; keep `QuerySchema`, `IdSchema`                                               |
+| `app/routes.ts`                  | Replace `resources()` + `patch()` with explicit `get()` routes for show/edit only                                                     |
+| `app/entry.server.tsx`           | Remove `formData`, `methodOverride` middleware; remove uploads route; simplify home route (no sidebar frame target)                   |
+| `app/entry.browser.ts`           | Remove form POST interceptor (mutations are client-side now)                                                                          |
+| `app/controllers/contacts.tsx`   | Remove `create`, `destroy`, `favorite`, `update` actions; simplify `show`/`edit` to handle frame vs document                          |
+| `app/utils/frame.tsx`            | Remove `"sidebar"` from `Frame.Name` union                                                                                            |
+| `app/utils/render.tsx`           | Remove `sidebar()` function; update `document()` to query contacts and pass to `SidebarList` inline                                   |
+| `app/components/Document.tsx`    | Replace sidebar `<Frame>` with inline `<SidebarList>`; remove `RestfulForm` import                                                    |
+| `app/components/ShowContact.tsx` | Use shared `ConvexClient` from `app/utils/convex.tsx` instead of creating its own; remove `RestfulForm` usage                         |
+| `app/components/Favorite.tsx`    | Rewrite to use `mutate()` mixin with `api.contacts.toggleFavorite`; remove fetch-based optimistic UI                                  |
+| `app/components/Buttons.tsx`     | Rewrite `DeleteButton` to use direct `on("submit")` handler with navigation; remove `RestfulForm` and `mutate` usage                  |
+| `app/components/EditContact.tsx` | Convert to `clientEntry`; handle form submission client-side with Convex file upload                                                  |
+| `app/components/SidebarItem.tsx` | Update `contact.id` type from `number` to `string` (Convex IDs are strings)                                                           |
+| `wrangler.jsonc`                 | Remove `d1_databases` and `r2_buckets` bindings                                                                                       |
 
 ### Files to delete
 
-| File | Reason |
-|------|--------|
-| `app/controllers/uploads.ts` | R2 file serving/upload replaced by Convex file storage |
-| `app/data/adapters/r2-file-storage.ts` | R2 adapter no longer needed |
-| `app/data/adapters/d1-data-table.ts` | D1 adapter, already unused |
-| `app/components/RestfulForm.tsx` | No more method override needed — no PUT/PATCH/DELETE to server |
-| `app/components/SearchBar.tsx` | Merged into `SidebarList` |
+| File                                   | Reason                                                         |
+| -------------------------------------- | -------------------------------------------------------------- |
+| `app/controllers/uploads.ts`           | R2 file serving/upload replaced by Convex file storage         |
+| `app/data/adapters/r2-file-storage.ts` | R2 adapter no longer needed                                    |
+| `app/data/adapters/d1-data-table.ts`   | D1 adapter, already unused                                     |
+| `app/components/RestfulForm.tsx`       | No more method override needed — no PUT/PATCH/DELETE to server |
+| `app/components/SearchBar.tsx`         | Merged into `SidebarList`                                      |
 
 ---
 
 ## Task 1: Convex file storage backend
 
 **Files:**
+
 - Create: `convex/files.ts`
 - Modify: `convex/schema.ts`
 - Modify: `convex/contacts.ts`
@@ -130,9 +131,7 @@ export let list = query({
 
         return Promise.all(
             sorted.map(async contact => {
-                let avatarUrl = contact.avatar
-                    ? await ctx.storage.getUrl(contact.avatar)
-                    : null;
+                let avatarUrl = contact.avatar ? await ctx.storage.getUrl(contact.avatar) : null;
                 return { ...contact, avatarUrl };
             }),
         );
@@ -205,6 +204,7 @@ git commit -m "feat: add Convex file storage and resolve avatar URLs in queries"
 ## Task 2: Export shared ConvexClient + update Contact type
 
 **Files:**
+
 - Modify: `app/utils/convex.tsx`
 - Modify: `app/data/contacts.ts`
 
@@ -264,6 +264,7 @@ git commit -m "feat: export shared ConvexClient, trim server data layer to read-
 ## Task 3: Simplify routes, middleware, and frame utilities
 
 **Files:**
+
 - Modify: `app/routes.ts`
 - Modify: `app/entry.server.tsx`
 - Modify: `app/utils/frame.tsx`
@@ -336,6 +337,7 @@ middleware: [
 ```
 
 Remove these imports:
+
 - `import { serveUpload, uploadHandler } from "#/controllers/uploads.ts";`
 - `import { formData } from "remix/form-data-middleware";`
 - `import { methodOverride } from "remix/method-override-middleware";`
@@ -354,6 +356,7 @@ router.map(routes.home, async ctx => {
 - [ ] **Step 6: Delete R2/D1 files**
 
 Delete these files:
+
 - `app/controllers/uploads.ts`
 - `app/data/adapters/r2-file-storage.ts`
 - `app/data/adapters/d1-data-table.ts`
@@ -369,7 +372,7 @@ Replace `wrangler.jsonc` with:
     "main": "./app/entry.server.tsx",
     "assets": { "directory": "dist/client" },
     "compatibility_date": "2026-04-02",
-    "compatibility_flags": ["nodejs_compat"]
+    "compatibility_flags": ["nodejs_compat"],
 }
 ```
 
@@ -385,6 +388,7 @@ git commit -m "feat: simplify routes, middleware, and frame logic; remove R2/D1"
 ## Task 4: Simplify contacts controller to show/edit only
 
 **Files:**
+
 - Modify: `app/controllers/contacts.tsx`
 
 - [ ] **Step 1: Rewrite contacts controller**
@@ -447,6 +451,7 @@ git commit -m "feat: simplify contacts controller to show/edit frame responses"
 ## Task 5: Reactive sidebar — SidebarList + inline rendering
 
 **Files:**
+
 - Create: `app/components/SidebarList.tsx`
 - Modify: `app/components/SidebarItem.tsx`
 - Modify: `app/utils/render.tsx`
@@ -781,6 +786,7 @@ git commit -m "feat: reactive sidebar with SidebarList clientEntry and Convex su
 ## Task 6: Favorite — switch to mutate() mixin
 
 **Files:**
+
 - Modify: `app/components/Favorite.tsx`
 
 - [ ] **Step 1: Rewrite Favorite component**
@@ -832,6 +838,7 @@ git commit -m "feat: Favorite uses mutate() mixin with toggleFavorite"
 ## Task 7: DeleteButton — direct mutation with navigation
 
 **Files:**
+
 - Modify: `app/components/Buttons.tsx`
 
 - [ ] **Step 1: Rewrite Buttons.tsx**
@@ -889,6 +896,7 @@ git commit -m "feat: DeleteButton calls remove mutation client-side with navigat
 ## Task 8: ShowContact — use shared client, remove RestfulForm
 
 **Files:**
+
 - Modify: `app/components/ShowContact.tsx`
 
 - [ ] **Step 1: Update ShowContact to use shared client and plain forms**
@@ -994,6 +1002,7 @@ export let ShowContact = clientEntry(import.meta.url, handle => {
 ```
 
 Key changes:
+
 - Uses shared `client` from `app/utils/convex.tsx` instead of creating its own `ConvexClient`
 - Uses `contact.avatarUrl` instead of `contact.avatar` for the image src
 - Edit button is a plain `<a>` with `link({ target: "detail" })` instead of `RestfulForm`
@@ -1011,6 +1020,7 @@ git commit -m "feat: ShowContact uses shared ConvexClient and plain links"
 ## Task 9: EditContact — clientEntry with Convex file upload
 
 **Files:**
+
 - Modify: `app/components/EditContact.tsx`
 
 - [ ] **Step 1: Convert EditContact to clientEntry with client-side submit**
@@ -1152,6 +1162,7 @@ export let EditContact = clientEntry(import.meta.url, () => {
 ```
 
 Key changes:
+
 - Now a `clientEntry` instead of a server component
 - Form submission intercepted with `on("submit")`
 - Avatar upload goes through Convex file storage (generate URL → upload → get storage ID)
@@ -1173,6 +1184,7 @@ git commit -m "feat: EditContact as clientEntry with Convex file upload"
 ## Task 10: Simplify client entry — remove form POST interceptor
 
 **Files:**
+
 - Modify: `app/entry.browser.ts`
 
 - [ ] **Step 1: Remove the form POST navigation interceptor**
@@ -1205,11 +1217,7 @@ run({
 
 // Set focusReset to prevent browser auto-reset on non-traverse navigations
 navigation.addEventListener("navigate", event => {
-    if (
-        !event.canIntercept ||
-        event.defaultPrevented ||
-        event.navigationType === "traverse"
-    ) {
+    if (!event.canIntercept || event.defaultPrevented || event.navigationType === "traverse") {
         return;
     }
 
@@ -1218,10 +1226,12 @@ navigation.addEventListener("navigate", event => {
 ```
 
 Removed:
+
 - The first `navigation.addEventListener("navigate", ...)` block that intercepted form submissions (both GET and POST). Mutations are now client-side, and `<a>` navigations are handled by the built-in `run()` listener.
 - The `navigate` import (no longer needed in this file)
 
 Kept:
+
 - `run()` with `loadModule` and `resolveFrame` — still needed for hydration and frame resolution
 - The `focusReset: "manual"` listener — still needed for search bar behavior
 
@@ -1237,6 +1247,7 @@ git commit -m "feat: remove form POST interceptor from client entry"
 ## Task 11: Delete RestfulForm and clean up
 
 **Files:**
+
 - Delete: `app/components/RestfulForm.tsx`
 
 - [ ] **Step 1: Delete RestfulForm**
@@ -1246,6 +1257,7 @@ Delete `app/components/RestfulForm.tsx`.
 - [ ] **Step 2: Verify no remaining imports of deleted files**
 
 Search for any remaining imports of:
+
 - `RestfulForm`
 - `SearchBar` (the standalone one)
 - `uploads` controller
@@ -1283,6 +1295,7 @@ vp check
 ```
 
 Fix any type errors. Common ones to expect:
+
 - `Id<"contacts">` vs `string` mismatches — use `as any` for Convex ID casts at the boundary
 - Missing imports or stale references to deleted files
 - The `Contact` type changes (now has `avatarUrl` instead of `avatar` as string)

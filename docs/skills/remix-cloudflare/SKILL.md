@@ -1,11 +1,11 @@
 ---
 name: remix-cloudflare
 description: >-
-  Use when deploying to Cloudflare Workers, configuring wrangler.jsonc, setting
-  up D1 or R2 bindings, configuring the Cloudflare Vite plugin, defining Vite+
-  run tasks, generating Env types with wrangler types, accessing bindings via
-  cloudflare:workers or context, writing D1 or R2 adapters, setting up import
-  aliases with package.json imports, or running production deployments.
+    Use when deploying to Cloudflare Workers, configuring wrangler.jsonc, setting
+    up D1 or R2 bindings, configuring the Cloudflare Vite plugin, defining Vite+
+    run tasks, generating Env types with wrangler types, accessing bindings via
+    cloudflare:workers or context, writing D1 or R2 adapters, setting up import
+    aliases with package.json imports, or running production deployments.
 ---
 
 # Cloudflare Workers Deployment
@@ -90,11 +90,11 @@ export default defineConfig({
 
 **Run tasks patterns:**
 
-| Pattern | Purpose |
-|---------|---------|
-| `dependsOn` | Ensures prerequisites run first (`dev` depends on `typegen` + `db:migrate`) |
-| `input` | File-based cache invalidation (`typegen` reruns only when `wrangler.jsonc` changes) |
-| `cache: false` | Tasks that always run (typecheck, deploy) |
+| Pattern        | Purpose                                                                             |
+| -------------- | ----------------------------------------------------------------------------------- |
+| `dependsOn`    | Ensures prerequisites run first (`dev` depends on `typegen` + `db:migrate`)         |
+| `input`        | File-based cache invalidation (`typegen` reruns only when `wrangler.jsonc` changes) |
+| `cache: false` | Tasks that always run (typecheck, deploy)                                           |
 
 **Commands:** `vp dev`, `vp build`, `vp preview`, `vp check`, `vp run deploy`, `vp run db:reset`
 
@@ -114,10 +114,10 @@ Wire this as a run task (shown above) so types regenerate when `wrangler.jsonc` 
 
 ## Accessing Bindings
 
-| Approach | When to use |
-|----------|-------------|
-| `import { env } from "cloudflare:workers"` | Module-scope initialization, code before middleware (e.g., upload handlers -- see remix-file-uploads skill) |
-| `ctx.get(Database)` / `getContext().get(Database)` | Controllers and data access functions -- testable, swappable |
+| Approach                                           | When to use                                                                                                 |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `import { env } from "cloudflare:workers"`         | Module-scope initialization, code before middleware (e.g., upload handlers -- see remix-file-uploads skill) |
+| `ctx.get(Database)` / `getContext().get(Database)` | Controllers and data access functions -- testable, swappable                                                |
 
 ```tsx
 // At module scope (outside middleware)
@@ -235,11 +235,11 @@ No `paths` in `tsconfig.json`, no `resolve.alias` in `vite.config.ts`, no `tscon
 
 **Why `#` over `~` or `@`:**
 
-| Prefix | Source | Runtime support | Requires plugin |
-|--------|--------|-----------------|-----------------|
-| `#` | Node.js subpath imports spec | Yes (Node, Vite, Workers, Bun) | No |
-| `~` | Convention (tsconfig paths) | No -- compile-time only | Yes |
-| `@` | Convention (tsconfig paths) | Conflicts with npm scoped packages | Yes |
+| Prefix | Source                       | Runtime support                    | Requires plugin |
+| ------ | ---------------------------- | ---------------------------------- | --------------- |
+| `#`    | Node.js subpath imports spec | Yes (Node, Vite, Workers, Bun)     | No              |
+| `~`    | Convention (tsconfig paths)  | No -- compile-time only            | Yes             |
+| `@`    | Convention (tsconfig paths)  | Conflicts with npm scoped packages | Yes             |
 
 ## Development Workflow
 

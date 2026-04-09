@@ -21,9 +21,7 @@ export let list = query({
 
         return Promise.all(
             sorted.map(async contact => {
-                let avatarUrl = contact.avatar
-                    ? await ctx.storage.getUrl(contact.avatar)
-                    : null;
+                let avatarUrl = contact.avatar ? await ctx.storage.getUrl(contact.avatar) : null;
                 return { ...contact, avatarUrl };
             }),
         );

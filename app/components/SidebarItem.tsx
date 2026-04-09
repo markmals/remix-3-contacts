@@ -1,5 +1,3 @@
-import type { Contact } from "#/data/contacts.ts";
-
 import { routes } from "#/routes.ts";
 import { link } from "#/utils/frame.tsx";
 import { isServer, navigating } from "#/utils/navigating.ts";
