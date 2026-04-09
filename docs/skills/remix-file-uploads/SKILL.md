@@ -1,10 +1,10 @@
 ---
 name: remix-file-uploads
 description: >-
-  Use when implementing file uploads, creating upload handlers for the formData
-  middleware, validating uploaded files, storing files in R2 or other backends,
-  serving uploaded files, building multipart forms, or handling the upload
-  handler timing caveat with asyncContext.
+    Use when implementing file uploads, creating upload handlers for the formData
+    middleware, validating uploaded files, storing files in R2 or other backends,
+    serving uploaded files, building multipart forms, or handling the upload
+    handler timing caveat with asyncContext.
 ---
 
 # File Uploads

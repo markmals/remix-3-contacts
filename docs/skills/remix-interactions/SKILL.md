@@ -1,10 +1,10 @@
 ---
 name: remix-interactions
 description: >
-  Use when handling DOM events, accessing DOM nodes with refs, doing post-render
-  work (focus, scroll, measurement), handling keyboard shortcuts, implementing
-  press or drag interactions, managing listener lifetimes with AbortController,
-  or creating reusable mixins with createMixin().
+    Use when handling DOM events, accessing DOM nodes with refs, doing post-render
+    work (focus, scroll, measurement), handling keyboard shortcuts, implementing
+    press or drag interactions, managing listener lifetimes with AbortController,
+    or creating reusable mixins with createMixin().
 ---
 
 # Interactions and DOM Access
@@ -68,7 +68,13 @@ export let Accordion = clientEntry(import.meta.url, (handle: Handle) => {
                 Toggle
             </button>
             {open && (
-                <div mix={[ref(node => { contentNode = node; })]}>
+                <div
+                    mix={[
+                        ref(node => {
+                            contentNode = node;
+                        }),
+                    ]}
+                >
                     {handle.queueTask(() => {
                         contentNode?.querySelector("input")?.focus();
                     })}
@@ -179,7 +185,13 @@ Prefer real `<a>` and `<form><button>` tags with `link()` -- they are accessible
 Use `mix={[on(...)]}` for behavior that should always be active while mounted.
 
 ```tsx
-<div mix={[on("pointerdown", event => { startDragSession(event); })]} />
+<div
+    mix={[
+        on("pointerdown", event => {
+            startDragSession(event);
+        }),
+    ]}
+/>
 ```
 
 ### Session-Based Listeners (AbortController Pattern)
@@ -191,22 +203,34 @@ on("pointerdown", event => {
     let controller = new AbortController();
     let { signal } = controller;
 
-    addEventListener("pointermove", event => {
-        updatePosition(event);
-        handle.update();
-    }, { signal });
+    addEventListener(
+        "pointermove",
+        event => {
+            updatePosition(event);
+            handle.update();
+        },
+        { signal },
+    );
 
-    addEventListener("pointerup", () => {
-        finishDrag();
-        controller.abort(); // Tear down all session listeners
-        handle.update();
-    }, { signal });
+    addEventListener(
+        "pointerup",
+        () => {
+            finishDrag();
+            controller.abort(); // Tear down all session listeners
+            handle.update();
+        },
+        { signal },
+    );
 
-    addEventListener("pointercancel", () => {
-        cancelDrag();
-        controller.abort();
-        handle.update();
-    }, { signal });
+    addEventListener(
+        "pointercancel",
+        () => {
+            cancelDrag();
+            controller.abort();
+            handle.update();
+        },
+        { signal },
+    );
 });
 ```
 

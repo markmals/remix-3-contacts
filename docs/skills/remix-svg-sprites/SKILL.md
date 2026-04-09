@@ -1,8 +1,8 @@
 ---
 name: remix-svg-sprites
 description: >
-  Use when adding icons, creating SVG sprite sheets, building an Icon component,
-  referencing symbols with <use href>, or managing SVG assets in the project.
+    Use when adding icons, creating SVG sprite sheets, building an Icon component,
+    referencing symbols with <use href>, or managing SVG assets in the project.
 ---
 
 # SVG Sprites

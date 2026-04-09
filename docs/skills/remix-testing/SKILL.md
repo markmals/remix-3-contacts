@@ -1,9 +1,9 @@
 ---
 name: remix-testing
 description: >
-  Use when writing component tests, setting up test rendering with createRoot,
-  asserting DOM state, testing user interactions, or understanding test
-  patterns and anti-patterns for Remix components.
+    Use when writing component tests, setting up test rendering with createRoot,
+    asserting DOM state, testing user interactions, or understanding test
+    patterns and anti-patterns for Remix components.
 ---
 
 # Testing Components

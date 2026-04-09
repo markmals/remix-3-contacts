@@ -1,7 +1,7 @@
 ---
 name: remix-database
 description: >
-  Use when defining database tables with table() and column, deriving TableRow types, writing migrations with createMigration, running migrations with loadMigrations and getPlatformProxy, evolving schema with alterTable/addColumn/dropColumn, seeding data, or writing query functions via getContext().
+    Use when defining database tables with table() and column, deriving TableRow types, writing migrations with createMigration, running migrations with loadMigrations and getPlatformProxy, evolving schema with alterTable/addColumn/dropColumn, seeding data, or writing query functions via getContext().
 ---
 
 # Remix Database
@@ -14,14 +14,14 @@ Define tables with `column` and `table`, derive TypeScript types with `TableRow`
 import { column as c, table, type TableRow } from "remix/data-table";
 
 export let Posts = table({
-  name: "posts",
-  columns: {
-    id: c.integer().primaryKey(),
-    title: c.text().notNull(),
-    body: c.text().notNull(),
-    published: c.boolean().default(false),
-    createdAt: c.timestamp().defaultNow(),
-  },
+    name: "posts",
+    columns: {
+        id: c.integer().primaryKey(),
+        title: c.text().notNull(),
+        body: c.text().notNull(),
+        published: c.boolean().default(false),
+        createdAt: c.timestamp().defaultNow(),
+    },
 });
 
 export type Post = TableRow<typeof Posts>;
@@ -51,13 +51,13 @@ import { Posts } from "#/data/posts.ts";
 import { createMigration } from "remix/data-table/migrations";
 
 export default createMigration({
-  async up({ schema }) {
-    await schema.createTable(Posts, { ifNotExists: true });
-    await schema.createIndex(Posts, ["title", "createdAt"], { ifNotExists: true });
-  },
-  async down({ schema }) {
-    await schema.dropTable(Posts, { ifExists: true });
-  },
+    async up({ schema }) {
+        await schema.createTable(Posts, { ifNotExists: true });
+        await schema.createIndex(Posts, ["title", "createdAt"], { ifNotExists: true });
+    },
+    async down({ schema }) {
+        await schema.dropTable(Posts, { ifExists: true });
+    },
 });
 ```
 
@@ -71,16 +71,16 @@ import { createMigration } from "remix/data-table/migrations";
 import { Posts } from "../tables.ts";
 
 export default createMigration({
-  async up({ schema }) {
-    await schema.alterTable(Posts, table => {
-      table.addColumn("publishedAt", c.timestamp({ withTimezone: true }));
-    });
-  },
-  async down({ schema }) {
-    await schema.alterTable(Posts, table => {
-      table.dropColumn("publishedAt");
-    });
-  },
+    async up({ schema }) {
+        await schema.alterTable(Posts, table => {
+            table.addColumn("publishedAt", c.timestamp({ withTimezone: true }));
+        });
+    },
+    async down({ schema }) {
+        await schema.alterTable(Posts, table => {
+            table.dropColumn("publishedAt");
+        });
+    },
 });
 ```
 
@@ -88,11 +88,11 @@ export default createMigration({
 
 ```tsx
 await schema.alterTable(Posts, table => {
-  table.addColumn("subtitle", c.text());
-  table.dropColumn("subtitle");
-  table.addPrimaryKey("id");
-  table.addForeignKey("author_id", "authors", "id");
-  table.addForeignKey(["tenant_id", "author_id"], "authors", ["tenant_id", "id"]);
+    table.addColumn("subtitle", c.text());
+    table.dropColumn("subtitle");
+    table.addPrimaryKey("id");
+    table.addForeignKey("author_id", "authors", "id");
+    table.addForeignKey(["tenant_id", "author_id"], "authors", ["tenant_id", "id"]);
 });
 ```
 
@@ -104,17 +104,17 @@ Combine schema changes with data backfills:
 import { sql } from "remix/data-table";
 
 export default createMigration({
-  async up({ db, schema }) {
-    await schema.alterTable(Posts, table => {
-      table.addColumn("status", c.text().notNull().default("draft"));
-    });
-    await db.exec(sql`update posts set status = 'published' where published = true`);
-  },
-  async down({ schema }) {
-    await schema.alterTable(Posts, table => {
-      table.dropColumn("status");
-    });
-  },
+    async up({ db, schema }) {
+        await schema.alterTable(Posts, table => {
+            table.addColumn("status", c.text().notNull().default("draft"));
+        });
+        await db.exec(sql`update posts set status = 'published' where published = true`);
+    },
+    async down({ schema }) {
+        await schema.alterTable(Posts, table => {
+            table.dropColumn("status");
+        });
+    },
 });
 ```
 
@@ -136,17 +136,17 @@ Guard with a count check to avoid duplicating on re-runs:
 
 ```tsx
 export default createMigration({
-  async up({ db }) {
-    let count = await db.count(Posts);
-    if (count > 0) return;
+    async up({ db }) {
+        let count = await db.count(Posts);
+        if (count > 0) return;
 
-    for (let post of SEED_POSTS) {
-      await db.create(Posts, post);
-    }
-  },
-  async down({ db }) {
-    await db.deleteMany(Posts, { where: {} });
-  },
+        for (let post of SEED_POSTS) {
+            await db.create(Posts, post);
+        }
+    },
+    async down({ db }) {
+        await db.deleteMany(Posts, { where: {} });
+    },
 });
 ```
 
@@ -167,8 +167,8 @@ let direction = s.parse(s.defaulted(Direction, "up"), process.argv[2]);
 let to = process.argv[3];
 
 let proxy = await getPlatformProxy<Env>({
-  configPath: "./wrangler.jsonc",
-  persist: true,
+    configPath: "./wrangler.jsonc",
+    persist: true,
 });
 
 let adapter = new D1DatabaseAdapter(proxy.env.DB);
@@ -176,13 +176,13 @@ let migrations = await loadMigrations(path.resolve("db/migrations"));
 let runner = createMigrationRunner(adapter, migrations);
 
 try {
-  let result = await runner[direction]({ to });
-  console.log(direction + " complete", {
-    applied: result.applied.map(entry => entry.id),
-    reverted: result.reverted.map(entry => entry.id),
-  });
+    let result = await runner[direction]({ to });
+    console.log(direction + " complete", {
+        applied: result.applied.map(entry => entry.id),
+        reverted: result.reverted.map(entry => entry.id),
+    });
 } finally {
-  await proxy.dispose();
+    await proxy.dispose();
 }
 ```
 
@@ -213,8 +213,8 @@ import { getContext } from "remix/async-context-middleware";
 import { Database } from "remix/data-table";
 
 export async function getPosts(): Promise<Post[]> {
-  let db = getContext().get(Database);
-  return await db.findMany(Posts);
+    let db = getContext().get(Database);
+    return await db.findMany(Posts);
 }
 ```
 

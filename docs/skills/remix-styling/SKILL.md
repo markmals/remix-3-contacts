@@ -1,21 +1,21 @@
 ---
 name: remix-styling
 description: >
-  Use when styling components, choosing between CSS files and the css() mixin,
-  applying inline styles, using CSS custom properties for dynamic values, or
-  adding component-scoped CSS with nested selectors, media queries, or
-  pseudo-elements.
+    Use when styling components, choosing between CSS files and the css() mixin,
+    applying inline styles, using CSS custom properties for dynamic values, or
+    adding component-scoped CSS with nested selectors, media queries, or
+    pseudo-elements.
 ---
 
 # Styling Components
 
 ## Decision Framework
 
-| Approach                       | Use for                                       | Example                                         |
-| ------------------------------ | --------------------------------------------- | ----------------------------------------------- |
-| `.css` files                   | App-wide layout, typography, resets           | Global stylesheet                               |
-| `css()` mixin                  | Component-scoped static rules with selectors  | Hover states, media queries, pseudo-elements    |
-| `style` with custom properties | Dynamic values that change with state         | Active/inactive colors, computed positions      |
+| Approach                       | Use for                                        | Example                                         |
+| ------------------------------ | ---------------------------------------------- | ----------------------------------------------- |
+| `.css` files                   | App-wide layout, typography, resets            | Global stylesheet                               |
+| `css()` mixin                  | Component-scoped static rules with selectors   | Hover states, media queries, pseudo-elements    |
+| `style` with custom properties | Dynamic values that change with state          | Active/inactive colors, computed positions      |
 | Direct `style`                 | Rare -- only for truly one-off computed values | `style={{ transform: \`translateX(${x}px)\` }}` |
 
 ## External CSS (Default Choice)

@@ -1,7 +1,7 @@
 ---
 name: remix-document
 description: >
-  Use when wiring up the document shell with asset imports (?assets=client, ?assets=ssr, ?url), using mergeAssets() for CSS and JS preloads, implementing a dynamic Title component for frame navigations, or connecting stylesheets and scripts in the HTML head.
+    Use when wiring up the document shell with asset imports (?assets=client, ?assets=ssr, ?url), using mergeAssets() for CSS and JS preloads, implementing a dynamic Title component for frame navigations, or connecting stylesheets and scripts in the HTML head.
 ---
 
 # Remix Document
@@ -15,18 +15,18 @@ import { clientEntry } from "remix/component";
 import { isServer } from "#/utils/navigating.ts";
 
 export let Title = clientEntry(import.meta.url, () => {
-  return ({ children }: { children: string | string[] }) => {
-    let title = Array.isArray(children) ? children.join("") : children;
+    return ({ children }: { children: string | string[] }) => {
+        let title = Array.isArray(children) ? children.join("") : children;
 
-    if (isServer) {
-      // Inline script sets document.title during HTML parsing,
-      // before hydration JS loads, eliminating the flash of the default title.
-      return <script>{`document.title=${JSON.stringify(title)}`}</script>;
-    } else {
-      // Client title changes for navigating between frames.
-      document.title = title;
-    }
-  };
+        if (isServer) {
+            // Inline script sets document.title during HTML parsing,
+            // before hydration JS loads, eliminating the flash of the default title.
+            return <script>{`document.title=${JSON.stringify(title)}`}</script>;
+        } else {
+            // Client title changes for navigating between frames.
+            document.title = title;
+        }
+    };
 });
 ```
 
@@ -34,12 +34,12 @@ export let Title = clientEntry(import.meta.url, () => {
 
 ```tsx
 export function PostDetail() {
-  return (props: { post: Post }) => (
-    <div>
-      <Title>{props.post.title} | My App</Title>
-      <h1>{props.post.title}</h1>
-    </div>
-  );
+    return (props: { post: Post }) => (
+        <div>
+            <Title>{props.post.title} | My App</Title>
+            <h1>{props.post.title}</h1>
+        </div>
+    );
 }
 ```
 
@@ -69,11 +69,11 @@ import styles from "#/index.css?url";
 
 ### Rules
 
-| Specifier         | Use for                                           | Returns                          |
-| ----------------- | ------------------------------------------------- | -------------------------------- |
-| `?assets=client`  | Client entry module (passed to `run()`)           | Object with `entry`, CSS, JS    |
-| `?assets=ssr`     | Server-rendered modules contributing CSS/JS       | Object with CSS, JS arrays      |
-| `?url`            | Standalone stylesheets                            | Plain URL string for `<link>`   |
+| Specifier        | Use for                                     | Returns                       |
+| ---------------- | ------------------------------------------- | ----------------------------- |
+| `?assets=client` | Client entry module (passed to `run()`)     | Object with `entry`, CSS, JS  |
+| `?assets=ssr`    | Server-rendered modules contributing CSS/JS | Object with CSS, JS arrays    |
+| `?url`           | Standalone stylesheets                      | Plain URL string for `<link>` |
 
 - Only use `?assets=ssr` for module assets (`.tsx`, `.ts`), not plain `.css` files
 - The Remix Vite plugin transforms `import.meta.url` in `clientEntry()` calls into correct `?assets=client` imports automatically
@@ -89,30 +89,30 @@ import serverAssets from "#/entry.server.tsx?assets=ssr";
 import styles from "#/index.css?url";
 
 export function Document() {
-  let { css, js } = mergeAssets(clientAssets, serverAssets);
+    let { css, js } = mergeAssets(clientAssets, serverAssets);
 
-  return () => (
-    <html lang="en">
-      <head>
-        {/* Standalone CSS file */}
-        <link href={styles} rel="stylesheet" />
+    return () => (
+        <html lang="en">
+            <head>
+                {/* Standalone CSS file */}
+                <link href={styles} rel="stylesheet" />
 
-        {/* Asset-resolved CSS from component modules */}
-        {css.map(attrs => (
-          <link key={attrs.href} {...attrs} rel="stylesheet" />
-        ))}
+                {/* Asset-resolved CSS from component modules */}
+                {css.map(attrs => (
+                    <link key={attrs.href} {...attrs} rel="stylesheet" />
+                ))}
 
-        {/* Client entry script */}
-        <script async src={clientAssets.entry} type="module" />
+                {/* Client entry script */}
+                <script async src={clientAssets.entry} type="module" />
 
-        {/* Preload links for JS dependencies */}
-        {js.map(attrs => (
-          <link key={attrs.href} {...attrs} rel="modulepreload" />
-        ))}
-      </head>
-      <body>{/* frames, etc. */}</body>
-    </html>
-  );
+                {/* Preload links for JS dependencies */}
+                {js.map(attrs => (
+                    <link key={attrs.href} {...attrs} rel="modulepreload" />
+                ))}
+            </head>
+            <body>{/* frames, etc. */}</body>
+        </html>
+    );
 }
 ```
 

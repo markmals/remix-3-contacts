@@ -1,10 +1,10 @@
 ---
 name: remix-sessions
 description: >-
-  Use when setting up session middleware, creating signed cookies, reading or
-  writing session data, implementing flash messages, choosing a session storage
-  strategy (cookie, filesystem, memory), rotating cookie secrets, regenerating
-  session IDs, or destroying sessions on logout.
+    Use when setting up session middleware, creating signed cookies, reading or
+    writing session data, implementing flash messages, choosing a session storage
+    strategy (cookie, filesystem, memory), rotating cookie secrets, regenerating
+    session IDs, or destroying sessions on logout.
 ---
 
 # Sessions and Cookies
@@ -116,8 +116,8 @@ let sessionCookie = createCookie("__session", {
 Regenerate the session ID after privilege changes (login, role change) to prevent session fixation attacks.
 
 ```tsx
-session.regenerateId();       // New ID, keeps data
-session.regenerateId(true);   // New ID, deletes old session data
+session.regenerateId(); // New ID, keeps data
+session.regenerateId(true); // New ID, deletes old session data
 ```
 
 ## Destroying Sessions

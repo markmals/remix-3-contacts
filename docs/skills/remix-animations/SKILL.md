@@ -1,9 +1,9 @@
 ---
 name: remix-animations
 description: >
-  Use when adding animations or transitions to components, including enter/exit
-  effects, layout animations for list reordering, spring physics timing,
-  shared-layout crossfade, or toggle visibility with animated transitions.
+    Use when adding animations or transitions to components, including enter/exit
+    effects, layout animations for list reordering, spring physics timing,
+    shared-layout crossfade, or toggle visibility with animated transitions.
 ---
 
 # Animations
@@ -32,20 +32,22 @@ import { animateEntrance } from "remix/component";
 ```tsx
 import { animateEntrance, animateExit } from "remix/component";
 
-{isVisible && (
-    <div
-        key="panel"
-        mix={[
-            animateEntrance({ opacity: 0, transform: "scale(0.98)", duration: 180 }),
-            animateExit({
-                opacity: 0,
-                transform: "scale(0.98)",
-                duration: 120,
-                easing: "ease-in",
-            }),
-        ]}
-    />
-)}
+{
+    isVisible && (
+        <div
+            key="panel"
+            mix={[
+                animateEntrance({ opacity: 0, transform: "scale(0.98)", duration: 180 }),
+                animateExit({
+                    opacity: 0,
+                    transform: "scale(0.98)",
+                    duration: 120,
+                    easing: "ease-in",
+                }),
+            ]}
+        />
+    );
+}
 ```
 
 ## List Reordering with Layout Animation
@@ -53,11 +55,13 @@ import { animateEntrance, animateExit } from "remix/component";
 ```tsx
 import { animateLayout, spring } from "remix/component";
 
-{items.map(item => (
-    <li key={item.id} mix={[animateLayout({ ...spring({ duration: 500, bounce: 0.2 }) })]}>
-        {item.name}
-    </li>
-))}
+{
+    items.map(item => (
+        <li key={item.id} mix={[animateLayout({ ...spring({ duration: 500, bounce: 0.2 }) })]}>
+            {item.name}
+        </li>
+    ));
+}
 ```
 
 ## Shared-Layout Crossfade

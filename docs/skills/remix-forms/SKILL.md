@@ -1,9 +1,9 @@
 ---
 name: remix-forms
 description: >-
-  Use when adding forms, handling form submissions, parsing/validating form data
-  or search params, implementing RestfulForm, or using method override for
-  PUT/PATCH/DELETE.
+    Use when adding forms, handling form submissions, parsing/validating form data
+    or search params, implementing RestfulForm, or using method override for
+    PUT/PATCH/DELETE.
 ---
 
 # Remix Forms
@@ -161,10 +161,10 @@ let profile = s.parse(ProfileSchema, context.get(FormData));
 
 ### Key Concepts
 
-| Utility | Purpose |
-|---------|---------|
-| `f.object()` / `f.field()` | Handle FormData extraction (fields are always strings in raw form) |
-| `coerce.boolean()` | Convert string `"true"`/`"false"` to actual booleans |
-| `s.defaulted()` | Provide fallback values for missing fields |
-| `s.union()` | Allow multiple types (e.g., string or undefined for optional params) |
-| `s.parse()` | Throws on validation failure -- typed data or error, never silently wrong types |
+| Utility                    | Purpose                                                                         |
+| -------------------------- | ------------------------------------------------------------------------------- |
+| `f.object()` / `f.field()` | Handle FormData extraction (fields are always strings in raw form)              |
+| `coerce.boolean()`         | Convert string `"true"`/`"false"` to actual booleans                            |
+| `s.defaulted()`            | Provide fallback values for missing fields                                      |
+| `s.union()`                | Allow multiple types (e.g., string or undefined for optional params)            |
+| `s.parse()`                | Throws on validation failure -- typed data or error, never silently wrong types |

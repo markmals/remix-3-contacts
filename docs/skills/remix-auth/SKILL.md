@@ -1,10 +1,10 @@
 ---
 name: remix-auth
 description: >-
-  Use when implementing authentication, login/logout flows, OAuth or OIDC
-  providers, protecting routes with requireAuth, creating session-based or
-  bearer token auth schemes, or building credentials login forms with
-  progressive enhancement.
+    Use when implementing authentication, login/logout flows, OAuth or OIDC
+    providers, protecting routes with requireAuth, creating session-based or
+    bearer token auth schemes, or building credentials login forms with
+    progressive enhancement.
 ---
 
 # Authentication
