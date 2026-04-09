@@ -52,7 +52,7 @@ export let clear = internalMutation({
         let contacts = await ctx.db.query("contacts").collect();
 
         for (let contact of contacts) {
-            await ctx.db.delete("contacts", contact._id);
+            await ctx.db.delete(contact._id);
         }
     },
 });
