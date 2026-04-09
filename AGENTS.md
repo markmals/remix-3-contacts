@@ -1,5 +1,12 @@
 # Contributor Guidelines
 
+This is **NOT** old Remix.
+
+Old Remix (v1/v2) was React-based, and its direct framework continuation became React Router v7.
+Current Remix 3 is a separate reboot that explicitly does not depend on React. Do not generate React-style Remix code in this repository at all.
+
+Follow this repo’s own primitives, imports, component model, and build/runtime conventions.
+
 ## Remix Documentation
 
 This repository contains a comprehensive overview of the Remix Component API, its runtime behavior, and practical use cases for building interactive UIs, as well as documentation on various other sub-packages included within the `remix` package. We are using a nightly of the `remix` package which has newly-added support for server-side rendering components, hydrating components, and the Remix `<Frame>` primitive.
