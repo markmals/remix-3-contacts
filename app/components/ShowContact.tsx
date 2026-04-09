@@ -4,16 +4,13 @@ import { DeleteButton } from "#/components/Buttons.tsx";
 import { Favorite } from "#/components/Favorite.tsx";
 import { SITE } from "#/data/meta.ts";
 import { routes } from "#/routes.ts";
+import { client } from "#/utils/convex.tsx";
 import { link } from "#/utils/frame.tsx";
 import { isServer } from "#/utils/navigating.ts";
 import { api } from "#convex/_generated/api.js";
-import { ConvexClient } from "convex/browser";
 import { clientEntry } from "remix/component";
 
-import { RestfulForm } from "./RestfulForm.tsx";
 import { Title } from "./Title.tsx";
-
-let client = new ConvexClient(import.meta.env.VITE_CONVEX_URL);
 
 const AVATAR_PLACEHOLDER =
     "https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png";
@@ -44,8 +41,8 @@ export let ShowContact = clientEntry(import.meta.url, handle => {
                     <div>
                         <img
                             alt=""
-                            key={contact.avatar}
-                            src={contact.avatar ? contact.avatar : AVATAR_PLACEHOLDER}
+                            key={contact.avatarUrl}
+                            src={contact.avatarUrl ? contact.avatarUrl : AVATAR_PLACEHOLDER}
                         />
                     </div>
 
@@ -79,17 +76,15 @@ export let ShowContact = clientEntry(import.meta.url, handle => {
                         {contact.notes ? <p>{contact.notes}</p> : null}
 
                         <div>
-                            <RestfulForm
-                                action={routes.contacts.edit.href(
+                            <a
+                                href={routes.contacts.edit.href(
                                     { id: contact._id },
                                     { q: props.query },
                                 )}
-                                method={routes.contacts.edit.method}
+                                mix={link({ target: "detail" })}
                             >
-                                <button mix={link({ target: "detail" })} type="submit">
-                                    Edit
-                                </button>
-                            </RestfulForm>
+                                <button type="button">Edit</button>
+                            </a>
                             <DeleteButton contactId={contact._id} />
                         </div>
                     </div>
