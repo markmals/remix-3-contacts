@@ -347,7 +347,7 @@ In `app/entry.server.tsx`, simplify the home route handler. It no longer needs t
 ```ts
 router.map(routes.home, async ctx => {
     if (ctx.get(Frame.Target).is("detail")) return frame(<ZeroState />);
-    return document();
+    return await document();
 });
 ```
 
@@ -417,7 +417,7 @@ export default {
                 return frame(<ShowContact initial={contact} query={q} />);
             }
 
-            return document();
+            return await document();
         },
         async edit(ctx) {
             let target = ctx.get(Frame.Target);
@@ -429,7 +429,7 @@ export default {
                 return frame(<EditContact contact={contact} />);
             }
 
-            return document();
+            return await document();
         },
     },
 } satisfies Controller<typeof routes.contacts>;
@@ -661,21 +661,29 @@ export let SidebarList = clientEntry(import.meta.url, handle => {
 });
 ```
 
-- [ ] **Step 3: Update render.tsx — remove sidebar(), update document()**
+- [ ] **Step 3: Update render.tsx — remove sidebar(), fetch contacts in document()**
 
 Replace `app/utils/render.tsx` with:
 
 ```tsx
+import type { Contact } from "#/data/contacts.ts";
+
 import { Document } from "#/components/Document.tsx";
+import { getContacts } from "#/data/contacts.ts";
+import { QuerySchema } from "#/data/schemas.ts";
 import { router } from "#/entry.server.tsx";
 import { getContext } from "remix/async-context-middleware";
 import { renderToStream } from "remix/component/server";
+import * as s from "remix/data-schema";
 import { createHtmlResponse as html } from "remix/response/html";
 
-export function document(): Response {
+export async function document(): Promise<Response> {
     let context = getContext();
+    let { q } = s.parse(QuerySchema, context.url.searchParams);
+    let contacts = await getContacts(q);
+
     return html(
-        renderToStream(<Document />, {
+        renderToStream(<Document contacts={contacts} query={q} />, {
             frameSrc: context.url,
             async resolveFrame(src, target, ctx) {
                 let url = new URL(src, ctx?.currentFrameSrc ?? context.url);
@@ -694,72 +702,68 @@ export function document(): Response {
 }
 ```
 
+The `document()` function is now `async` — it fetches contacts before passing them as props to `Document`. This is where the data loading happens, not inside the component.
+
 - [ ] **Step 4: Update Document.tsx — inline SidebarList, remove sidebar Frame**
 
 Replace `app/components/Document.tsx` with:
 
 ```tsx
+import type { Contact } from "#/data/contacts.ts";
+
 import { SidebarList } from "#/components/SidebarList.tsx";
-import { getContacts } from "#/data/contacts.ts";
 import { SITE } from "#/data/meta.ts";
-import { QuerySchema } from "#/data/schemas.ts";
 import clientAssets from "#/entry.browser.ts?assets=client";
 import serverAssets from "#/entry.server.tsx?assets=ssr";
 import styles from "#/index.css?url";
 import { Frame } from "#/utils/frame.tsx";
 import { mergeAssets } from "@hiogawa/vite-plugin-fullstack/runtime";
 import { getContext } from "remix/async-context-middleware";
-import * as s from "remix/data-schema";
 
 import { Title } from "./Title.tsx";
 
 export function Document() {
     let { url } = getContext();
-    let { q } = s.parse(QuerySchema, url.searchParams);
     let { css, js } = mergeAssets(clientAssets, serverAssets);
 
-    return async () => {
-        let contacts = await getContacts(q);
+    return (props: { contacts: Contact[]; query?: string }) => (
+        <html lang="en">
+            <head>
+                <meta charSet="utf-8" />
+                <meta content="width=device-width, initial-scale=1" name="viewport" />
+                <Title>{SITE.title}</Title>
 
-        return (
-            <html lang="en">
-                <head>
-                    <meta charSet="utf-8" />
-                    <meta content="width=device-width, initial-scale=1" name="viewport" />
-                    <Title>{SITE.title}</Title>
+                <link href="/favicon-32.png" rel="icon" sizes="32x32" />
+                <link href="/favicon-128.png" rel="icon" sizes="128x128" />
+                <link href="/favicon-180.png" rel="icon" sizes="180x180" />
+                <link href="/favicon-192.png" rel="icon" sizes="192x192" />
+                <link href="/favicon-180.png" rel="apple-touch-icon" sizes="180x180" />
 
-                    <link href="/favicon-32.png" rel="icon" sizes="32x32" />
-                    <link href="/favicon-128.png" rel="icon" sizes="128x128" />
-                    <link href="/favicon-180.png" rel="icon" sizes="180x180" />
-                    <link href="/favicon-192.png" rel="icon" sizes="192x192" />
-                    <link href="/favicon-180.png" rel="apple-touch-icon" sizes="180x180" />
+                <link href={styles} rel="stylesheet" />
+                {css.map(attrs => (
+                    <link key={attrs.href} {...attrs} rel="stylesheet" />
+                ))}
 
-                    <link href={styles} rel="stylesheet" />
-                    {css.map(attrs => (
-                        <link key={attrs.href} {...attrs} rel="stylesheet" />
-                    ))}
-
-                    <script async src={clientAssets.entry} type="module" />
-                    {js.map(attrs => (
-                        <link key={attrs.href} {...attrs} rel="modulepreload" />
-                    ))}
-                </head>
-                <body>
-                    <div id="root">
-                        <div id="sidebar">
-                            <h1>{SITE.title}</h1>
-                            <SidebarList contacts={contacts} query={q} />
-                        </div>
-                        <Frame name="detail" url={url} />
+                <script async src={clientAssets.entry} type="module" />
+                {js.map(attrs => (
+                    <link key={attrs.href} {...attrs} rel="modulepreload" />
+                ))}
+            </head>
+            <body>
+                <div id="root">
+                    <div id="sidebar">
+                        <h1>{SITE.title}</h1>
+                        <SidebarList contacts={props.contacts} query={props.query} />
                     </div>
-                </body>
-            </html>
-        );
-    };
+                    <Frame name="detail" url={url} />
+                </div>
+            </body>
+        </html>
+    );
 }
 ```
 
-Note: The render function is now `async` since it needs to `await getContacts()`. The search bar and New button are both inside `SidebarList`, matching the original layout where they share the same `<div>`.
+`Document` receives `contacts` and `query` as props from the `document()` helper in `render.tsx`, which does the async data fetch. The component itself is fully synchronous.
 
 - [ ] **Step 5: Delete SearchBar.tsx**
 
