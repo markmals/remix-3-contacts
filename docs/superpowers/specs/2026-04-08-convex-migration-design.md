@@ -35,7 +35,7 @@ let contacts = await getContacts(q);
 1. Renders the contact list from props on first paint (SSR)
 2. After hydration, subscribes to `api.contacts.list` via `client.onUpdate()`
 3. Filters contacts client-side using `matchSorter` when the user types in the search bar
-4. Updates the URL `?q=` param (via `history.replaceState` or `navigate()` with `replace`) so page refresh preserves the search — but does NOT trigger a frame/server navigation for search
+4. Updates the URL `?q=` param (via `navigate()` with `{ history: "replace" }`) so page refresh preserves the search — but does NOT trigger a frame/server navigation for search
 
 ### SearchBar changes
 
@@ -152,27 +152,35 @@ If the detail frame target is requested, return a frame response for the detail 
 
 ### Contacts controller
 
-Simplifies to just `show` and `edit` — both are GET-only frame responses:
+Simplifies to just `show` and `edit` — both GET-only. Each action must handle two cases: a frame-targeted request (return a frame response for the detail pane) and a direct browser request (return the full document):
 
 ```ts
 export default {
     actions: {
         async show(ctx) {
-            let { q } = s.parse(QuerySchema, ctx.url.searchParams);
-            let contact = await getContact(ctx.params.id);
-            if (!contact) return redirect(routes.home.href());
-            return frame(<ShowContact initial={contact} query={q} />);
+            let target = ctx.get(Frame.Target);
+            if (target.is("detail")) {
+                let { q } = s.parse(QuerySchema, ctx.url.searchParams);
+                let contact = await getContact(ctx.params.id);
+                if (!contact) return redirect(routes.home.href());
+                return frame(<ShowContact initial={contact} query={q} />);
+            }
+            return document();
         },
         async edit(ctx) {
-            let contact = await getContact(ctx.params.id);
-            if (!contact) return redirect(routes.home.href());
-            return frame(<EditContact contact={contact} />);
+            let target = ctx.get(Frame.Target);
+            if (target.is("detail")) {
+                let contact = await getContact(ctx.params.id);
+                if (!contact) return redirect(routes.home.href());
+                return frame(<EditContact contact={contact} />);
+            }
+            return document();
         },
     },
 };
 ```
 
-The `contactPage()` helper simplifies or is removed — no more sidebar branch, no more three-way target check. Each action just checks for the contact and returns a frame response. Full document renders go through the home route.
+Remove `contactPage()` — the two remaining actions are simple enough to inline. The sidebar branch is gone and the full-document case is a direct `document()` call.
 
 ### Middleware simplification
 
@@ -258,10 +266,10 @@ The `mutate()` mixin and its `ConvexClient` instance remain as the primary clien
 - `sidebar()` function from `app/utils/render.tsx`
 - Form POST interceptor from `entry.browser.ts` (if no server forms remain)
 
-### Dependencies to remove
+### Config to clean up
 
-- R2-related wrangler config
-- Possibly `wrangler` dev dependency if no Cloudflare bindings remain
+- Remove R2 bucket binding from `wrangler.jsonc` (keep wrangler itself — the SSR server deploys to Workers)
+- Remove D1 database binding from `wrangler.jsonc` if still present
 
 ## Design Decisions
 
