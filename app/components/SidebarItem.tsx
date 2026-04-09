@@ -1,3 +1,5 @@
+import type { Contact } from "#/data/contacts.ts";
+
 import { routes } from "#/routes.ts";
 import { link } from "#/utils/frame.tsx";
 import { isServer, navigating } from "#/utils/navigating.ts";
@@ -14,7 +16,7 @@ export namespace SidebarItem {
         query?: string;
 
         contact: {
-            id: number;
+            id: string;
             first?: string;
             last?: string;
             favorite?: boolean;
@@ -30,16 +32,12 @@ export let SidebarItem = clientEntry(import.meta.url, handle => {
     });
 
     return ({ selected, query, contact }: SidebarItem.Props) => {
-        // Derive active state from the current URL on the client,
-        // since frame-targeted navigations don't re-render the sidebar
-        // and the server-provided `selected` prop becomes stale.
         let currentMatch = !isServer ? matcher.match(location.href) : null;
-        let isActive = Number(currentMatch?.params?.id ?? selected) === contact.id;
+        let isActive = (currentMatch?.params?.id ?? selected) === contact.id;
 
-        // Only show pending for contacts that aren't already active
         let destination = navigating.to.url ? matcher.match(navigating.to.url.href) : null;
         let isPathChange = !isServer && navigating.to.url?.pathname !== location.pathname;
-        let isPending = !isActive && isPathChange && Number(destination?.params.id) === contact.id;
+        let isPending = !isActive && isPathChange && destination?.params.id === contact.id;
 
         return (
             <li>

@@ -1,44 +1,21 @@
+import type { Contact } from "#/data/contacts.ts";
+
 import { Document } from "#/components/Document.tsx";
-import { SidebarItem } from "#/components/SidebarItem.tsx";
 import { getContacts } from "#/data/contacts.ts";
 import { QuerySchema } from "#/data/schemas.ts";
 import { router } from "#/entry.server.tsx";
-import { createFrameResponse as frame } from "#/utils/frame.tsx";
 import { getContext } from "remix/async-context-middleware";
 import { renderToStream } from "remix/component/server";
 import * as s from "remix/data-schema";
 import { createHtmlResponse as html } from "remix/response/html";
 
-export async function sidebar(selected?: string | number): Promise<Response> {
-    let { url } = getContext();
-    let { q } = s.parse(QuerySchema, url.searchParams);
+export async function document(): Promise<Response> {
+    let context = getContext();
+    let { q } = s.parse(QuerySchema, context.url.searchParams);
     let contacts = await getContacts(q);
 
-    return frame(
-        <nav>
-            {contacts.length ? (
-                <ul>
-                    {contacts.map(contact => (
-                        <SidebarItem
-                            contact={contact}
-                            query={q}
-                            selected={String(selected ?? "")}
-                        />
-                    ))}
-                </ul>
-            ) : (
-                <p>
-                    <i>No contacts</i>
-                </p>
-            )}
-        </nav>,
-    );
-}
-
-export function document(): Response {
-    let context = getContext();
     return html(
-        renderToStream(<Document />, {
+        renderToStream(<Document contacts={contacts} query={q} />, {
             frameSrc: context.url,
             async resolveFrame(src, target, ctx) {
                 let url = new URL(src, ctx?.currentFrameSrc ?? context.url);

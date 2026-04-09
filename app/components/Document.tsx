@@ -1,28 +1,26 @@
-import { SearchBar } from "#/components/SearchBar.tsx";
+import type { Contact } from "#/data/contacts.ts";
+
+import { SidebarList } from "#/components/SidebarList.tsx";
 import { SITE } from "#/data/meta.ts";
-import { QuerySchema } from "#/data/schemas.ts";
 import clientAssets from "#/entry.browser.ts?assets=client";
 import serverAssets from "#/entry.server.tsx?assets=ssr";
 import styles from "#/index.css?url";
-import { routes } from "#/routes.ts";
 import { Frame } from "#/utils/frame.tsx";
 import { mergeAssets } from "@hiogawa/vite-plugin-fullstack/runtime";
 import { getContext } from "remix/async-context-middleware";
-import * as s from "remix/data-schema";
 
-import { RestfulForm } from "./RestfulForm.tsx";
+import { Title } from "./Title.tsx";
 
 export function Document() {
     let { url } = getContext();
-    let { q } = s.parse(QuerySchema, url.searchParams);
     let { css, js } = mergeAssets(clientAssets, serverAssets);
 
-    return () => (
+    return (props: { contacts: Contact[]; query?: string }) => (
         <html lang="en">
             <head>
                 <meta charSet="utf-8" />
                 <meta content="width=device-width, initial-scale=1" name="viewport" />
-                <title>{SITE.title}</title>
+                <Title>{SITE.title}</Title>
 
                 <link href="/favicon-32.png" rel="icon" sizes="32x32" />
                 <link href="/favicon-128.png" rel="icon" sizes="128x128" />
@@ -44,16 +42,7 @@ export function Document() {
                 <div id="root">
                     <div id="sidebar">
                         <h1>{SITE.title}</h1>
-                        <div>
-                            <SearchBar query={q} />
-                            <RestfulForm
-                                action={routes.contacts.create.href()}
-                                method={routes.contacts.create.method}
-                            >
-                                <button type="submit">New</button>
-                            </RestfulForm>
-                        </div>
-                        <Frame name="sidebar" url={url} />
+                        <SidebarList contacts={props.contacts} query={props.query} />
                     </div>
                     <Frame name="detail" url={url} />
                 </div>

@@ -23,7 +23,7 @@ export default {
                 return frame(<ShowContact initial={contact} query={q} />);
             }
 
-            return document();
+            return await document();
         },
         async edit(ctx) {
             let target = ctx.get(Frame.Target);
@@ -35,7 +35,7 @@ export default {
                 return frame(<EditContact contact={contact} />);
             }
 
-            return document();
+            return await document();
         },
     },
 } satisfies Controller<typeof routes.contacts>;

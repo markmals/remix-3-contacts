@@ -20,7 +20,7 @@ export let router = createRouter({
 
 router.map(routes.home, async ctx => {
     if (ctx.get(Frame.Target).is("detail")) return frame(<ZeroState />);
-    return document();
+    return await document();
 });
 
 router.map(routes.contacts, contacts);
