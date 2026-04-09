@@ -16,32 +16,35 @@ export let Favorite = clientEntry(import.meta.url, handle => {
             <RestfulForm
                 action={routes.contacts.favorite.href({ id: props.contactId })}
                 method={routes.contacts.favorite.method}
-                mix={on("submit", async event => {
-                    event.preventDefault();
+                mix={[
+                    // TODO: use mutate mixin with optimisticUpdate option instead
+                    on("submit", async event => {
+                        event.preventDefault();
 
-                    favorite = !favorite;
-                    submitting = true;
-                    let signal = await handle.update();
-
-                    try {
-                        let response = await fetch(event.currentTarget.action, {
-                            method: event.currentTarget.method,
-                            body: new FormData(event.currentTarget, event.submitter),
-                            signal,
-                        });
-
-                        if (!response.ok && !response.redirected) {
-                            throw response;
-                        }
-
-                        submitting = false;
-                        navigate(location.href, { history: "replace" });
-                    } catch {
                         favorite = !favorite;
-                        submitting = false;
-                        handle.update();
-                    }
-                })}
+                        submitting = true;
+                        let signal = await handle.update();
+
+                        try {
+                            let response = await fetch(event.currentTarget.action, {
+                                method: event.currentTarget.method,
+                                body: new FormData(event.currentTarget, event.submitter),
+                                signal,
+                            });
+
+                            if (!response.ok && !response.redirected) {
+                                throw response;
+                            }
+
+                            submitting = false;
+                            navigate(location.href, { history: "replace" });
+                        } catch {
+                            favorite = !favorite;
+                            submitting = false;
+                            handle.update();
+                        }
+                    }),
+                ]}
             >
                 <button
                     aria-label={favorite ? "Remove from favorites" : "Add to favorites"}

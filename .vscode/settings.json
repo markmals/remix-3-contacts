@@ -49,6 +49,8 @@
         "vite.config.*": "*.plugin.ts, worker-configuration.d.ts"
     },
     "files.exclude": {
+        ".claude": true,
+        ".convex": true,
         ".wrangler": true
     },
 

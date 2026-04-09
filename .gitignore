@@ -2,9 +2,11 @@
 .env
 /node_modules/
 *.tsbuildinfo
+.env.local
 
 # Vite
 /dist
 
 # Cloudflare
 .wrangler
+

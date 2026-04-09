@@ -11,7 +11,7 @@ export function Frame() {
 }
 
 export namespace Frame {
-    export const Name = s.union([s.literal("detail" as const), s.literal("sidebar" as const)]);
+    export const Name = s.literal("detail" as const);
     export type Name = s.InferOutput<typeof Name>;
 
     export class Target {

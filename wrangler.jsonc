@@ -4,13 +4,5 @@
     "main": "./app/entry.server.tsx",
     "assets": { "directory": "dist/client" },
     "compatibility_date": "2026-04-02",
-    "compatibility_flags": ["nodejs_compat"],
-    "d1_databases": [
-        {
-            "binding": "DB",
-            "database_name": "contacts-db",
-            "database_id": "local"
-        }
-    ],
-    "r2_buckets": [{ "binding": "FILES", "bucket_name": "contact-pictures" }]
+    "compatibility_flags": ["nodejs_compat"]
 }

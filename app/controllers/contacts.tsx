@@ -45,7 +45,7 @@ export default {
     actions: {
         async show(ctx) {
             let { q } = s.parse(QuerySchema, ctx.url.searchParams);
-            return await contactPage(contact => <ShowContact contact={contact} query={q} />);
+            return await contactPage(contact => <ShowContact initial={contact} query={q} />);
         },
         async edit() {
             return await contactPage(contact => <EditContact contact={contact} />);

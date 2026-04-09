@@ -1,4 +1,7 @@
+import { DeleteSchema } from "#/data/schemas.ts";
 import { routes } from "#/routes.ts";
+import { mutate } from "#/utils/convex.tsx";
+import { api } from "#convex/_generated/api.js";
 import { clientEntry, on } from "remix/component";
 
 import { RestfulForm } from "./RestfulForm.tsx";
@@ -21,11 +24,14 @@ export let DeleteButton = clientEntry(import.meta.url, () => {
         <RestfulForm
             action={routes.contacts.destroy.href({ id: props.contactId })}
             method={routes.contacts.destroy.method}
-            mix={on("submit", async event => {
-                if (!confirm("Please confirm you want to delete this record.")) {
-                    event.preventDefault();
-                }
-            })}
+            mix={[
+                on("submit", async event => {
+                    if (!confirm("Please confirm you want to delete this record.")) {
+                        event.preventDefault();
+                    }
+                }),
+                mutate({ mutation: api.contacts.remove, schema: DeleteSchema }),
+            ]}
         >
             <button type="submit">Delete</button>
         </RestfulForm>

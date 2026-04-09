@@ -3,10 +3,12 @@
     "private": true,
     "type": "module",
     "imports": {
-        "#/*": "./app/*"
+        "#/*": "./app/*",
+        "#convex/*": "./convex/*"
     },
     "dependencies": {
         "@hiogawa/vite-plugin-fullstack": "^0.0.11",
+        "convex": "^1.34.1",
         "es-toolkit": "^1.45.1",
         "match-sorter": "^8.2.0",
         "remix": "3.0.0-alpha.4"

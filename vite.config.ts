@@ -19,14 +19,24 @@ export default defineConfig({
     run: {
         tasks: {
             dev: {
-                dependsOn: ["typegen", "db:migrate"],
-                command: "vp dev --host",
+                dependsOn: ["dev:vite", "dev:convex"],
+                command: "",
+                cache: false,
             },
-            "db:migrate": {
-                command: "node db/migrate.ts",
+            "dev:vite": {
+                dependsOn: ["typegen", "db:seed"],
+                command: "vp dev --host",
+                cache: false,
+            },
+            "dev:convex": {
+                command: "vpx convex dev",
+                cache: false,
+            },
+            "db:seed": {
+                command: "vpx convex run migration:seed",
             },
             "db:reset": {
-                command: "rm -rf .wrangler/state/v3/d1",
+                command: "vpx convex run migration:clear",
             },
             typegen: {
                 input: ["wrangler.jsonc"],
