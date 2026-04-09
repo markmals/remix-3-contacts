@@ -24,7 +24,7 @@ export default defineConfig({
                 cache: false,
             },
             "dev:vite": {
-                dependsOn: ["typegen", "db:seed"],
+                dependsOn: ["db:seed"],
                 command: "vp dev --host",
                 cache: false,
             },
@@ -38,17 +38,11 @@ export default defineConfig({
             "db:reset": {
                 command: "vpx convex run migration:clear",
             },
-            typegen: {
-                input: ["wrangler.jsonc"],
-                command: "wrangler types",
-            },
             typecheck: {
-                dependsOn: ["typegen"],
                 command: "tsgo --noEmit",
                 cache: false,
             },
             check: {
-                dependsOn: ["typegen"],
                 command: "vp check --fix",
                 cache: false,
             },
