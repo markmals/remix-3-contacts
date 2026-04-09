@@ -1,60 +1,28 @@
-import { routes } from "#/routes.ts";
-import { clientEntry, navigate, on } from "remix/component";
+import { mutate } from "#/utils/convex.tsx";
+import { api } from "#convex/_generated/api.js";
+import { clientEntry } from "remix/component";
+import * as f from "remix/data-schema/form-data";
+import * as s from "remix/data-schema";
 
-import { RestfulForm } from "./RestfulForm.tsx";
+let ToggleFavoriteSchema = f.object({
+    id: f.field(s.string()),
+});
 
-export let Favorite = clientEntry(import.meta.url, handle => {
-    let submitting = false;
-    let favorite!: boolean;
-
-    return (props: { contactId: number; favorite: boolean }) => {
-        if (!submitting) {
-            favorite = props.favorite;
-        }
-
-        return (
-            <RestfulForm
-                action={routes.contacts.favorite.href({ id: props.contactId })}
-                method={routes.contacts.favorite.method}
-                mix={[
-                    // TODO: use mutate mixin with optimisticUpdate option instead
-                    on("submit", async event => {
-                        event.preventDefault();
-
-                        favorite = !favorite;
-                        submitting = true;
-                        let signal = await handle.update();
-
-                        try {
-                            let response = await fetch(event.currentTarget.action, {
-                                method: event.currentTarget.method,
-                                body: new FormData(event.currentTarget, event.submitter),
-                                signal,
-                            });
-
-                            if (!response.ok && !response.redirected) {
-                                throw response;
-                            }
-
-                            submitting = false;
-                            navigate(location.href, { history: "replace" });
-                        } catch {
-                            favorite = !favorite;
-                            submitting = false;
-                            handle.update();
-                        }
-                    }),
-                ]}
+export let Favorite = clientEntry(import.meta.url, () => {
+    return (props: { contactId: string; favorite: boolean }) => (
+        <form
+            mix={mutate({
+                mutation: api.contacts.toggleFavorite,
+                schema: ToggleFavoriteSchema,
+            })}
+        >
+            <input name="id" type="hidden" value={props.contactId} />
+            <button
+                aria-label={props.favorite ? "Remove from favorites" : "Add to favorites"}
+                type="submit"
             >
-                <button
-                    aria-label={favorite ? "Remove from favorites" : "Add to favorites"}
-                    name="favorite"
-                    type="submit"
-                    value={favorite ? "true" : "false"}
-                >
-                    {favorite ? "★" : "☆"}
-                </button>
-            </RestfulForm>
-        );
-    };
+                {props.favorite ? "★" : "☆"}
+            </button>
+        </form>
+    );
 });
