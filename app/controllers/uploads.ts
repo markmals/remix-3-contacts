@@ -32,13 +32,11 @@ export async function uploadHandler(file: FileUpload): Promise<string> {
     let key = `${file.fieldName}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
 
     await storage.set(key, file);
-
-    return `/uploads/${key}`;
+    return routes.uploads.href({ key });
 }
 
 /** Serves uploaded files from R2. */
 export let serveUpload: BuildAction<"GET", typeof routes.uploads> = async ctx => {
-    let storage = ctx.get(R2FileStorage);
     let file = await storage.get(ctx.params.key);
 
     if (!file) {

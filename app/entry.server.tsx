@@ -1,8 +1,7 @@
 import { ZeroState } from "#/components/ZeroState.tsx";
 import contacts from "#/controllers/contacts.tsx";
 import { serveUpload, uploadHandler } from "#/controllers/uploads.ts";
-import { loadDatabase } from "#/middleware/database.ts";
-import { loadFileStorage } from "#/middleware/file-storage.ts";
+import { database } from "#/middleware.ts";
 import { routes } from "#/routes.ts";
 import { createFrameResponse as frame, Frame, frameTarget } from "#/utils/frame.tsx";
 import { document, sidebar } from "#/utils/render.tsx";
@@ -19,8 +18,7 @@ export let router = createRouter({
         formData({ uploadHandler }),
         methodOverride(),
         asyncContext(),
-        loadDatabase(),
-        loadFileStorage(),
+        database(),
         frameTarget(),
     ],
 });
