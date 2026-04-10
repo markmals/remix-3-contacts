@@ -4,7 +4,7 @@ import { DeleteButton } from "#/components/Buttons.tsx";
 import { Favorite } from "#/components/Favorite.tsx";
 import { SITE } from "#/data/meta.ts";
 import { routes } from "#/routes.ts";
-import { client } from "#/utils/convex.tsx";
+import { convex } from "#/utils/convex.ts";
 import { link } from "#/utils/frame.tsx";
 import { isServer } from "#/utils/navigating.ts";
 import { api } from "#convex/_generated/api.js";
@@ -31,19 +31,14 @@ export let ShowContact = clientEntry(import.meta.url, handle => {
             subscribedId = props.initial._id;
             unsubscribe?.();
 
-            let initialDelivery = true;
-            unsubscribe = client.onUpdate(api.contacts.get, { id: props.initial._id }, update => {
-                contact = update;
-
-                // Skip re-render for the initial delivery — we already have
-                // this data from SSR. Only re-render on actual changes.
-                if (initialDelivery) {
-                    initialDelivery = false;
-                    return;
-                }
-
-                handle.update();
-            });
+            unsubscribe = convex.client.onUpdate(
+                api.contacts.get,
+                { id: props.initial._id },
+                update => {
+                    contact = update;
+                    handle.update();
+                },
+            );
         }
 
         return (

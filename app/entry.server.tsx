@@ -1,6 +1,5 @@
 import { ZeroState } from "#/components/ZeroState.tsx";
-import contacts from "#/controllers/contacts.tsx";
-import { loadConvex } from "#/middleware/convex.ts";
+import contacts from "#/contacts.tsx";
 import { routes } from "#/routes.ts";
 import { createFrameResponse as frame, Frame, frameTarget } from "#/utils/frame.tsx";
 import { document } from "#/utils/render.tsx";
@@ -13,7 +12,6 @@ export let router = createRouter({
         staticFiles("./public"),
         staticFiles("./dist/client"),
         asyncContext(),
-        loadConvex(),
         frameTarget(),
     ],
 });

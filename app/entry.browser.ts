@@ -20,12 +20,3 @@ run({
         return response.body ?? (await response.text());
     },
 });
-
-// Set focusReset to prevent browser auto-reset on non-traverse navigations
-navigation.addEventListener("navigate", event => {
-    if (!event.canIntercept || event.defaultPrevented || event.navigationType === "traverse") {
-        return;
-    }
-
-    event.intercept({ focusReset: "manual" });
-});

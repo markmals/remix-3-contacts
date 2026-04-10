@@ -1,6 +1,6 @@
 import type { Contact } from "#/data/contacts.ts";
 
-import { NewButton } from "#/components/NewButton.tsx";
+import { NewButton } from "#/components/Buttons.tsx";
 import { SearchBar } from "#/components/SearchBar.tsx";
 import { SidebarList } from "#/components/SidebarList.tsx";
 import { SITE } from "#/data/meta.ts";

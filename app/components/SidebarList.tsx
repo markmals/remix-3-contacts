@@ -1,8 +1,8 @@
 import type { Contact } from "#/data/contacts.ts";
 
 import { SidebarItem } from "#/components/SidebarItem.tsx";
-import { client } from "#/utils/convex.tsx";
-import { isServer, navigating } from "#/utils/navigating.ts";
+import { convex } from "#/utils/convex.ts";
+import { isServer } from "#/utils/navigating.ts";
 import { search } from "#/utils/search.ts";
 import { api } from "#convex/_generated/api.js";
 import { sortBy } from "es-toolkit/array";
@@ -15,7 +15,7 @@ export let SidebarList = clientEntry(import.meta.url, handle => {
 
     // Subscribe to contact list after hydration
     if (!isServer) {
-        unsubscribe = client.onUpdate(api.contacts.list, {}, update => {
+        unsubscribe = convex.client.onUpdate(api.contacts.list, {}, update => {
             contacts = update;
             handle.update();
         });
@@ -30,19 +30,12 @@ export let SidebarList = clientEntry(import.meta.url, handle => {
         },
     });
 
-    // Re-render when navigation state changes (for pending state on SidebarItems)
-    addEventListeners(navigating, handle.signal, {
-        destinationchange() {
-            handle.update();
-        },
-    });
-
     function filtered(query: string): Contact[] {
         let list = contacts;
         if (query) {
             list = matchSorter(list, query, { keys: ["first", "last"] });
         }
-        return sortBy(list, [c => c.last, c => c._creationTime]);
+        return sortBy(list, ["last", "_creationTime"]);
     }
 
     return (props: { contacts: Contact[]; query?: string }) => {

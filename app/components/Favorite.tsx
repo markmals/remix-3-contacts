@@ -1,4 +1,4 @@
-import { client } from "#/utils/convex.tsx";
+import { convex } from "#/utils/convex.ts";
 import { api } from "#convex/_generated/api.js";
 import { on } from "remix/component";
 
@@ -7,7 +7,7 @@ export function Favorite() {
         <form
             mix={on("submit", async event => {
                 event.preventDefault();
-                await client.mutation(api.contacts.toggleFavorite, {
+                await convex.client.mutation(api.contacts.toggleFavorite, {
                     id: props.contactId as any,
                 });
             })}

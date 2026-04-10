@@ -3,7 +3,7 @@ import type { Contact } from "#/data/contacts.ts";
 import { CancelButton } from "#/components/Buttons.tsx";
 import { SITE } from "#/data/meta.ts";
 import { routes } from "#/routes.ts";
-import { client } from "#/utils/convex.tsx";
+import { convex } from "#/utils/convex.ts";
 import { api } from "#convex/_generated/api.js";
 import { clientEntry, navigate, on } from "remix/component";
 
@@ -42,7 +42,10 @@ export let EditContact = clientEntry(import.meta.url, () => {
                             return;
                         }
 
-                        let uploadUrl = await client.mutation(api.files.generateUploadUrl, {});
+                        let uploadUrl = await convex.client.mutation(
+                            api.files.generateUploadUrl,
+                            {},
+                        );
                         let response = await fetch(uploadUrl, {
                             method: "POST",
                             headers: { "Content-Type": avatarFile.type },
@@ -52,7 +55,7 @@ export let EditContact = clientEntry(import.meta.url, () => {
                         avatarStorageId = result.storageId as any;
                     }
 
-                    await client.mutation(api.contacts.update, {
+                    await convex.client.mutation(api.contacts.update, {
                         id: props.contact._id as any,
                         first: (form.get("first") as string) || "",
                         last: (form.get("last") as string) || "",
