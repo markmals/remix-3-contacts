@@ -1,5 +1,7 @@
 import type { Contact } from "#/data/contacts.ts";
 
+import { NewButton } from "#/components/NewButton.tsx";
+import { SearchBar } from "#/components/SearchBar.tsx";
 import { SidebarList } from "#/components/SidebarList.tsx";
 import { SITE } from "#/data/meta.ts";
 import clientAssets from "#/entry.browser.ts?assets=client";
@@ -40,6 +42,10 @@ export function Document() {
                 <div id="root">
                     <div id="sidebar">
                         <h1>{SITE.title}</h1>
+                        <div>
+                            <SearchBar query={props.query} />
+                            <NewButton />
+                        </div>
                         <SidebarList contacts={props.contacts} query={props.query} />
                     </div>
                     <Frame name="detail" url={url} />
