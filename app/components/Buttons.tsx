@@ -1,7 +1,7 @@
 import { routes } from "#/routes.ts";
 import { convex } from "#/utils/convex.ts";
 import { api } from "#convex/_generated/api.js";
-import { navigate, on, clientEntry } from "remix/component";
+import { navigate, on } from "remix/component";
 
 export function CancelButton() {
     return () => (
@@ -34,23 +34,3 @@ export function DeleteButton() {
         </form>
     );
 }
-
-export let NewButton = clientEntry(import.meta.url, () => {
-    return () => (
-        <button
-            mix={on("click", async () => {
-                let id = await convex.client.mutation(api.contacts.create, {
-                    first: "",
-                    last: "",
-                    bsky: "",
-                });
-                navigate(routes.contacts.edit.href({ id }), {
-                    target: "detail",
-                });
-            })}
-            type="button"
-        >
-            New
-        </button>
-    );
-});
