@@ -3,6 +3,7 @@ import type { Contact } from "#/data/contacts.ts";
 import { SidebarItem } from "#/components/SidebarItem.tsx";
 import { client } from "#/utils/convex.tsx";
 import { isServer, navigating } from "#/utils/navigating.ts";
+import { search } from "#/utils/search.ts";
 import { api } from "#convex/_generated/api.js";
 import { sortBy } from "es-toolkit/array";
 import { matchSorter } from "match-sorter";
@@ -22,15 +23,21 @@ export let SidebarList = clientEntry(import.meta.url, handle => {
         handle.signal.addEventListener("abort", () => unsubscribe?.());
     }
 
+    // Re-render when search query changes (from SearchBar)
+    addEventListeners(search, handle.signal, {
+        change() {
+            handle.update();
+        },
+    });
+
+    // Re-render when navigation state changes (for pending state on SidebarItems)
     addEventListeners(navigating, handle.signal, {
         destinationchange() {
             handle.update();
         },
     });
 
-    function filtered(): Contact[] {
-        // Read query from URL so we react to SearchBar's navigate() calls
-        let query = isServer ? "" : (new URL(location.href).searchParams.get("q") ?? "");
+    function filtered(query: string): Contact[] {
         let list = contacts;
         if (query) {
             list = matchSorter(list, query, { keys: ["first", "last"] });
@@ -44,14 +51,9 @@ export let SidebarList = clientEntry(import.meta.url, handle => {
             contacts = props.contacts;
         }
 
-        // On the server, use the query from props for initial filtering
-        let items: Contact[];
-        if (isServer && props.query) {
-            items = matchSorter(props.contacts, props.query, { keys: ["first", "last"] });
-            items = sortBy(items, [c => c.last, c => c._creationTime]);
-        } else {
-            items = filtered();
-        }
+        // Server uses props.query; client uses shared search state
+        let query = isServer ? (props.query ?? "") : search.query;
+        let items = filtered(query);
 
         return (
             <nav>

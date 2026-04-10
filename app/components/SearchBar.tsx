@@ -1,49 +1,39 @@
-import { navigating } from "#/utils/navigating.ts";
-import { addEventListeners, clientEntry, navigate, on } from "remix/component";
+import { search } from "#/utils/search.ts";
+import { clientEntry, on } from "remix/component";
 
-export let SearchBar = clientEntry(import.meta.url, handle => {
-    addEventListeners(navigating, handle.signal, {
-        destinationchange() {
-            handle.update();
-        },
-    });
+export let SearchBar = clientEntry(import.meta.url, () => {
+    return (props: { query?: string }) => (
+        <form id="search-form" method="GET">
+            <input
+                aria-label="Search contacts"
+                defaultValue={props.query ?? undefined}
+                id="q"
+                mix={on("input", event => {
+                    let value = event.currentTarget.value.trim();
+                    let url = new URL(location.href);
 
-    return (props: { query?: string }) => {
-        let searching = Boolean(navigating.to.url?.searchParams.has("q"));
+                    if (!value) {
+                        url.searchParams.delete("q");
+                    } else {
+                        url.searchParams.set("q", value);
+                    }
 
-        return (
-            <form id="search-form" method="GET">
-                <input
-                    aria-label="Search contacts"
-                    class={searching ? "loading" : ""}
-                    defaultValue={props.query ?? undefined}
-                    id="q"
-                    mix={on("input", async event => {
-                        try {
-                            let url = new URL(location.href);
-                            let value = event.currentTarget.value.trim();
+                    let isFirstSearch = !location.search.includes("q=") && value;
+                    if (isFirstSearch) {
+                        history.pushState(null, "", url.toString());
+                    } else {
+                        history.replaceState(null, "", url.toString());
+                    }
 
-                            if (!value) {
-                                url.searchParams.delete("q");
-                            } else {
-                                url.searchParams.set("q", value);
-                            }
-
-                            let isFirstSearch = !location.search.includes("q=") && value;
-                            await navigate(url.toString(), {
-                                history: isFirstSearch ? "push" : "replace",
-                            });
-                        } catch {
-                            // ignore navigation errors caused by abortions during typing
-                        }
-                    })}
-                    name="q"
-                    placeholder="Search"
-                    type="search"
-                />
-                <div aria-hidden hidden={!searching} id="search-spinner" />
-                <div aria-live="polite" class="sr-only" />
-            </form>
-        );
-    };
+                    // Notify SidebarList to re-filter
+                    search.update(value);
+                })}
+                name="q"
+                placeholder="Search"
+                type="search"
+            />
+            <div aria-hidden hidden id="search-spinner" />
+            <div aria-live="polite" class="sr-only" />
+        </form>
+    );
 });
