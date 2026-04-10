@@ -5,7 +5,7 @@ import { SidebarItem } from "#/components/SidebarItem.tsx";
 import { SITE } from "#/data/meta.ts";
 import { routes } from "#/routes.ts";
 import { convex } from "#/utils/convex.ts";
-import { isServer, navigating } from "#/utils/navigating.ts";
+import { isServer } from "#/utils/navigating.ts";
 import { search } from "#/utils/search.ts";
 import { api } from "#convex/_generated/api.js";
 import { sortBy } from "es-toolkit/array";
@@ -39,13 +39,6 @@ export let Document = clientEntry(import.meta.url, handle => {
     // Re-render when search query changes
     addEventListeners(search, handle.signal, {
         change() {
-            handle.update();
-        },
-    });
-
-    // Re-render when navigation state changes (for pending SidebarItems)
-    addEventListeners(navigating, handle.signal, {
-        destinationchange() {
             handle.update();
         },
     });
