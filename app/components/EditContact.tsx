@@ -73,14 +73,14 @@ export let EditContact = clientEntry(import.meta.url, () => {
                         name="first"
                         placeholder="First"
                         type="text"
-                        value={props.contact.first || undefined}
+                        defaultValue={props.contact.first || undefined}
                     />
                     <input
                         aria-label="Last name"
                         name="last"
                         placeholder="Last"
                         type="text"
-                        value={props.contact.last || undefined}
+                        defaultValue={props.contact.last || undefined}
                     />
                 </label>
 
@@ -90,7 +90,7 @@ export let EditContact = clientEntry(import.meta.url, () => {
                         name="bsky"
                         placeholder="jay.bsky.team"
                         type="text"
-                        value={props.contact.bsky || undefined}
+                        defaultValue={props.contact.bsky || undefined}
                     />
                 </label>
 
@@ -118,7 +118,7 @@ export let EditContact = clientEntry(import.meta.url, () => {
 
                 <label>
                     <span>Notes</span>
-                    <textarea name="notes" rows={6} value={props.contact.notes || undefined} />
+                    <textarea name="notes" rows={6} defaultValue={props.contact.notes || undefined} />
                 </label>
 
                 <p>
