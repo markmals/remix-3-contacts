@@ -3,7 +3,7 @@ import type { Contact } from "#/data/contacts.ts";
 import { CancelButton } from "#/components/Buttons.tsx";
 import { SITE } from "#/data/meta.ts";
 import { routes } from "#/routes.ts";
-import { convex } from "#/utils/convex.ts";
+import { convex } from "#/utils/convex.tsx";
 import { api } from "#convex/_generated/api.js";
 import { clientEntry, navigate, on } from "remix/component";
 

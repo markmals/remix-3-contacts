@@ -20,7 +20,9 @@ export default {
                 let { id } = s.parse(IdSchema, ctx.params);
                 let contact = await getContact(id);
                 if (!contact) return redirect(routes.home.href());
-                return frame(<ShowContact initial={contact} query={q} />);
+                return frame(
+                    <ShowContact initial={contact} query={q} setup={{ id: contact._id }} />,
+                );
             }
 
             return await document();

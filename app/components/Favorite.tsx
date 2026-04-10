@@ -1,15 +1,13 @@
-import { convex } from "#/utils/convex.ts";
+import type { Id } from "#convex/_generated/dataModel.js";
+
+import { mutate } from "#/utils/convex.tsx";
 import { api } from "#convex/_generated/api.js";
-import { on } from "remix/component";
 
 export function Favorite() {
     return (props: { contactId: string; favorite: boolean }) => (
         <form
-            mix={on("submit", async event => {
-                event.preventDefault();
-                await convex.client.mutation(api.contacts.toggleFavorite, {
-                    id: props.contactId as any,
-                });
+            mix={mutate(api.contacts.toggleFavorite, {
+                id: props.contactId as Id<"contacts">,
             })}
         >
             <button

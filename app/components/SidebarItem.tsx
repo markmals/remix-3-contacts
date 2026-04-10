@@ -1,6 +1,7 @@
 import { routes } from "#/routes.ts";
 import { link } from "#/utils/frame.tsx";
-import { isServer, navigating } from "#/utils/navigating.ts";
+import { navigating } from "#/utils/navigating.ts";
+import { IS_SERVER } from "#/utils/server.ts";
 import { addEventListeners, type Handle, type SerializableProps } from "remix/component";
 import { ArrayMatcher } from "remix/route-pattern";
 
@@ -30,11 +31,11 @@ export function SidebarItem(handle: Handle) {
     });
 
     return ({ selected, query, contact }: SidebarItem.Props) => {
-        let currentMatch = !isServer ? matcher.match(location.href) : null;
+        let currentMatch = !IS_SERVER ? matcher.match(location.href) : null;
         let isActive = (currentMatch?.params?.id ?? selected) === contact.id;
 
         let destination = navigating.to.url ? matcher.match(navigating.to.url.href) : null;
-        let isPathChange = !isServer && navigating.to.url?.pathname !== location.pathname;
+        let isPathChange = !IS_SERVER && navigating.to.url?.pathname !== location.pathname;
         let isPending = !isActive && isPathChange && destination?.params.id === contact.id;
 
         return (

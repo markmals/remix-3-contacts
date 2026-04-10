@@ -1,5 +1,7 @@
 import { TypedEventTarget } from "remix/component";
 
+import { IS_SERVER } from "./server.ts";
+
 declare global {
     interface Navigation extends TypedEventTarget<NavigationEventMap> {}
 }
@@ -43,8 +45,6 @@ type NavigationStates = {
 
 type NavigationState = NavigationStates[keyof NavigationStates];
 
-export let isServer = typeof window === "undefined";
-
 /**
  * Application-level navigation state tracker.
  *
@@ -60,7 +60,7 @@ export class Navigating extends TypedEventTarget<NavigatingEventMap> {
 
     // No events fire on the server, so skip registering listeners entirely
     override addEventListener(...args: Parameters<EventTarget["addEventListener"]>) {
-        if (isServer) return;
+        if (IS_SERVER) return;
         super.addEventListener(...args);
     }
 
@@ -76,7 +76,7 @@ export class Navigating extends TypedEventTarget<NavigatingEventMap> {
 
     constructor() {
         super();
-        if (isServer) return;
+        if (IS_SERVER) return;
 
         navigation.addEventListener("navigate", event => {
             this.from.url = new URL(location.href);

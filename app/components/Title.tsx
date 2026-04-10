@@ -1,10 +1,10 @@
-import { isServer } from "#/utils/navigating.ts";
+import { IS_SERVER } from "#/utils/server.ts";
 
 export function Title() {
     return ({ children }: { children: string | string[] }) => {
         let title = Array.isArray(children) ? children.join("") : children;
 
-        if (!isServer) {
+        if (!IS_SERVER) {
             // Client title changes for when navigating on the client between frames.
             document.title = title;
         }

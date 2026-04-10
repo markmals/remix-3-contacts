@@ -4,14 +4,14 @@ import type { SerializableProps } from "remix/component";
 import { SidebarItem } from "#/components/SidebarItem.tsx";
 import { SITE } from "#/data/meta.ts";
 import { routes } from "#/routes.ts";
-import { convex } from "#/utils/convex.ts";
-import { isServer } from "#/utils/navigating.ts";
+import { ConvexQuery, mutate } from "#/utils/convex.tsx";
 import { search } from "#/utils/search.ts";
+import { IS_SERVER } from "#/utils/server.ts";
 import { api } from "#convex/_generated/api.js";
 import { sortBy } from "es-toolkit/array";
 import { matchSorter } from "match-sorter";
 import { addEventListeners, clientEntry, navigate, on } from "remix/component";
-import { Frame as RemixFrame } from "remix/component";
+import { Frame } from "remix/component";
 
 export interface DocumentProps extends SerializableProps {
     contacts: Contact[];
@@ -24,26 +24,22 @@ export interface DocumentProps extends SerializableProps {
 }
 
 export let Document = clientEntry(import.meta.url, handle => {
-    let contacts: Contact[] = [];
-    let unsubscribe: (() => void) | undefined;
+    let contactsQuery = new ConvexQuery(api.contacts.list, {}, { signal: handle.signal });
 
-    if (!isServer) {
-        unsubscribe = convex.client.onUpdate(api.contacts.list, {}, update => {
-            contacts = update;
+    // Re-render when subscription data or search query changes
+    addEventListeners(contactsQuery, handle.signal, {
+        update() {
             handle.update();
-        });
+        },
+    });
 
-        handle.signal.addEventListener("abort", () => unsubscribe?.());
-    }
-
-    // Re-render when search query changes
     addEventListeners(search, handle.signal, {
         change() {
             handle.update();
         },
     });
 
-    function filtered(query: string): Contact[] {
+    function filtered(contacts: Contact[], query: string): Contact[] {
         let list = contacts;
         if (query) {
             list = matchSorter(list, query, { keys: ["first", "last"] });
@@ -52,13 +48,9 @@ export let Document = clientEntry(import.meta.url, handle => {
     }
 
     return (props: DocumentProps) => {
-        // Use props for initial server render, subscription data after hydration
-        if (isServer || contacts.length === 0) {
-            contacts = props.contacts;
-        }
-
-        let query = isServer ? (props.query ?? "") : search.query;
-        let items = filtered(query);
+        let contacts = contactsQuery.data ?? props.contacts;
+        let query = IS_SERVER ? (props.query ?? "") : search.query;
+        let items = filtered(contacts, query);
 
         return (
             <html lang="en">
@@ -103,21 +95,26 @@ export let Document = clientEntry(import.meta.url, handle => {
                                     <div aria-hidden hidden id="search-spinner" />
                                     <div aria-live="polite" class="sr-only" />
                                 </form>
-                                <button
-                                    mix={on("click", async () => {
-                                        let id = await convex.client.mutation(api.contacts.create, {
+                                <form
+                                    mix={[
+                                        mutate(api.contacts.create, {
                                             first: "",
                                             last: "",
                                             bsky: "",
-                                        });
-                                        navigate(routes.contacts.edit.href({ id }), {
-                                            target: "detail",
-                                        });
-                                    })}
-                                    type="button"
+                                        }),
+                                        on(mutate.success, event => {
+                                            console.log(event);
+                                            navigate(
+                                                routes.contacts.edit.href({
+                                                    id: (event.result as any).id,
+                                                }),
+                                                { target: "detail" },
+                                            );
+                                        }),
+                                    ]}
                                 >
-                                    New
-                                </button>
+                                    <button type="button">New</button>
+                                </form>
                             </div>
                             <nav>
                                 {items.length ? (
@@ -142,7 +139,7 @@ export let Document = clientEntry(import.meta.url, handle => {
                                 )}
                             </nav>
                         </div>
-                        <RemixFrame name="detail" src={props.url} />
+                        <Frame name="detail" src={props.url} />
                     </div>
                 </body>
             </html>

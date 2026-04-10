@@ -1,45 +1,36 @@
 import type { Contact } from "#/data/contacts.ts";
+import type { Id } from "#convex/_generated/dataModel.js";
 
 import { DeleteButton } from "#/components/Buttons.tsx";
 import { Favorite } from "#/components/Favorite.tsx";
 import { SITE } from "#/data/meta.ts";
 import { routes } from "#/routes.ts";
-import { convex } from "#/utils/convex.ts";
+import { ConvexQuery } from "#/utils/convex.tsx";
 import { link } from "#/utils/frame.tsx";
-import { isServer } from "#/utils/navigating.ts";
 import { api } from "#convex/_generated/api.js";
-import { clientEntry } from "remix/component";
+import { addEventListeners, clientEntry } from "remix/component";
 
 import { Title } from "./Title.tsx";
 
 const AVATAR_PLACEHOLDER =
     "https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png";
 
-export let ShowContact = clientEntry(import.meta.url, handle => {
-    let contact: Contact | null = null;
-    let unsubscribe: (() => void) | undefined;
-    let subscribedId: string | undefined;
+export let ShowContact = clientEntry(import.meta.url, (handle, setup: { id: string }) => {
+    let query = new ConvexQuery(
+        api.contacts.get,
+        { id: setup.id as Id<"contacts"> },
+        { signal: handle.signal },
+    );
 
-    handle.signal.addEventListener("abort", () => unsubscribe?.());
+    addEventListeners(query, handle.signal, {
+        update() {
+            handle.update();
+        },
+    });
 
     return (props: { initial: Contact; query?: string }) => {
-        contact ??= props.initial;
-
-        // Subscribe on first client render and resubscribe when contact changes
-        if (!isServer && subscribedId !== props.initial._id) {
-            contact = props.initial;
-            subscribedId = props.initial._id;
-            unsubscribe?.();
-
-            unsubscribe = convex.client.onUpdate(
-                api.contacts.get,
-                { id: props.initial._id },
-                update => {
-                    contact = update;
-                    handle.update();
-                },
-            );
-        }
+        query.update({ id: props.initial._id as Id<"contacts"> });
+        let contact = query.data ?? props.initial;
 
         return (
             <div id="detail">

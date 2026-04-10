@@ -1,6 +1,6 @@
 import type { Doc } from "#convex/_generated/dataModel.js";
 
-import { convex } from "#/utils/convex.ts";
+import { convex } from "#/utils/convex.tsx";
 import { api } from "#convex/_generated/api.js";
 
 // The base doc type from Convex
