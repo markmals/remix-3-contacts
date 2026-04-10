@@ -77,15 +77,15 @@ button:active {
     font-weight: 400;
     padding: 0;
 }
-#contact h1 form button[value="false"] {
+#contact h1 form button[aria-label="Add to favorites"] {
     color: #a4a4a4;
 }
-#contact h1 form button[value="false"]:hover,
-#contact h1 form button[value="true"] {
+#contact h1 form button[aria-label="Add to favorites"]:hover,
+#contact h1 form button[aria-label="Remove from favorites"] {
     color: #eeb004;
 }
 
-form:has(input[value="DELETE"]) button {
+#contact :not(h1) > form button {
     color: #f44250;
 }
 
