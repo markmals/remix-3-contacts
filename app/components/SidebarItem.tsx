@@ -1,7 +1,7 @@
 import { routes } from "#/routes.ts";
 import { link } from "#/utils/frame.tsx";
 import { isServer, navigating } from "#/utils/navigating.ts";
-import { addEventListeners, clientEntry, type SerializableProps } from "remix/component";
+import { addEventListeners, type Handle, type SerializableProps } from "remix/component";
 import { ArrayMatcher } from "remix/route-pattern";
 
 let matcher = new ArrayMatcher<true>();
@@ -22,7 +22,7 @@ export namespace SidebarItem {
     }
 }
 
-export let SidebarItem = clientEntry(import.meta.url, handle => {
+export function SidebarItem(handle: Handle) {
     addEventListeners(navigating, handle.signal, {
         destinationchange() {
             handle.update();
@@ -56,4 +56,4 @@ export let SidebarItem = clientEntry(import.meta.url, handle => {
             </li>
         );
     };
-});
+}

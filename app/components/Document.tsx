@@ -9,8 +9,6 @@ import { Frame } from "#/utils/frame.tsx";
 import { mergeAssets } from "@hiogawa/vite-plugin-fullstack/runtime";
 import { getContext } from "remix/async-context-middleware";
 
-import { Title } from "./Title.tsx";
-
 export function Document() {
     let { url } = getContext();
     let { css, js } = mergeAssets(clientAssets, serverAssets);
@@ -20,7 +18,7 @@ export function Document() {
             <head>
                 <meta charSet="utf-8" />
                 <meta content="width=device-width, initial-scale=1" name="viewport" />
-                <Title>{SITE.title}</Title>
+                <title>{SITE.title}</title>
 
                 <link href="/favicon-32.png" rel="icon" sizes="32x32" />
                 <link href="/favicon-128.png" rel="icon" sizes="128x128" />

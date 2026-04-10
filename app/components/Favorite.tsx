@@ -1,8 +1,8 @@
 import { client } from "#/utils/convex.tsx";
 import { api } from "#convex/_generated/api.js";
-import { clientEntry, on } from "remix/component";
+import { on } from "remix/component";
 
-export let Favorite = clientEntry(import.meta.url, () => {
+export function Favorite() {
     return (props: { contactId: string; favorite: boolean }) => (
         <form
             mix={on("submit", async event => {
@@ -20,4 +20,4 @@ export let Favorite = clientEntry(import.meta.url, () => {
             </button>
         </form>
     );
-});
+}

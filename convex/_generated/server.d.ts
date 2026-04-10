@@ -9,17 +9,16 @@
  */
 
 import {
-    ActionBuilder,
-    HttpActionBuilder,
-    MutationBuilder,
-    QueryBuilder,
-    GenericActionCtx,
-    GenericMutationCtx,
-    GenericQueryCtx,
-    GenericDatabaseReader,
-    GenericDatabaseWriter,
+  ActionBuilder,
+  HttpActionBuilder,
+  MutationBuilder,
+  QueryBuilder,
+  GenericActionCtx,
+  GenericMutationCtx,
+  GenericQueryCtx,
+  GenericDatabaseReader,
+  GenericDatabaseWriter,
 } from "convex/server";
-
 import type { DataModel } from "./dataModel.js";
 
 /**

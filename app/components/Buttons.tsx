@@ -1,9 +1,9 @@
 import { routes } from "#/routes.ts";
 import { client } from "#/utils/convex.tsx";
 import { api } from "#convex/_generated/api.js";
-import { clientEntry, navigate, on } from "remix/component";
+import { navigate, on } from "remix/component";
 
-export let CancelButton = clientEntry(import.meta.url, () => {
+export function CancelButton() {
     return () => (
         <button
             mix={on("click", () => {
@@ -14,9 +14,9 @@ export let CancelButton = clientEntry(import.meta.url, () => {
             Cancel
         </button>
     );
-});
+}
 
-export let DeleteButton = clientEntry(import.meta.url, () => {
+export function DeleteButton() {
     return (props: { contactId: string }) => (
         <form
             mix={on("submit", async event => {
@@ -33,4 +33,4 @@ export let DeleteButton = clientEntry(import.meta.url, () => {
             <button type="submit">Delete</button>
         </form>
     );
-});
+}

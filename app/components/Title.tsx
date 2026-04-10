@@ -1,7 +1,6 @@
 import { isServer } from "#/utils/navigating.ts";
-import { clientEntry } from "remix/component";
 
-export let Title = clientEntry(import.meta.url, () => {
+export function Title() {
     return ({ children }: { children: string | string[] }) => {
         let title = Array.isArray(children) ? children.join("") : children;
 
@@ -16,4 +15,4 @@ export let Title = clientEntry(import.meta.url, () => {
         // DOM node is reused by the hydrator — no re-execution.
         return <script>{`document.title=${JSON.stringify(title)}`}</script>;
     };
-});
+}
