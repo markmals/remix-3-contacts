@@ -18,12 +18,17 @@ const AVATAR_PLACEHOLDER =
 export let ShowContact = clientEntry(import.meta.url, handle => {
     let contact: Contact | null = null;
     let unsubscribe: (() => void) | undefined;
+    let subscribedId: string | undefined;
+
+    handle.signal.addEventListener("abort", () => unsubscribe?.());
 
     return (props: { initial: Contact; query?: string }) => {
         contact ??= props.initial;
 
-        if (!isServer && contact._id !== props.initial._id) {
+        // Subscribe on first client render and resubscribe when contact changes
+        if (!isServer && subscribedId !== props.initial._id) {
             contact = props.initial;
+            subscribedId = props.initial._id;
             unsubscribe?.();
 
             unsubscribe = client.onUpdate(api.contacts.get, { id: props.initial._id }, update => {
