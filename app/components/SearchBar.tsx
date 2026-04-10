@@ -9,24 +9,7 @@ export let SearchBar = clientEntry(import.meta.url, () => {
                 defaultValue={props.query ?? undefined}
                 id="q"
                 mix={on("input", event => {
-                    let value = event.currentTarget.value.trim();
-                    let url = new URL(location.href);
-
-                    if (!value) {
-                        url.searchParams.delete("q");
-                    } else {
-                        url.searchParams.set("q", value);
-                    }
-
-                    let isFirstSearch = !location.search.includes("q=") && value;
-                    if (isFirstSearch) {
-                        history.pushState(null, "", url.toString());
-                    } else {
-                        history.replaceState(null, "", url.toString());
-                    }
-
-                    // Notify SidebarList to re-filter
-                    search.update(value);
+                    search.update(event.currentTarget.value.trim());
                 })}
                 name="q"
                 placeholder="Search"
