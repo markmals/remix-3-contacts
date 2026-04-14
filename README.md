@@ -21,7 +21,7 @@ A contacts CRUD app demo, showcasing [Remix 3](https://github.com/remix-run/remi
 
 ```sh
 vp install
-vp dev          # start the dev server on http://localhost:1612
+vp run dev          # start the dev server on http://localhost:1612
 ```
 
 ## Production
@@ -34,7 +34,8 @@ vp preview      # or preview the build on http://localhost:4173
 
 ## Learn More
 
-- [Remix 3 documentation](https://github.com/remix-run/remix/tree/main/packages/component/docs)
+- [Remix 3 packages](https://github.com/remix-run/remix/tree/main/packages)
+- [Remix 3 component documentation](https://github.com/remix-run/remix/tree/main/packages/component/docs)
 - [React Router Tutorial](https://reactrouter.com/tutorials/address-book) (original inspiration)
 - [Remix 3: Remixing UI](https://remix.run/blog/remix-jam-2025-recap#remixing-ui)
-- [Vite+ documentation](https://github.com/remix-run/remix/tree/main/packages/component/docs)
+- [Vite+ documentation](https://viteplus.dev)
