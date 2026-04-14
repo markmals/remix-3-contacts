@@ -117,9 +117,16 @@ export function remix({
                 let entryPath = new URL(`${ssrOutDir}/index.js`, `file://${server.config.root}/`)
                     .href;
 
-                let mod = await import(/* @vite-ignore */ entryPath);
-                let router = mod.default ?? mod.router;
+                let mod;
+                try {
+                    mod = await import(/* @vite-ignore */ entryPath);
+                } catch {
+                    // SSR bundle targets a non-Node runtime (e.g. Cloudflare Workers)
+                    // that provides its own preview server. Skip.
+                    return;
+                }
 
+                let router = mod.default ?? mod.router;
                 let { createRequestListener } = await import("remix/node-fetch-server");
 
                 return () => {

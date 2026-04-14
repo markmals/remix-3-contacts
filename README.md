@@ -28,8 +28,7 @@ vp run dev          # start the dev server on http://localhost:1612
 
 ```sh
 vp build        # build to dist/client and dist/ssr
-node server.ts  # start production server on http://localhost:1612
-vp preview      # or preview the build on http://localhost:4173
+vp preview      # review the build on http://localhost:4173
 ```
 
 ## Learn More
