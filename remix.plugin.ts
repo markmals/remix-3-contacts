@@ -37,6 +37,44 @@ export function remix({
             serverHandler,
         }),
         {
+            // Patches the builder so remix-build coexists with plugins that also
+            // orchestrate builds (e.g. @cloudflare/vite-plugin). Runs at "pre"
+            // order so the guards are in place before any building starts.
+            name: "remix-build:compat",
+            buildApp: {
+                order: "pre" as const,
+                async handler(builder) {
+                    // Guard builder.build() against redundant calls. Without this,
+                    // both remix-build and config.builder.buildApp (Cloudflare) would
+                    // each trigger a full build of every environment.
+                    let originalBuild = builder.build.bind(builder);
+                    (builder as unknown as Record<string, unknown>).build = async (
+                        environment: Parameters<typeof builder.build>[0],
+                    ) => {
+                        if ((environment as { isBuilt?: boolean }).isBuilt) return;
+                        return originalBuild(environment);
+                    };
+
+                    // @cloudflare/vite-plugin moves SSR assets into client output
+                    // before fullstack's writeAssetsManifest copies them, causing
+                    // ENOENT on files that were already relocated. Safe to ignore.
+                    let b = builder as typeof builder & {
+                        writeAssetsManifest?: () => Promise<void>;
+                    };
+                    let originalWrite = b.writeAssetsManifest;
+                    if (originalWrite) {
+                        b.writeAssetsManifest = async () => {
+                            try {
+                                await originalWrite();
+                            } catch (error) {
+                                if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+                            }
+                        };
+                    }
+                },
+            },
+        },
+        {
             name: "remix-build",
             async buildApp(builder) {
                 await builder.build(builder.environments.ssr);
