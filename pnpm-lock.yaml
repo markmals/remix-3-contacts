@@ -36,6 +36,9 @@ importers:
       eslint-plugin-perfectionist:
         specifier: ^5.7.0
         version: 5.8.0(eslint@10.2.0)(typescript@6.0.2)
+      eslint-plugin-prefer-let:
+        specifier: ^4.2.2
+        version: 4.2.2
       oxc-parser:
         specifier: ^0.121.0
         version: 0.121.0(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2)
@@ -1412,6 +1415,10 @@ packages:
     peerDependencies:
       eslint: ^8.45.0 || ^9.0.0 || ^10.0.0
 
+  eslint-plugin-prefer-let@4.2.2:
+    resolution: {integrity: sha512-FkCmQwZtc4nf6EKDKEYW/lWtApDXxsJA/VXWQQemLhIWWho676CJdgt53AMubOrSOTzzep0dBMP9zVFCCCdxsw==}
+    engines: {node: '>=0.10.0'}
+
   eslint-scope@9.1.2:
     resolution: {integrity: sha512-xS90H51cKw0jltxmvmHy2Iai1LIqrfbw57b79w/J7MfvDfkIkFZ+kj6zC3BjtUwh150HsSSdxXZcsuv72miDFQ==}
     engines: {node: ^20.19.0 || ^22.13.0 || >=24}
@@ -1738,6 +1745,10 @@ packages:
 
   remove-accents@0.5.0:
     resolution: {integrity: sha512-8g3/Otx1eJaVD12e31UbJj1YzdtVvzH85HV7t+9MJYk/u3XmkOUJ5Ys9wQrf9PCPK8+xn4ymzqYCiZl6QWKn+A==}
+
+  requireindex@1.2.0:
+    resolution: {integrity: sha512-L9jEkOi3ASd9PYit2cwRfyppc9NoABujTP8/5gFcbERmo5jUoAKovIC3fsF17pkTnGsrByysqX+Kxd2OTNI1ww==}
+    engines: {node: '>=0.10.5'}
 
   semver@7.7.4:
     resolution: {integrity: sha512-vFKC2IEtQnVhpT78h1Yp8wzwrf8CM+MzKMHGJZfBtzhZNycRFnXsHk6E5TxIkkMsgNS7mdX3AGB7x2QM2di4lA==}
@@ -2860,6 +2871,10 @@ snapshots:
       - supports-color
       - typescript
 
+  eslint-plugin-prefer-let@4.2.2:
+    dependencies:
+      requireindex: 1.2.0
+
   eslint-scope@9.1.2:
     dependencies:
       '@types/esrecurse': 4.3.1
@@ -3262,6 +3277,8 @@ snapshots:
       - redis
 
   remove-accents@0.5.0: {}
+
+  requireindex@1.2.0: {}
 
   semver@7.7.4: {}
 

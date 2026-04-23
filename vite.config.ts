@@ -87,11 +87,27 @@ export default defineConfig({
             typeAware: true,
             typeCheck: true,
         },
-        jsPlugins: ["eslint-plugin-perfectionist"],
+        jsPlugins: ["eslint-plugin-perfectionist", "eslint-plugin-prefer-let"],
         rules: {
             "typescript/no-floating-promises": "allow",
             "typescript/unbound-method": "allow",
             "perfectionist/sort-jsx-props": "warn",
+            "import/extensions": [
+                "error",
+                "ignorePackages",
+                {
+                    cjs: "always",
+                    cts: "always",
+                    js: "always",
+                    jsx: "always",
+                    mjs: "always",
+                    mts: "always",
+                    ts: "always",
+                    tsx: "always",
+                },
+            ],
+            "eslint/prefer-const": "off",
+            "prefer-let/prefer-let": [2, { forceUpperCaseConst: true }],
         },
     },
 });
