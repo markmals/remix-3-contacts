@@ -9,7 +9,7 @@
         "@hiogawa/vite-plugin-fullstack": "^0.0.11",
         "es-toolkit": "^1.45.1",
         "match-sorter": "^8.2.0",
-        "remix": "3.0.0-alpha.4"
+        "remix": "3.0.0-alpha.5"
     },
     "devDependencies": {
         "@cloudflare/vite-plugin": "^1.31.0",
@@ -30,7 +30,6 @@
             "vite": "npm:@voidzero-dev/vite-plus-core@latest"
         },
         "onlyBuiltDependencies": [
-            "esbuild",
             "remix",
             "sharp",
             "workerd"
