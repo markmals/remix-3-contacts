@@ -1,6 +1,7 @@
 import type { RemixNode } from "remix/component";
 import type { Controller } from "remix/fetch-router";
 
+import { Document } from "#/components/Document.tsx";
 import { EditContact } from "#/components/EditContact.tsx";
 import { ShowContact } from "#/components/ShowContact.tsx";
 import {
@@ -12,29 +13,31 @@ import {
 } from "#/data/contacts.ts";
 import { FavoriteSchema, QuerySchema, UpdateSchema, IdSchema } from "#/data/schemas.ts";
 import { routes } from "#/routes.ts";
-import { createFrameResponse as frame, Frame } from "#/utils/frame.tsx";
-import { document, sidebar } from "#/utils/render.tsx";
+import { frame, render } from "#/utils/render.tsx";
 import { getContext } from "remix/async-context-middleware";
 import * as s from "remix/data-schema";
+import { createHtmlResponse as html } from "remix/response/html";
 import { redirect } from "remix/response/redirect";
+
+import { sidebar } from "./sidebar.tsx";
 
 async function contactPage(detail: (contact: Contact) => RemixNode) {
     try {
         let ctx = getContext();
-        let target = ctx.get(Frame.Target);
+        let target = ctx.headers.get("x-remix-target");
         let { id } = s.parse(IdSchema, ctx.params);
 
-        if (target.is("sidebar")) {
+        if (target === "sidebar") {
             return sidebar(id);
         } else {
             let contact = await getContact(id);
             if (!contact) throw contact;
 
-            if (target.is("detail")) {
-                return frame(detail(contact));
+            if (target === "detail") {
+                return frame(render(detail(contact)));
             }
 
-            return document();
+            return html(render(<Document />));
         }
     } catch {
         return redirect(routes.home.href());

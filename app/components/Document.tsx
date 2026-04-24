@@ -5,9 +5,9 @@ import clientAssets from "#/entry.browser.ts?assets=client";
 import serverAssets from "#/entry.server.tsx?assets=ssr";
 import styles from "#/index.css?url";
 import { routes } from "#/routes.ts";
-import { Frame } from "#/utils/frame.tsx";
 import { mergeAssets } from "@hiogawa/vite-plugin-fullstack/runtime";
 import { getContext } from "remix/async-context-middleware";
+import { Frame } from "remix/component";
 import * as s from "remix/data-schema";
 
 import { RestfulForm } from "./RestfulForm.tsx";
@@ -53,9 +53,9 @@ export function Document() {
                                 <button type="submit">New</button>
                             </RestfulForm>
                         </div>
-                        <Frame name="sidebar" url={url} />
+                        <Frame name="sidebar" src={url.toString()} />
                     </div>
-                    <Frame name="detail" url={url} />
+                    <Frame name="detail" src={url.toString()} />
                 </div>
             </body>
         </html>

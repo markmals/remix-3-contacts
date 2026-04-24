@@ -3,7 +3,7 @@ import type { Contact } from "#/data/contacts.ts";
 import { DeleteButton } from "#/components/Buttons.tsx";
 import { Favorite } from "#/components/Favorite.tsx";
 import { routes } from "#/routes.ts";
-import { link } from "#/utils/frame.tsx";
+import { link } from "#/utils/link.tsx";
 
 import { RestfulForm } from "./RestfulForm.tsx";
 
