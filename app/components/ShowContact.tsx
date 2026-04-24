@@ -2,12 +2,10 @@ import type { Contact } from "#/data/contacts.ts";
 
 import { DeleteButton } from "#/components/Buttons.tsx";
 import { Favorite } from "#/components/Favorite.tsx";
-import { SITE } from "#/data/meta.ts";
 import { routes } from "#/routes.ts";
 import { link } from "#/utils/frame.tsx";
 
 import { RestfulForm } from "./RestfulForm.tsx";
-import { Title } from "./Title.tsx";
 
 const AVATAR_PLACEHOLDER =
     "https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png";
@@ -16,9 +14,6 @@ export function ShowContact() {
     return (props: { contact: Contact; query?: string }) => {
         return (
             <div id="detail">
-                <Title>
-                    {props.contact.first} {props.contact.last} | {SITE.title}
-                </Title>
                 <div id="contact">
                     <div>
                         <img
