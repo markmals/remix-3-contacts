@@ -7,14 +7,26 @@ import { database } from "#/middleware.ts";
 import { routes } from "#/routes.ts";
 import { frame, render } from "#/utils/render.tsx";
 import { asyncContext } from "remix/async-context-middleware";
-import { createRouter } from "remix/fetch-router";
+import { createRouter, type Middleware } from "remix/fetch-router";
 import { formData } from "remix/form-data-middleware";
 import { methodOverride } from "remix/method-override-middleware";
 import { createHtmlResponse as html } from "remix/response/html";
 import { staticFiles } from "remix/static-middleware";
 
+function rescueResponses(): Middleware {
+    return async (ctx, next) => {
+        try {
+            return await next();
+        } catch (error) {
+            if (error instanceof Response) return error;
+            throw error;
+        }
+    };
+}
+
 export let router = createRouter({
     middleware: [
+        rescueResponses(),
         staticFiles("./public"),
         staticFiles("./dist/client"),
         formData({ uploadHandler }),

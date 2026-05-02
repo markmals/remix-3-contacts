@@ -20,7 +20,12 @@ export const ALLOWED_TYPES = [
 ];
 
 /** Handles file uploads by storing them in R2 and returning a URL. */
-export async function uploadHandler(file: FileUpload): Promise<string> {
+export async function uploadHandler(file: FileUpload): Promise<string | undefined> {
+    // Empty file inputs still produce a multipart part — skip them
+    if (file.size === 0) {
+        return undefined;
+    }
+
     if (!new Set(ALLOWED_TYPES).has(file.type)) {
         throw new Response(
             "Unsupported image format. Please upload a JPEG, PNG, GIF, or WebP file.",

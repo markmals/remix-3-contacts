@@ -445,3 +445,52 @@ i {
 p.loading {
     margin: auto;
 }
+
+#app-error-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 1.25rem;
+    background: #fee2e2;
+    color: #991b1b;
+    border-bottom: 1px solid #fca5a5;
+    box-shadow: 0 2px 4px rgb(0 0 0 / 0.05);
+    font-size: 0.95rem;
+}
+#app-error-banner p {
+    flex: 1;
+    margin: 0;
+}
+#app-error-banner button {
+    flex: none;
+    width: 1.75rem;
+    height: 1.75rem;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    border-radius: 4px;
+    box-shadow: none;
+    color: inherit;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.7;
+}
+#app-error-banner button:hover {
+    background: rgb(0 0 0 / 0.05);
+    box-shadow: none;
+    color: #7f1d1d;
+    opacity: 1;
+}
+#app-error-banner button:active {
+    box-shadow: none;
+    transform: none;
+}

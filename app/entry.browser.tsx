@@ -1,4 +1,4 @@
-import { navigate, run } from "remix/component";
+import { createRoot, navigate, on, run } from "remix/ui";
 
 // Must be registered before `run` so `event.preventDefault` works properly
 //
@@ -17,20 +17,28 @@ navigation.addEventListener("navigate", async event => {
     let src = event.sourceElement.getAttribute("rmx-src") ?? undefined;
     let resetScroll = event.sourceElement.hasAttribute("rmx-reset-scroll") ?? undefined;
 
-    // Form POST submission
+    // Form POST submission — handle out-of-band so the URL only changes on success.
     if (event.formData) {
-        event.intercept({
-            focusReset: "manual",
-            async handler() {
-                let response = await fetch(event.destination.url, {
-                    method: "POST",
-                    body: event.formData,
-                    signal: event.signal,
-                });
+        event.preventDefault();
 
-                navigate(response.url, { target, src, resetScroll });
-            },
-        });
+        let { destination, formData } = event;
+
+        void (async () => {
+            let response = await fetch(destination.url, {
+                method: "POST",
+                body: formData,
+            });
+
+            if (!response.ok) {
+                let body = (await response.text()).trim();
+                let message = body || `${response.status} ${response.statusText}`;
+                let error = Object.assign(new Error(message), { status: response.status });
+                app.dispatchEvent(new ErrorEvent("error", { error, message }));
+                return;
+            }
+
+            navigate(response.url, { target, src, resetScroll });
+        })();
         return;
     }
 
@@ -39,7 +47,7 @@ navigation.addEventListener("navigate", async event => {
     navigate(event.destination.url, { target, src, resetScroll });
 });
 
-run({
+let app = run({
     async loadModule(moduleUrl, exportName) {
         let mod = await import(/* @vite-ignore */ moduleUrl);
         let exported = mod[exportName];
@@ -58,6 +66,32 @@ run({
         let response = await fetch(src, { headers, signal });
         return response.body ?? (await response.text());
     },
+});
+
+// Global error boundary — renders a dismissible banner for any error
+// dispatched on the app runtime, including failed POST submissions above.
+let bannerHost = document.createElement("div");
+document.body.insertBefore(bannerHost, document.body.firstChild);
+let bannerRoot = createRoot(bannerHost);
+
+function ErrorBanner() {
+    return (props: { message: string }) => (
+        <div id="app-error-banner" role="alert">
+            <p>{props.message}</p>
+            <button
+                aria-label="Dismiss"
+                mix={on("click", () => bannerRoot.render(null))}
+                type="button"
+            >
+                ×
+            </button>
+        </div>
+    );
+}
+
+app.addEventListener("error", event => {
+    let message = event.message || String(event.error) || "Something went wrong.";
+    bannerRoot.render(<ErrorBanner message={message} />);
 });
 
 // Must be registered after `run` (last intercept() call wins for focusReset).

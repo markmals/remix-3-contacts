@@ -1,7 +1,7 @@
 import { SearchBar } from "#/components/SearchBar.tsx";
 import { SITE } from "#/data/meta.ts";
 import { QuerySchema } from "#/data/schemas.ts";
-import clientAssets from "#/entry.browser.ts?assets=client";
+import clientAssets from "#/entry.browser.tsx?assets=client";
 import serverAssets from "#/entry.server.tsx?assets=ssr";
 import styles from "#/index.css?url";
 import { routes } from "#/routes.ts";
