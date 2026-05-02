@@ -1,6 +1,6 @@
 # Remix 3 Contacts Demo
 
-A contacts CRUD app demo, showcasing [Remix 3](https://github.com/remix-run/remix) SSR features. It adapts the [React Router address book tutorial](https://reactrouter.com/tutorials/address-book) to reuse the same patterns in Remix.
+A contacts CRUD app demo, showcasing [Remix 3](https://remix.run) SSR features. It adapts the [React Router address book tutorial](https://reactrouter.com/tutorials/address-book) to reuse the same patterns in Remix.
 
 ## Highlights
 
@@ -11,7 +11,7 @@ A contacts CRUD app demo, showcasing [Remix 3](https://github.com/remix-run/remi
 
 ## Tech Stack
 
-- **Framework:** [`remix`](https://npmx.dev/package/remix/v/3.0.0-alpha.3)
+- **Framework:** [`remix`](https://npmx.dev/package/remix/v/3.0.0-beta.0)
 - **Toolchain:** [Vite+](https://viteplus.dev)
 - **Formatting:** [Oxfmt](https://oxc.rs/docs/guide/usage/formatter) (via `vp fmt`)
 - **Linting:** [Oxlint](https://oxc.rs/docs/guide/usage/linter) (via `vp lint`)
@@ -33,8 +33,9 @@ vp preview      # review the build on http://localhost:4173
 
 ## Learn More
 
-- [Remix 3 packages](https://github.com/remix-run/remix/tree/main/packages)
-- [Remix 3 component documentation](https://github.com/remix-run/remix/tree/main/packages/component/docs)
+- [Remix website](https://remix.run)
+- [Remix API docs](https://api.remix.run)
+- [Remix UI docs](https://github.com/remix-run/remix/tree/main/packages/ui/docs)
+- [Remix packages](https://github.com/remix-run/remix/tree/main/packages)
 - [React Router Tutorial](https://reactrouter.com/tutorials/address-book) (original inspiration)
-- [Remix 3: Remixing UI](https://remix.run/blog/remix-jam-2025-recap#remixing-ui)
 - [Vite+ documentation](https://viteplus.dev)
