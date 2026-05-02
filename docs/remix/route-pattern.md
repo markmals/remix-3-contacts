@@ -61,11 +61,10 @@ new RoutePattern("docs(/guides/:category)"); // multiple segments optional: /doc
 new RoutePattern("api(/v:major(.:minor))"); // nested optionals: /api, /api/v2, /api/v2.1
 ```
 
-**Search params** narrow matches using `?key` or `?key=value`:
+**Search params** narrow matches using `?key`, `?key=`, or `?key=value`. Parsing and serialization follow `URLSearchParams` (`application/x-www-form-urlencoded`): `?key` and `?key=` are the same constraint (stored as an empty `Set` in `ast.search`: key must be present; empty value is OK), and spaces use `+` / `%20` like in real query strings.
 
 ```ts
-new RoutePattern("search?q"); // requires ?q in URL
-new RoutePattern("search?q="); // requires ?q with any value
+new RoutePattern("search?q"); // same constraint as ?q= — key must be present
 new RoutePattern("search?q=routing"); // requires ?q=routing exactly
 ```
 
@@ -82,10 +81,10 @@ new RoutePattern("search?q"); // allows additional search params beyond ?q
 Match URLs against multiple patterns. Each pattern can have associated data (handlers, route IDs, metadata, etc.):
 
 ```ts
-import { ArrayMatcher as Matcher } from "remix/route-pattern";
+import { createMatcher } from "remix/route-pattern";
 
 // Any data type you want!  👇
-let matcher = new Matcher<string>();
+let matcher = createMatcher<string>();
 
 matcher.add("/", "home");
 matcher.add("blog/:slug", "blog-post");
@@ -98,20 +97,6 @@ matcher.match("https://example.com/api/v2/users/profile");
 // { pattern: 'api(/v:version)/*path', params: { version: '2', path: 'users/profile' }, data: 'api' }
 ```
 
-**ArrayMatcher vs TrieMatcher**
-
-- **ArrayMatcher**: Best for small apps (~80 routes or fewer)
-- **TrieMatcher**: Best for large apps (hundreds of routes)
-
-Note: Performance depends on your specific patterns—benchmark both to verify which is faster for your app.
-
-Both implement the `Matcher` API so you can swap them out easily:
-
-```ts
-// import { ArrayMatcher as Matcher } from 'remix/route-pattern'
-import { TrieMatcher as Matcher } from "remix/route-pattern";
-```
-
 ## Specificity
 
 When multiple patterns match a URL, the most specific pattern wins.
@@ -119,9 +104,9 @@ When multiple patterns match a URL, the most specific pattern wins.
 **Pathname specificity** (left-to-right):
 
 ```ts
-import { ArrayMatcher } from "remix/route-pattern";
+import { createMatcher } from "remix/route-pattern";
 
-let matcher = new ArrayMatcher<string>();
+let matcher = createMatcher<string>();
 matcher.add("blog/hello", "static");
 matcher.add("blog/:slug", "variable");
 matcher.add("blog/*path", "wildcard");
@@ -135,28 +120,24 @@ matcher.match("https://example.com/blog/hello");
 **Search parameter specificity**:
 
 ```ts
-let router = new ArrayMatcher<string>();
-router.add("search", "no-params");
-router.add("search?q", "has-q");
-router.add("search?q=", "has-q-with-value");
-router.add("search?q=hello", "exact-match");
+let matcher = createMatcher<string>();
+matcher.add("search", "no-params");
+matcher.add("search?q", "has-q");
+matcher.add("search?q=hello", "exact-match");
 
-router.match("https://example.com/search?q=hello");
+matcher.match("https://example.com/search?q=hello");
 // { pattern: 'search?q=hello', params: {}, data: 'exact-match' }
-// More constrained search params = more specific
+// More constrained search params = more specific (`?q` and `?q=` tie)
 ```
 
 ## Benchmark
 
-To run benchmarks comparing `route-pattern` performance with comparable libraries:
-
-```sh
-pnpm bench bench/comparison.bench.ts
-```
+Benchmarks live in [`bench/`](./bench/).
 
 ## Related Work
 
 - [`path-to-regexp`](https://www.npmjs.com/package/path-to-regexp)
+- [`find-my-way`](https://github.com/delvedor/find-my-way)
 - [`URLPattern`](https://developer.mozilla.org/en-US/docs/Web/API/URLPattern)
 
 ## License

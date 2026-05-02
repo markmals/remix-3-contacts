@@ -9,17 +9,17 @@ Only the components you mark are hydrated. The rest of the page stays as static 
 Use `clientEntry` to mark a component for hydration. The first argument is the module URL and export name the client will use to load the component:
 
 ```tsx
-import { clientEntry, on, type Handle } from "remix/component";
+import { clientEntry, on, type Handle } from "remix/ui";
 
 export let Counter = clientEntry(
-    "/assets/counter.js#Counter",
-    function Counter(handle: Handle, setup: number) {
-        let count = setup;
+    import.meta.url,
+    function Counter(handle: Handle<{ initialCount?: number; label: string }>) {
+        let count = handle.props.initialCount ?? 0;
 
-        return (props: { label: string }) => (
+        return () => (
             <div>
                 <span>
-                    {props.label}: {count}
+                    {handle.props.label}: {count}
                 </span>
                 <button
                     mix={[
@@ -46,7 +46,7 @@ On the server, `clientEntry` components render like any other component. The ser
 Use `run` to start the client. It scans the document for client entry markers, loads the corresponding modules, and hydrates each one:
 
 ```tsx
-import { run } from "remix/component";
+import { run } from "remix/ui";
 
 let app = run({
     async loadModule(moduleUrl, exportName) {

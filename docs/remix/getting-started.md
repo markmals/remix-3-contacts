@@ -7,8 +7,8 @@ Create interactive UIs with Remix Component using a two-phase component model: s
 To start using Remix Component on the client, create a root and render your top-level component:
 
 ```tsx
-import { createRoot } from "remix/component";
-import type { Handle } from "remix/component";
+import { createRoot } from "remix/ui";
+import type { Handle } from "remix/ui";
 
 function App(handle: Handle) {
     return () => (
@@ -81,8 +81,8 @@ For a server-rendered app, define your page as a component, render it with `rend
 ### Server
 
 ```tsx
-import { renderToStream } from "remix/component/server";
-import { Frame } from "remix/component";
+import { renderToStream } from "remix/ui/server";
+import { Frame } from "remix/ui";
 import { Counter } from "./assets/counter.tsx";
 
 function App() {
@@ -94,7 +94,7 @@ function App() {
             </head>
             <body>
                 <h1>Hello</h1>
-                <Counter setup={0} label="Clicks" />
+                <Counter initialCount={0} label="Clicks" />
                 <Frame src="/sidebar" fallback={<div>Loading...</div>} />
             </body>
         </html>
@@ -114,7 +114,7 @@ return new Response(stream, {
 
 ```tsx
 // assets/entry.tsx
-import { run } from "remix/component";
+import { run } from "remix/ui";
 
 let app = run({
     async loadModule(moduleUrl, exportName) {
@@ -134,17 +134,17 @@ await app.ready();
 
 ```tsx
 // assets/counter.tsx
-import { clientEntry, on, type Handle } from "remix/component";
+import { clientEntry, on, type Handle } from "remix/ui";
 
 export let Counter = clientEntry(
-    "/assets/counter.js#Counter",
-    function Counter(handle: Handle, setup: number) {
-        let count = setup;
+    import.meta.url,
+    function Counter(handle: Handle<{ initialCount?: number; label: string }>) {
+        let count = handle.props.initialCount ?? 0;
 
-        return (props: { label: string }) => (
+        return () => (
             <div>
                 <span>
-                    {props.label}: {count}
+                    {handle.props.label}: {count}
                 </span>
                 <button
                     mix={[

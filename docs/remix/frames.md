@@ -5,7 +5,7 @@ A `<Frame>` renders server content into the page. Frames can stream in after the
 ## Basic usage
 
 ```tsx
-import { Frame } from "remix/component";
+import { Frame } from "remix/ui";
 
 function App() {
     return () => (
@@ -45,7 +45,7 @@ The presence of a `fallback` prop determines streaming behavior:
 On the server, `renderToStream` calls your `resolveFrame` function to get the HTML for each frame:
 
 ```tsx
-import { renderToStream } from "remix/component/server";
+import { renderToStream } from "remix/ui/server";
 
 let stream = renderToStream(<App />, {
     frameSrc: request.url,
@@ -71,24 +71,21 @@ When a server frame response is itself rendered with `renderToStream()`, pass `f
 Client entries inside a frame can trigger a reload via `handle.frame.reload()`:
 
 ```tsx
-import { clientEntry, on, type Handle } from "remix/component";
+import { clientEntry, on, type Handle } from "remix/ui";
 
-export let RefreshButton = clientEntry(
-    "/assets/refresh.js#RefreshButton",
-    function RefreshButton(handle: Handle) {
-        return () => (
-            <button
-                mix={[
-                    on("click", () => {
-                        handle.frame.reload();
-                    }),
-                ]}
-            >
-                Refresh
-            </button>
-        );
-    },
-);
+export let RefreshButton = clientEntry(import.meta.url, function RefreshButton(handle: Handle) {
+    return () => (
+        <button
+            mix={[
+                on("click", () => {
+                    handle.frame.reload();
+                }),
+            ]}
+        >
+            Refresh
+        </button>
+    );
+});
 ```
 
 You can also reload adjacent named frames:
