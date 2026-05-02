@@ -7,8 +7,8 @@ import styles from "#/index.css?url";
 import { routes } from "#/routes.ts";
 import { mergeAssets } from "@hiogawa/vite-plugin-fullstack/runtime";
 import { getContext } from "remix/async-context-middleware";
-import { Frame } from "remix/component";
 import * as s from "remix/data-schema";
+import { Frame } from "remix/ui";
 
 import { RestfulForm } from "./RestfulForm.tsx";
 

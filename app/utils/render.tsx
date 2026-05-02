@@ -1,9 +1,9 @@
-import type { RemixNode } from "remix/component";
+import type { RemixNode } from "remix/ui";
 
 import { router } from "#/entry.server.tsx";
 import { getContext } from "remix/async-context-middleware";
-import { renderToStream } from "remix/component/server";
 import { isSafeHtml, type SafeHtml } from "remix/html-template";
+import { renderToStream } from "remix/ui/server";
 
 export function render(node: RemixNode): ReadableStream<Uint8Array> {
     let context = getContext();

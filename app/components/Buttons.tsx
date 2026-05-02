@@ -1,5 +1,5 @@
 import { routes } from "#/routes.ts";
-import { clientEntry, on } from "remix/component";
+import { clientEntry, on } from "remix/ui";
 
 import { RestfulForm } from "./RestfulForm.tsx";
 

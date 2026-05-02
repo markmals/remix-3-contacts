@@ -1,4 +1,4 @@
-import { TypedEventTarget } from "remix/component";
+import { TypedEventTarget } from "remix/ui";
 
 declare global {
     interface Navigation extends TypedEventTarget<NavigationEventMap> {}

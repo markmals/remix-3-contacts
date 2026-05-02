@@ -1,5 +1,5 @@
-import type { RemixNode } from "remix/component";
 import type { Controller } from "remix/fetch-router";
+import type { RemixNode } from "remix/ui";
 
 import { Document } from "#/components/Document.tsx";
 import { EditContact } from "#/components/EditContact.tsx";
