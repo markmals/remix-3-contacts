@@ -14,6 +14,9 @@ importers:
       '@hiogawa/vite-plugin-fullstack':
         specifier: ^0.0.11
         version: 0.0.11(@voidzero-dev/vite-plus-core@0.1.20(@types/node@25.6.0)(esbuild@0.27.7)(tsx@4.21.0)(typescript@6.0.3))
+      '@std/jsonc':
+        specifier: jsr:^1.0.2
+        version: '@jsr/std__jsonc@1.0.2'
       es-toolkit:
         specifier: ^1.45.1
         version: 1.46.1
@@ -658,6 +661,18 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.9':
     resolution: {integrity: sha512-3Belt6tdc8bPgAtbcmdtNJlirVoTmEb5e2gC94PnkwEW9jI6CAHUeoG85tjWP5WquqfavoMtMwiG4P926ZKKuQ==}
+
+  '@jsr/std__bytes@1.0.6':
+    resolution: {integrity: sha512-St6yKggjFGhxS52IFLJWvkchRFbAKg2Xh8UxA4S1EGz7GJ2Ui+ssDDldj/w2c8vCxvl6qgR0HaYbKeFJNqujmA==, tarball: https://npm.jsr.io/~/11/@jsr/std__bytes/1.0.6.tgz}
+
+  '@jsr/std__json@1.1.0':
+    resolution: {integrity: sha512-a9Eylh7ox33tFn5RxhESnvI4akpefQP5Qn+ePz3Ih4IJ/EPA8p0SKq0aztRfN1sGDhfyWMPWwlUcwNxONt+Ncg==, tarball: https://npm.jsr.io/~/11/@jsr/std__json/1.1.0.tgz}
+
+  '@jsr/std__jsonc@1.0.2':
+    resolution: {integrity: sha512-Lva9lY0UPvvgmS8INUHU8Tqijq2SPfdlnSAvofOYUBiB6ALPxo0rTMznRlY5Wt30nMW+rhMTha1x5RGpMBKUoQ==, tarball: https://npm.jsr.io/~/11/@jsr/std__jsonc/1.0.2.tgz}
+
+  '@jsr/std__streams@1.1.0':
+    resolution: {integrity: sha512-0yP/bIRAgcpdIg1o/XSYnVmCs3a7rtfKfhPPiKo7GFEtvF2qngWKJ80u8xN+D8o3otsrf/Ta90XiNj5WZJfFgg==, tarball: https://npm.jsr.io/~/11/@jsr/std__streams/1.1.0.tgz}
 
   '@napi-rs/wasm-runtime@1.1.4':
     resolution: {integrity: sha512-3NQNNgA1YSlJb/kMH1ildASP9HW7/7kYnRI2szWJaofaS1hWmbGI4H+d3+22aGzXXN9IJ+n+GiFVcGipJP18ow==}
@@ -2950,6 +2965,20 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
+
+  '@jsr/std__bytes@1.0.6': {}
+
+  '@jsr/std__json@1.1.0':
+    dependencies:
+      '@jsr/std__streams': 1.1.0
+
+  '@jsr/std__jsonc@1.0.2':
+    dependencies:
+      '@jsr/std__json': 1.1.0
+
+  '@jsr/std__streams@1.1.0':
+    dependencies:
+      '@jsr/std__bytes': 1.0.6
 
   '@napi-rs/wasm-runtime@1.1.4(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)':
     dependencies:

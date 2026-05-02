@@ -7,6 +7,7 @@
     },
     "dependencies": {
         "@hiogawa/vite-plugin-fullstack": "^0.0.11",
+        "@std/jsonc": "jsr:^1.0.2",
         "es-toolkit": "^1.45.1",
         "match-sorter": "^8.2.0",
         "remix": "3.0.0-beta.0"

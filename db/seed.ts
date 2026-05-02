@@ -1,19 +1,11 @@
-import { column as c, ColumnBuilder, table } from "remix/data-table";
-import { createMigration } from "remix/data-table/migrations";
+import { D1DatabaseAdapter } from "#/data/adapters/d1-data-table.ts";
+import { Contacts } from "#/data/contacts.ts";
+import { Database } from "remix/data-table";
+import { getPlatformProxy } from "wrangler";
 
-export let Contacts = table({
-    name: "contacts",
-    columns: {
-        id: c.integer().primaryKey(),
-        first: c.text().notNull(),
-        last: c.text().notNull(),
-        avatar: c.text(),
-        bsky: c.text().notNull(),
-        notes: c.text().notNull(),
-        favorite: c.boolean().default(false),
-        createdAt: c.timestamp().defaultNow() as ColumnBuilder<string>,
-    },
-});
+// Seeds the local D1 with demo contacts. Idempotent: skips when the
+// `contacts` table already has rows. Schema migrations are applied
+// separately via `wrangler d1 migrations apply --local`. See db/README.md.
 
 const SEED_CONTACTS = [
     {
@@ -48,24 +40,34 @@ const SEED_CONTACTS = [
     },
 ];
 
-export default createMigration({
-    async up({ db }) {
-        let count = await db.count(Contacts);
-        if (count > 0) return;
-
-        for (let contact of SEED_CONTACTS) {
-            await db.create(Contacts, {
-                first: contact.first,
-                last: contact.last,
-                avatar: contact.avatar,
-                bsky: contact.bsky,
-                notes: "",
-                favorite: false,
-                createdAt: `${Date.now()}`,
-            });
-        }
-    },
-    async down({ db }) {
-        await db.deleteMany(Contacts, { where: {} });
-    },
+let proxy = await getPlatformProxy<Env>({
+    configPath: "./wrangler.jsonc",
+    persist: true,
 });
+
+try {
+    let db = new Database(new D1DatabaseAdapter(proxy.env.DB));
+
+    let count = await db.count(Contacts);
+    if (count > 0) {
+        console.log(`Seed skipped: ${count} contact(s) already present.`);
+        process.exit(0);
+    }
+
+    for (let contact of SEED_CONTACTS) {
+        await db.create(Contacts, {
+            first: contact.first,
+            last: contact.last,
+            avatar: contact.avatar,
+            bsky: contact.bsky,
+            notes: "",
+            favorite: false,
+            createdAt: `${Date.now()}`,
+        });
+    }
+
+    console.log(`Seeded ${SEED_CONTACTS.length} contact(s).`);
+} finally {
+    await proxy.dispose();
+    process.exit(0);
+}

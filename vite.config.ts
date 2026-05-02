@@ -19,14 +19,33 @@ export default defineConfig({
     run: {
         tasks: {
             dev: {
-                dependsOn: ["typegen", "db:migrate"],
+                dependsOn: ["typegen", "db:seed"],
                 command: "vp dev --host",
             },
-            "db:migrate": {
-                command: "node db/migrate.ts",
+            "db:seed": {
+                dependsOn: ["db:migrations:apply:local"],
+                command: "node db/seed.ts",
             },
             "db:reset": {
                 command: "rm -rf .wrangler/state/v3/d1",
+            },
+            "db:migrations:generate": {
+                command: "node db/generate-d1-migrations.ts",
+                cache: false,
+            },
+            "db:migrations:apply:local": {
+                dependsOn: ["db:migrations:generate"],
+                command: "node db/apply-d1-migrations.ts --local",
+                cache: false,
+            },
+            "db:migrations:apply:remote": {
+                command: "node db/apply-d1-migrations.ts --remote",
+                cache: false,
+            },
+            "db:migrations:deploy": {
+                dependsOn: ["db:migrations:generate"],
+                command: "node db/apply-d1-migrations.ts --remote",
+                cache: false,
             },
             typegen: {
                 input: ["wrangler.jsonc"],
