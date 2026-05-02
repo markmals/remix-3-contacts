@@ -405,8 +405,8 @@ navigate(url, { target: "detail" });
 
 ```tsx
 import * as s from "remix/data-schema";
-import { createMixin, Frame as RemixFrame, type RemixNode } from "remix/component";
-import { renderToStream } from "remix/component/server";
+import { createMixin, Frame as RemixFrame, type RemixNode } from "remix/ui";
+import { renderToStream } from "remix/ui/server";
 import type { Middleware } from "remix/fetch-router";
 
 // Define your app's valid frame names as a union type
@@ -483,7 +483,7 @@ renderToStream(<Document />, {
 **Basic route definition:**
 
 ```tsx
-import { route, resources, get, patch } from "remix/fetch-router/routes";
+import { route, resources, get, patch } from "remix/routes";
 
 export let routes = route({
     home: get("/"),
@@ -743,7 +743,7 @@ This avoids managing per-item loading state. The navigation destination tells yo
 **The three-phase client entry:**
 
 ```tsx
-import { navigate, run } from "remix/component";
+import { navigate, run } from "remix/ui";
 
 // Phase 1: Form submission handler (before `run`)
 navigation.addEventListener("navigate", async event => {
@@ -983,7 +983,7 @@ For form submissions, the client entry's navigate listener reads the resulting `
 **The `link` mixin definition:**
 
 ```tsx
-import { createMixin } from "remix/component";
+import { createMixin } from "remix/ui";
 
 export type LinkProps = { target?: Frame.Name; src?: URL; resetScroll?: boolean };
 
@@ -1510,7 +1510,7 @@ let isPending =
 **The pattern:**
 
 ```tsx
-import { clientEntry } from "remix/component";
+import { clientEntry } from "remix/ui";
 import { isServer } from "#/utils/navigating.ts";
 
 export let Title = clientEntry(import.meta.url, () => {
@@ -1634,7 +1634,7 @@ import styles from "#/index.css?url";
 **The `css()` mixin for component-scoped rules:**
 
 ```tsx
-import { css } from "remix/component";
+import { css } from "remix/ui";
 
 <button
     mix={[
@@ -1693,7 +1693,7 @@ When a value changes based on state, set a CSS custom property via `style` and r
 **Basic ref (fires on insert):**
 
 ```tsx
-import { ref } from "remix/component";
+import { ref } from "remix/ui";
 
 <input mix={[ref(node => node.focus())]} />;
 ```
@@ -1736,7 +1736,7 @@ return () => (
 **Enter animation:**
 
 ```tsx
-import { animateEntrance } from "remix/component";
+import { animateEntrance } from "remix/ui/animation";
 
 <div
     mix={[
@@ -1753,7 +1753,7 @@ import { animateEntrance } from "remix/component";
 **Toggle visibility with enter + exit:**
 
 ```tsx
-import { animateEntrance, animateExit } from "remix/component";
+import { animateEntrance, animateExit } from "remix/ui/animation";
 
 {
     isVisible && (
@@ -1776,7 +1776,7 @@ import { animateEntrance, animateExit } from "remix/component";
 **List reordering with layout animation:**
 
 ```tsx
-import { animateLayout, spring } from "remix/component";
+import { animateLayout, spring } from "remix/ui/animation";
 
 {
     items.map(item => (
@@ -1813,12 +1813,12 @@ import { animateLayout, spring } from "remix/component";
 
 **Decision:** I need keyboard shortcuts, key-specific handlers, or unified pointer+keyboard press behavior.
 
-**Heuristic:** Use the built-in interaction helpers from `remix/component` instead of writing your own keyboard/pointer normalization. For frame-targeted navigation on anchors and buttons, use the `link()` mixin (see Recipe 15) — it provides type-safe frame names.
+**Heuristic:** Use the built-in interaction helpers from `remix/ui` instead of writing your own keyboard/pointer normalization. For frame-targeted navigation on anchors and buttons, use the `link()` mixin (see Recipe 15) — it provides type-safe frame names.
 
 **`keysEvents()` — key-specific host events:**
 
 ```tsx
-import { keysEvents } from "remix/component";
+import { keysEvents } from "remix/ui";
 
 <div
     tabindex="0"
@@ -1846,7 +1846,7 @@ Use `keysEvents()` when you need to respond to specific keys on a focusable elem
 **`pressEvents()` — unified pointer and keyboard input:**
 
 ```tsx
-import { pressEvents } from "remix/component";
+import { pressEvents } from "remix/ui";
 
 <div
     role="button"
@@ -1880,7 +1880,7 @@ import { link } from "#/utils/frame.tsx";
 </a>;
 ```
 
-Prefer real `<a>` tags and `<form><button type="submit"></button></form>` tags with the `link()` mixin — they're accessible, work without JavaScript, and provide type safety for frame names. The generic `link()` from `remix/component` can make any element behave like a navigation link, but reserve that for cases where an anchor or button tag isn't practical (e.g., a complex interactive card that needs to navigate on click).
+Prefer real `<a>` tags and `<form><button type="submit"></button></form>` tags with the `link()` mixin — they're accessible, work without JavaScript, and provide type safety for frame names. The generic `link()` from `remix/ui` can make any element behave like a navigation link, but reserve that for cases where an anchor or button tag isn't practical (e.g., a complex interactive card that needs to navigate on click).
 
 ---
 
@@ -2049,7 +2049,7 @@ on("pointerdown", event => {
 **Basic mixin — pure prop transform:**
 
 ```tsx
-import { createMixin } from "remix/component";
+import { createMixin } from "remix/ui";
 
 let withTitle = createMixin(() => (title: string, props: { title?: string }) => (
     <handle.element {...props} title={title} />
@@ -2164,7 +2164,7 @@ function Icon(props: { name: string; size?: number }) {
 
 ```tsx
 import { expect } from "vitest";
-import { createRoot } from "remix/component";
+import { createRoot } from "remix/ui";
 
 let container = document.createElement("div");
 let root = createRoot(container);
@@ -2729,7 +2729,7 @@ The `#` prefix is the only one that works everywhere without configuration beyon
         "module": "ESNext",
         "moduleResolution": "bundler",
         "jsx": "react-jsx",
-        "jsxImportSource": "remix/component",
+        "jsxImportSource": "remix/ui",
         "verbatimModuleSyntax": true,
         "strict": true,
         "noEmit": true

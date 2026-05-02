@@ -1,8 +1,8 @@
-# Remix Client Entry Vite Plugin
+# Remix Vite Plugin
 
-This document describes a Vite plugin that transforms `clientEntry(import.meta.url, fn)` calls so that `import.meta.url` is replaced with the resolved production asset URL at build time. It is designed for Remix 3's hydration model where only explicitly marked components ship JavaScript to the client.
+A Vite+ plugin (`remix.plugin.ts`) that wires Remix 3 into a Vite+ project. It orchestrates the SSR and client builds, transforms `clientEntry(import.meta.url, fn)` calls so that `import.meta.url` resolves to a production asset URL with an `#ExportName` fragment, runs a preview server backed by the built SSR entry, and smooths over a few rough edges (disconnect-aborted requests, builder coordination with other plugins).
 
-Hand this file to your coding agent when you're ready to implement.
+This document is both a **usage guide** for the plugin and a **specification** complete enough to rebuild the plugin from scratch — every behavior, option, and edge case the current implementation handles is described here.
 
 ## Context
 
@@ -11,7 +11,7 @@ Hand this file to your coding agent when you're ready to implement.
 Remix 3 uses a `clientEntry` function to mark components for client-side hydration. Authors write:
 
 ```tsx
-import { clientEntry } from "remix/component";
+import { clientEntry } from "remix/ui";
 
 export const Counter = clientEntry(import.meta.url, handle => {
     // component logic
@@ -24,13 +24,13 @@ On the server, `clientEntry` uses that string to emit hydration markers and a da
 
 ### Toolchain
 
-This project should be using **Vite+** (Vite 8 with Rolldown as the default bundler) before writing this plugin. Key implications:
+This plugin targets **Vite+** (Vite 8 with Rolldown as the default bundler). Key implications:
 
 - Import `defineConfig` and types from `vite-plus`, not `vite`.
-- Rolldown provides `meta.ast` (oxc-parsed AST) and `meta.magicString` (native Rust MagicString) in the `transform` hook — use these instead of `this.parse()` or the `magic-string` npm package.
+- Rolldown provides `meta.ast` (oxc-parsed AST) and `meta.magicString` (native Rust MagicString) in the `transform` hook during build — but these are not available during dev. The plugin must fall back to parsing the AST itself and rewriting strings manually for the dev path.
 - The transform hook supports a declarative `filter` object for fast native-level filtering before entering JS.
 - AST types come from `oxc-parser` (the `Program` type). Nodes have `start`/`end` as first-class numeric properties.
-- Dev server and build commands are `vp dev` and `vp build`.
+- Dev server, build, and preview commands are `vp dev`, `vp build`, and `vp preview`.
 - Check, lint, format, and test are `vp check`, `vp lint`, `vp fmt`, and `vp test`.
 
 ### Dependencies
@@ -40,15 +40,20 @@ The plugin depends on `@hiogawa/vite-plugin-fullstack`, which provides:
 - **`?assets=<envName>` import query**: importing a module with `?assets=client` (or `?assets=ssr`, etc.) returns an object with `{ entry: string, css: Array<{href}>, js: Array<{href}> }` — the resolved production asset URLs for that module in the given environment.
 - **Server handler wiring**: optional — configurable via `serverHandler` option.
 - **`mergeAssets` runtime utility**: exported from `@hiogawa/vite-plugin-fullstack/runtime`.
+- **`writeAssetsManifest`**: a builder method that copies SSR assets into the client output directory.
 
-The plugin also uses `oxc-parser` as a dev dependency for the `Program` type.
+The plugin also uses `oxc-parser` as a dev dependency for the `Program` type and as a runtime fallback parser when the Rolldown-only `meta.ast` is unavailable (i.e. during dev).
 
 ## Plugin Architecture
 
-The plugin is a Vite plugin array containing two entries:
+The plugin is a Vite plugin array containing five entries:
 
-1. The `fullstack` plugin (from `@hiogawa/vite-plugin-fullstack`) — handles multi-environment builds and the `?assets` query.
-2. The `remix-client-entry-transform` plugin — the actual code transform described here.
+1. **`fullstack`** (from `@hiogawa/vite-plugin-fullstack`) — handles multi-environment builds and the `?assets` query.
+2. **`remix-build:compat`** — patches the builder so the plugin's own build orchestration coexists with plugins that also orchestrate builds (e.g. `@cloudflare/vite-plugin`). Runs at `order: "pre"` so guards are in place before any building starts.
+3. **`remix-build`** — sets default environment configuration (output dirs, rollup inputs, `assetsInlineLimit: 0`) and orchestrates the build order: SSR first, then client.
+4. **`remix-preview-server`** — wires the built SSR entry into `vp preview` as a request listener. Skips itself when the SSR bundle targets a non-Node runtime (e.g. Cloudflare Workers).
+5. **`remix-suppress-abort-errors`** — suppresses `aborted` errors from client disconnects (e.g. search-as-you-type) that would otherwise trigger Vite's error overlay.
+6. **`remix-client-entry-transform`** — the actual `clientEntry` code transform.
 
 ### Transform Logic
 
@@ -57,16 +62,16 @@ The transform runs in **all environments** (both client and server). Both need t
 - **Server**: `clientEntry` uses the URL string to write hydration markers into the rendered HTML.
 - **Client**: `clientEntry` uses the URL string to identify which chunk to load when the `run()` boot function hydrates the component.
 
-The transform does exactly two things per file:
+The transform behavior differs slightly by environment:
 
-1. **Prepends** an import statement that resolves the current file's assets for the current environment.
-2. **Overwrites** each `import.meta.url` argument inside a `clientEntry(...)` call with the resolved asset entry URL plus a `#ExportName` fragment.
+- **In a server environment** (i.e. `this.environment.name` is in `serverEnvironments`): prepend an import of `?assets=client` so the server can compute the client chunk URL, and overwrite each `import.meta.url` argument with `___clientEntryAssets.entry + "#ExportName"`.
+- **In a client environment**: don't prepend anything — `import.meta.url` already resolves to the chunk URL at runtime. Just append `#ExportName` so `clientEntry` receives the required fragment: `import.meta.url + "#ExportName"`.
 
 ### Multiple `clientEntry` calls per file
 
-Multiple exports in the same file share one asset import. The prepend happens once per file. Each `clientEntry` call gets its own `#ExportName` suffix derived from the variable name of the export.
+Multiple exports in the same file share one asset import (in server environments). The prepend happens once per file. Each `clientEntry` call gets its own `#ExportName` suffix derived from the variable name of the export.
 
-Given:
+Given this source on the server side:
 
 ```tsx
 export const Counter = clientEntry(import.meta.url, handle => { ... });
@@ -76,117 +81,198 @@ export const Toggle = clientEntry(import.meta.url, handle => { ... });
 The transform produces:
 
 ```tsx
-import ___clientEntryAssets from "<id>?assets=<envName>";
+import ___clientEntryAssets from "<id>?assets=client";
 export const Counter = clientEntry(___clientEntryAssets.entry + "#Counter", handle => { ... });
 export const Toggle = clientEntry(___clientEntryAssets.entry + "#Toggle", handle => { ... });
 ```
 
-## Implementation
+On the client, the same source becomes:
 
-### Complete Plugin Source
+```tsx
+export const Counter = clientEntry(import.meta.url + "#Counter", handle => { ... });
+export const Toggle = clientEntry(import.meta.url + "#Toggle", handle => { ... });
+```
 
-Create this as `remix.plugin.ts` in the plugin package:
+## Plugin Options
 
 ```ts
-import fullstack from "@hiogawa/vite-plugin-fullstack";
-import type { Program } from "oxc-parser";
-import type { PluginOption } from "vite-plus";
+remix({
+    clientEntry: "app/entry.browser", // default — set to `false` for server-only deployments
+    serverEntry: "app/entry.server", // default
+    serverEnvironments: ["ssr"], // default — which environments are "server"
+    serverHandler: true, // default — let `fullstack` wire the dev server handler
+});
+```
 
-export function remix({
-    serverEnvironments: _environments = ["ssr"],
-    serverHandler = true,
-}: {
-    serverEnvironments?: string[];
-    serverHandler?: boolean;
-} = {}): PluginOption {
-    return [
-        fullstack({
-            serverEnvironments: _environments,
-            serverHandler,
-        }),
-        {
-            name: "remix-client-entry-transform",
-            transform: {
-                filter: {
-                    code: {
-                        include: /\bclientEntry\b/,
-                    },
-                },
-                handler(code, id, meta) {
-                    if (!code.includes("import.meta.url")) return;
+| Option               | Type              | Default               | Purpose                                                                                                                                                               |
+| -------------------- | ----------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `clientEntry`        | `string \| false` | `"app/entry.browser"` | Module path used as the client `rollupOptions.input`. Pass `false` to disable the client environment entirely (for fully server-rendered apps with no hydration).     |
+| `serverEntry`        | `string`          | `"app/entry.server"`  | Module path used as the SSR `rollupOptions.input`. Built as `dist/ssr/index.js`.                                                                                      |
+| `serverEnvironments` | `string[]`        | `["ssr"]`             | Names of environments treated as "server" by the transform. The transform prepends a `?assets=client` import in these environments so the server can emit chunk URLs. |
+| `serverHandler`      | `boolean`         | `true`                | Forwarded to `fullstack`. Set to `false` when another plugin (e.g. `@cloudflare/vite-plugin`) manages the server environment.                                         |
 
-                    const calls = findClientEntryCalls(meta.ast);
-                    if (calls.length === 0) return;
+### What `remix-build` configures
 
-                    const { magicString } = meta;
-                    const envName = this.environment.name;
+The plugin sets the following defaults via its `config()` hook so that user `vite.config.ts` files can stay minimal:
 
-                    magicString.prepend(
-                        `import ___clientEntryAssets from "${id}?assets=${envName}";\n`,
-                    );
+```ts
+{
+    build: {
+        // Ensure assets are emitted as files (not inlined) so they get hashed URLs
+        // that the ?assets= query can resolve.
+        assetsInlineLimit: 0,
+    },
+    environments: {
+        client: {
+            build: {
+                outDir: "dist/client",
+                rollupOptions: { input: clientEntry || undefined },
+            },
+        },
+        ssr: {
+            build: {
+                outDir: "dist/ssr",
+                rollupOptions: { input: { index: serverEntry } },
+            },
+        },
+    },
+}
+```
 
-                    for (const call of calls) {
+The `client` environment is omitted when `clientEntry: false`.
+
+### Build orchestration
+
+`buildApp(builder)` runs the SSR environment first, then the client:
+
+```ts
+await builder.build(builder.environments.ssr);
+if (hasClientEntry) {
+    await builder.build(builder.environments.client);
+}
+```
+
+Order matters: the client build reads the SSR asset manifest (via `?assets=ssr`) when resolving `mergeAssets()` calls, so SSR must be built first.
+
+### Builder compatibility (`remix-build:compat`)
+
+When a second plugin (notably `@cloudflare/vite-plugin`) also implements `buildApp`, both would otherwise re-trigger a full build of every environment. The `remix-build:compat` plugin patches `builder.build` at `order: "pre"` so the second invocation becomes a no-op:
+
+```ts
+let originalBuild = builder.build.bind(builder);
+builder.build = async environment => {
+    if (environment.isBuilt) return;
+    return originalBuild(environment);
+};
+```
+
+Additionally, `@cloudflare/vite-plugin` moves SSR-emitted assets into the client output directory before `fullstack`'s `writeAssetsManifest` copies them, causing `ENOENT` on already-relocated files. The compat plugin wraps `writeAssetsManifest` to swallow that specific `ENOENT`:
+
+```ts
+let originalWrite = builder.writeAssetsManifest;
+if (originalWrite) {
+    builder.writeAssetsManifest = async () => {
+        try {
+            await originalWrite();
+        } catch (error) {
+            if (error.code !== "ENOENT") throw error;
+        }
+    };
+}
+```
+
+### Preview server (`remix-preview-server`)
+
+`vp preview` should serve the production build using the same SSR entry that production deploys. The plugin's `configurePreviewServer` hook:
+
+1. Resolves the SSR output path from `server.config.environments.ssr.build.outDir` (defaulting to `dist/ssr`).
+2. Dynamically imports `<ssrOutDir>/index.js`. If the import fails (e.g. the SSR bundle targets Cloudflare Workers, which provides its own preview), it returns early so other plugins can take over.
+3. Pulls the router from `mod.default ?? mod.router`.
+4. Imports `createRequestListener` from `remix/node-serve` and registers it as middleware:
+
+```ts
+server.middlewares.use(createRequestListener(request => router.fetch(request)));
+```
+
+### Abort error suppression (`remix-suppress-abort-errors`)
+
+Vite's dev server surfaces unhandled errors via an overlay. When users abort in-flight requests (rapid typing in a search box, navigating away during a frame fetch), the underlying request stream throws `Error: aborted`. These are expected and noisy, so the plugin installs a connect-style error handler that swallows them:
+
+```ts
+server.middlewares.use((err, _req, _res, next) => {
+    if (err?.message === "aborted") return;
+    next(err);
+});
+```
+
+### Transform implementation (`remix-client-entry-transform`)
+
+```ts
+{
+    name: "remix-client-entry-transform",
+    transform: {
+        filter: {
+            code: { include: /\bclientEntry\b/ },
+        },
+        handler(code, id, _meta) {
+            if (!code.includes("import.meta.url")) return;
+
+            // meta.ast and meta.magicString are only present during build (Rolldown).
+            // During dev, parse with oxc-parser and do plain string rewrites.
+            let meta = _meta as Partial<RolldownTransformMeta> | undefined;
+            let ast = meta?.ast ?? parseSync(id, code).program;
+
+            let calls = findClientEntryCalls(ast);
+            if (calls.length === 0) return;
+
+            let isServer = serverEnvironments.has(this.environment.name);
+
+            if (isServer) {
+                let prepend = `import ___clientEntryAssets from "${id}?assets=client";\n`;
+
+                if (meta?.magicString) {
+                    let { magicString } = meta;
+                    magicString.prepend(prepend);
+                    for (let call of calls) {
                         magicString.overwrite(
                             call.metaUrlStart,
                             call.metaUrlEnd,
                             `___clientEntryAssets.entry + "#${call.exportName}"`,
                         );
                     }
-
                     return { code: magicString };
-                },
-            },
+                }
+
+                // Dev / non-Rolldown fallback: rewrite from the end backwards so
+                // earlier offsets remain valid as we splice.
+                let result = code;
+                for (let call of [...calls].reverse()) {
+                    result =
+                        result.slice(0, call.metaUrlStart) +
+                        `___clientEntryAssets.entry + "#${call.exportName}"` +
+                        result.slice(call.metaUrlEnd);
+                }
+                return prepend + result;
+            }
+
+            // Client environment: import.meta.url already resolves to the chunk URL.
+            // Just append #ExportName.
+            let result = code;
+            for (let call of [...calls].reverse()) {
+                result =
+                    result.slice(0, call.metaUrlStart) +
+                    `import.meta.url + "#${call.exportName}"` +
+                    result.slice(call.metaUrlEnd);
+            }
+            return result;
         },
-    ];
-}
-
-interface ClientEntryCall {
-    exportName: string;
-    metaUrlStart: number;
-    metaUrlEnd: number;
-}
-
-function findClientEntryCalls(program: Program): ClientEntryCall[] {
-    const results: ClientEntryCall[] = [];
-
-    for (const node of program.body) {
-        if (node.type !== "ExportNamedDeclaration") continue;
-        if (node.declaration?.type !== "VariableDeclaration") continue;
-
-        for (const declarator of node.declaration.declarations) {
-            if (declarator.id.type !== "Identifier") continue;
-            if (declarator.init?.type !== "CallExpression") continue;
-
-            const call = declarator.init;
-
-            if (call.callee.type !== "Identifier" || call.callee.name !== "clientEntry") continue;
-
-            if (call.arguments.length < 2) continue;
-
-            const firstArg = call.arguments[0];
-            if (
-                firstArg.type !== "MemberExpression" ||
-                firstArg.object.type !== "MetaProperty" ||
-                firstArg.property.type !== "Identifier" ||
-                firstArg.property.name !== "url"
-            )
-                continue;
-
-            results.push({
-                exportName: declarator.id.name,
-                metaUrlStart: firstArg.start,
-                metaUrlEnd: firstArg.end,
-            });
-        }
-    }
-
-    return results;
+    },
 }
 ```
 
 ### AST Pattern Being Matched
 
-The `findClientEntryCalls` function walks the top-level body of the module looking for this exact pattern:
+The `findClientEntryCalls` helper walks the top-level body of the module looking for this exact pattern:
 
 ```
 ExportNamedDeclaration
@@ -211,64 +297,62 @@ These constraints are intentional. `clientEntry` components must be named export
 
 ### Rolldown / Vite 8 specifics
 
-Key API usage:
+Key API usage during build:
 
-- **`meta.ast`**: The oxc-parsed AST. Available on every `transform` call. No need to call `this.parse()`.
+- **`meta.ast`**: The oxc-parsed AST. Provided by Rolldown on the `transform` call. Only present during build, not dev.
 - **`meta.magicString`**: The native Rust MagicString instance. Supports `.prepend()`, `.append()`, `.overwrite()`, `.appendLeft()`, `.remove()`, etc. Return `{ code: magicString }` — Rolldown generates the sourcemap natively in a background thread.
 - **`transform.filter`**: Declarative filter evaluated in Rust before the JS handler runs. The `code.include` regex skips files that don't contain `clientEntry` without entering JS at all.
-- **`this.environment.name`**: The current build environment name (e.g. `"client"`, `"ssr"`). Used to parameterize the `?assets=` query.
+- **`this.environment.name`**: The current build environment name (e.g. `"client"`, `"ssr"`). Used to decide whether to emit the server-side `?assets=client` prepend.
+
+During dev (where `meta.ast` and `meta.magicString` are absent), the plugin parses with `oxc-parser`'s `parseSync` and performs string rewrites. Source maps are skipped on the dev path; the impact is minimal since the only edits are short string replacements.
 
 ### Dependencies
 
 ```json
 {
     "dependencies": {
-        "@hiogawa/vite-plugin-fullstack": "0.0.2"
+        "@hiogawa/vite-plugin-fullstack": "^0.0.11"
     },
     "devDependencies": {
-        "oxc-parser": "^0.72.0"
+        "oxc-parser": "^0.121.0"
     }
 }
 ```
 
-`magic-string` is **not** needed — the native implementation is provided by Rolldown.
+`magic-string` is **not** needed — the native implementation is provided by Rolldown during build, and the dev fallback uses plain `String.prototype.slice`.
 
 ## Usage in an App
 
 ### `vite.config.ts`
 
+The plugin sets sensible defaults (entry paths, output dirs, `assetsInlineLimit`, build order), so most apps need only this:
+
 ```ts
-import { remix } from "./remix.plugin.ts";
 import { defineConfig } from "vite-plus";
 
+import { remix } from "./remix.plugin.ts";
+
 export default defineConfig({
-    environments: {
-        client: {
-            build: {
-                rollupOptions: {
-                    input: "src/entry.browser",
-                },
-            },
-        },
-    },
     plugins: [remix()],
 });
 ```
 
-With options:
+Override defaults only when needed:
 
 ```ts
 remix({
-    serverEnvironments: ["ssr"], // default, which environments are "server"
-    serverHandler: true, // default, wire up server handler
+    clientEntry: "app/entry.browser", // default — set to `false` for server-only apps
+    serverEntry: "app/entry.server", // default
+    serverEnvironments: ["ssr"], // default
+    serverHandler: true, // default — set false to let another plugin manage the server
 });
 ```
 
 ### Component authoring
 
 ```tsx
-// src/components/counter.tsx
-import { clientEntry, on, type Handle } from "remix/component";
+// app/components/counter.tsx
+import { clientEntry, on, type Handle } from "remix/ui";
 import confetti from "canvas-confetti";
 
 export const Counter = clientEntry(import.meta.url, handle => {
@@ -293,8 +377,8 @@ export const Counter = clientEntry(import.meta.url, handle => {
 Multiple client entries in one file:
 
 ```tsx
-// src/components/widgets.tsx
-import { clientEntry, on, type Handle } from "remix/component";
+// app/components/widgets.tsx
+import { clientEntry, on, type Handle } from "remix/ui";
 
 export const Counter = clientEntry(import.meta.url, handle => {
     let count = 0;
@@ -335,8 +419,8 @@ export const Toggle = clientEntry(import.meta.url, handle => {
 ### Client entry point
 
 ```ts
-// src/entry.browser.ts
-import { run } from "remix/component";
+// app/entry.browser.ts
+import { run } from "remix/ui";
 
 run({
     async loadModule(moduleUrl, exportName) {
@@ -353,11 +437,11 @@ run({
 ### Document component (server)
 
 ```tsx
-// src/components/document.tsx
+// app/components/Document.tsx
 import { mergeAssets } from "@hiogawa/vite-plugin-fullstack/runtime";
 
-import clientAssets from "../entry.browser.ts?assets=client";
-import serverAssets from "../entry.server.tsx?assets=ssr";
+import clientAssets from "#/entry.browser.ts?assets=client";
+import serverAssets from "#/entry.server.tsx?assets=ssr";
 
 export function Document({ children }) {
     const assets = mergeAssets(clientAssets, serverAssets);
@@ -385,131 +469,82 @@ The plugin works across different deployment targets. The key difference between
 
 ### Node
 
-A Node deployment uses the plugin's built-in server handler wiring and a standalone server (e.g. Express) to serve the production build.
+For a Node deployment, the plugin's defaults are sufficient — no extra configuration is needed.
 
 #### `vite.config.ts`
 
-The Node config must define both `client` and `ssr` environments with explicit output directories, and use the `builder.buildApp` hook to control build order — the SSR environment builds first so that its asset manifest is available when the client build runs:
-
 ```ts
-import { remix } from "@jacob-ebey/vite-plugin-remix";
-import { defineConfig } from "vite";
+import { defineConfig } from "vite-plus";
+
+import { remix } from "./remix.plugin.ts";
 
 export default defineConfig({
-    builder: {
-        async buildApp(builder) {
-            await builder.build(builder.environments.ssr);
-            await builder.build(builder.environments.client);
-        },
-    },
-    environments: {
-        client: {
-            build: {
-                outDir: "dist/client",
-                rollupOptions: {
-                    input: "src/entry.browser",
-                },
-            },
-        },
-        ssr: {
-            build: {
-                outDir: "dist/ssr",
-                rollupOptions: {
-                    input: "src/entry.server",
-                },
-            },
-        },
-    },
     plugins: [remix()],
 });
 ```
 
-The `remix()` plugin is called with default options here — `serverHandler: true` wires up the dev server handler automatically, and `serverEnvironments: ["ssr"]` is the default.
+The plugin's `config()` hook defines the `client` and `ssr` environments (`dist/client`, `dist/ssr`). Its `buildApp` hook builds SSR first, then the client, so the client build can resolve `?assets=ssr` against an existing SSR manifest. `serverHandler: true` (the default) tells `fullstack` to wire the dev server handler automatically, and `vp preview` is handled by `remix-preview-server` — no Express, no glue code.
 
 #### Production server
 
-The production server imports the built SSR entry, serves the `dist/client` directory as static files, and delegates everything else to the app's `fetch` handler. Here's an Express example:
+In production, run the SSR entry with `serve()` from `remix/node-serve`. This bundles a high-throughput uWebSockets.js-backed server that speaks the standard Fetch API, plus serves your built client assets:
 
 ```ts
 // server.ts
-import express from "express";
-import { createRequestListener } from "@remix-run/node-fetch-server";
+import { serve } from "remix/node-serve";
 
 // @ts-expect-error - no types for the built output
-import ssr from "./dist/ssr/entry.server.js";
+import ssr from "./dist/ssr/index.js";
 
-const app = express();
+const router = ssr.default ?? ssr.router;
 
-// Hashed assets get long-lived immutable caching
-app.use(
-    "/assets",
-    express.static("dist/client/assets", {
-        maxAge: "1y",
-        immutable: true,
-    }),
-);
-
-// Other static files (e.g. favicon) get short caching
-app.use(express.static("dist/client", { maxAge: "5m" }));
-
-// Everything else goes to the Remix server
-app.use(createRequestListener(ssr.fetch));
-
-const port = Number.parseInt(process.env.PORT || "3000");
-app.listen(port, () => {
-    console.log(`Server listening on http://localhost:${port}`);
+const server = serve(request => router.fetch(request), {
+    port: Number.parseInt(process.env.PORT || "3000"),
 });
+
+await server.ready;
+console.log(`Server listening on http://localhost:${server.port}`);
 ```
 
-The `@remix-run/node-fetch-server` package bridges Express's Node-style request/response objects to the standard `fetch` API that the Remix server entry exports. The server entry itself exports a `fetch(request: Request): Response` function, which is the same interface used across all deployment targets.
+Static asset serving (`/dist/client`, `/public`) is handled by `staticFiles()` middleware composed inside the server entry's router rather than by a separate static-file layer in `server.ts`. That keeps a single source of truth for routing — middleware order (and therefore caching headers) lives next to the rest of the request stack instead of being split between `server.ts` and your router.
+
+The SSR entry exports a `fetch(request: Request): Response` function (typically as the default export of a `createRouter()` instance), which is the same interface used across all deployment targets.
 
 #### `package.json` scripts
 
 ```json
 {
     "scripts": {
-        "build": "vite build",
-        "dev": "vite",
+        "dev": "vp dev",
+        "build": "vp build",
+        "preview": "vp preview",
         "start": "node server.ts"
     }
 }
 ```
 
-During development, `vite` starts the dev server with HMR. For production, `vite build` produces the `dist/` output and `node server.ts` runs the Express server against it.
+`vp dev` starts the dev server with HMR. `vp build` produces the `dist/` output. `vp preview` runs the built SSR entry through the plugin's preview middleware. `node server.ts` runs the production server against the build output.
 
 ### Cloudflare Workers
 
-A Cloudflare deployment replaces the plugin's built-in server handler with the `@cloudflare/vite-plugin`, which handles the worker environment and deployment.
+A Cloudflare deployment delegates the server environment to `@cloudflare/vite-plugin`, which handles the worker environment, asset serving, and deployment.
 
 #### `vite.config.ts`
 
-The key differences from Node: `serverHandler` is set to `false` (Cloudflare's plugin manages the server), and the `cloudflare()` plugin is added pointing at the `ssr` environment:
+The key differences from Node: `serverHandler: false` (Cloudflare's plugin manages the server) and the `cloudflare()` plugin pointed at the `ssr` environment.
 
 ```ts
 import { cloudflare } from "@cloudflare/vite-plugin";
-import { remix } from "@jacob-ebey/vite-plugin-remix";
-import { defineConfig } from "vite";
+import { defineConfig } from "vite-plus";
+
+import { remix } from "./remix.plugin.ts";
 
 export default defineConfig({
-    environments: {
-        client: {
-            build: {
-                rollupOptions: {
-                    input: "src/entry.browser",
-                },
-            },
-        },
-    },
-    plugins: [
-        remix({ serverHandler: false }),
-        cloudflare({
-            viteEnvironment: { name: "ssr" },
-        }),
-    ],
+    plugins: [remix({ serverHandler: false }), cloudflare({ viteEnvironment: { name: "ssr" } })],
 });
 ```
 
-Notice there is no explicit `ssr` environment config or `builder.buildApp` hook — the Cloudflare plugin creates and manages the SSR environment itself, including output directories and build ordering.
+The `remix-build:compat` plugin coordinates with `@cloudflare/vite-plugin`'s `buildApp` hook so neither plugin re-builds environments the other has already built, and so `writeAssetsManifest`'s `ENOENT` failures (caused by Cloudflare relocating SSR assets early) are silently tolerated. You don't need to write a custom `builder.buildApp` hook — the plugin handles ordering internally.
 
 #### `wrangler.jsonc`
 
@@ -518,44 +553,38 @@ The Wrangler config points at the server entry module:
 ```jsonc
 {
     "name": "my-remix-app",
-    "compatibility_date": "2025-10-12",
-    "main": "./src/entry.server",
+    "main": "./app/entry.server.tsx",
+    "assets": { "directory": "dist/client" },
+    "compatibility_date": "2026-04-02",
+    "compatibility_flags": ["nodejs_compat"],
 }
 ```
 
 #### Server entry as a Worker
 
-The server entry exports a Cloudflare Workers-compatible `fetch` handler via `export default`. Since Workers natively use the `fetch` API, no adapter like `node-fetch-server` is needed:
+The server entry exports a Cloudflare Workers-compatible `fetch` handler. Since Workers natively use the Fetch API, no adapter is needed:
 
 ```tsx
-// src/entry.server.tsx
-import { createRouter, route, type RouteHandlers } from "@remix-run/fetch-router";
-import { Document } from "./components/document";
-import { Counter } from "./components/counter";
-import { html } from "./lib/html";
+// app/entry.server.tsx
+import { Document } from "#/components/Document.tsx";
+import { Counter } from "#/components/Counter.tsx";
+import { createRouter } from "remix/fetch-router";
+import { createHtmlResponse as html } from "remix/response/html";
+import { route } from "remix/routes";
 
 const routes = route({ home: "/" });
 const router = createRouter();
 
-const handlers = {
-    home() {
-        return html(
-            router,
-            <Document>
-                <h1>Hello, World!</h1>
-                <Counter />
-            </Document>,
-        );
-    },
-} satisfies RouteHandlers<typeof routes>;
+router.map(routes.home, () =>
+    html(
+        <Document>
+            <h1>Hello, World!</h1>
+            <Counter />
+        </Document>,
+    ),
+);
 
-router.map(routes, handlers);
-
-export default {
-    fetch(request) {
-        return router.fetch(request);
-    },
-} satisfies ExportedHandler;
+export default router;
 
 if (import.meta.hot) {
     import.meta.hot.accept();
@@ -567,29 +596,30 @@ if (import.meta.hot) {
 ```json
 {
     "scripts": {
-        "build": "vite build",
-        "dev": "vite",
-        "preview": "vite preview"
+        "dev": "vp dev",
+        "build": "vp build",
+        "preview": "vp preview",
+        "deploy": "wrangler deploy"
     }
 }
 ```
 
-The `vite preview` command uses the Cloudflare plugin to run a local Miniflare instance against the production build, giving you a near-identical environment to what runs on Cloudflare's edge.
+`vp preview` runs a local Miniflare instance against the production build, giving you a near-identical environment to what runs on Cloudflare's edge.
 
 ### Shared patterns across targets
 
 Regardless of deployment target, the following pieces are identical:
 
-- **Component authoring** — `clientEntry(import.meta.url, fn)` calls, the `"use client"` directive, event handling, and the component model are all target-agnostic.
+- **Component authoring** — `clientEntry(import.meta.url, fn)` calls, the component model, and event handling are all target-agnostic.
 - **`Document` component** — the `mergeAssets` call, asset `<link>` tags, and the client entry `<script>` tag are the same.
-- **`entry.browser.ts`** — the client boot code (`createFrame` or `run()`) is identical since it runs in the browser regardless of where the server lives.
-- **`html` utility** — the `renderToStream` call and response construction are the same, since both targets use the standard `Response` API.
+- **`entry.browser.ts`** — the client boot code (`run()`) is identical since it runs in the browser regardless of where the server lives.
+- **`createHtmlResponse` / response helpers** — the `renderToStream` call and response construction are the same, since both targets use the standard `Response` API.
 
-The only things that change per target are the Vite config (which plugins manage the server environment), the production server file (Express vs. Worker `export default`), and how static assets are served in production (Express `static()` vs. Cloudflare's asset handling).
+The only things that change per target are the plugin options (`serverHandler`), whether `@cloudflare/vite-plugin` is in the plugin array, and how the production server is launched (`remix/node-serve`'s `serve()` for Node vs. Workers' `export default { fetch }`).
 
 ## How Hydration Works End-to-End
 
-1. **Build time**: The plugin replaces `import.meta.url` with the resolved asset URL (e.g. `/assets/counter-a1b2c3.js#Counter`).
+1. **Build time**: The plugin replaces `import.meta.url` inside `clientEntry()` calls. In server environments it becomes `___clientEntryAssets.entry + "#Counter"` (resolving via `?assets=client`); in client environments it becomes `import.meta.url + "#Counter"`. Either way, the runtime value is something like `/assets/counter-a1b2c3.js#Counter`.
 2. **Server render**: `clientEntry` renders the component to HTML, wrapping output in `<!-- rmx:h:id -->` / `<!-- /rmx:h -->` comment markers. Props are serialized into a `<script type="application/json" id="rmx-data">` tag.
 3. **Client boot**: `run()` parses the data script, finds the markers, splits each entry's URL on `#` to get `moduleUrl` and `exportName`, and calls `loadModule`.
 4. **Hydration**: The loaded component function is called against the existing DOM. Matching elements are adopted in place.
@@ -598,12 +628,24 @@ The only things that change per target are the Vite config (which plugins manage
 
 ### Why `clientEntry(import.meta.url, fn)` instead of `"use client"`
 
-The previous approach used a `"use client"` directive and performed significant AST surgery: finding all exports, removing the `export` keyword, re-adding them as wrapped versions, conditionally injecting the `hydrated` import, and stripping the directive on the client. The new approach requires only a single `overwrite` per `clientEntry` call and one `prepend` per file. The transform is explicit, predictable, and easy to debug.
+A directive-based approach would require significant AST surgery: finding all exports, removing the `export` keyword, re-adding them as wrapped versions, conditionally injecting a `hydrated` import, and stripping the directive on the client. The `clientEntry` approach requires only a single `overwrite` per call and one `prepend` per file (and only on the server). The transform is explicit, predictable, and easy to debug.
 
 ### Why transform in all environments
 
-Both server and client need the resolved asset string. The server uses it to emit hydration markers referencing the client chunk. The client uses it to know which module to load. The `?assets=<envName>` query resolves to the correct chunks for each environment.
+Both server and client need the resolved asset string. The server uses it to emit hydration markers referencing the client chunk; the client uses it to know which module to load. The `?assets=<envName>` query resolves to the correct chunks per environment, but only the server actually needs the prepended import — on the client, `import.meta.url` already resolves to the chunk URL at runtime, so the transform skips the prepend there.
 
 ### Why `entry` instead of a chunk array
 
-The previous plugin JSON-serialized an array of all chunk URLs because the old client API would `Promise.all` over them. Remix 3's `run()` API takes a single `moduleUrl` and calls `import(moduleUrl)`, so only the entry chunk URL is needed. The bundler handles chunk splitting and loading internally.
+A previous iteration JSON-serialized an array of all chunk URLs because the old client API would `Promise.all` over them. Remix 3's `run()` API takes a single `moduleUrl` and calls `import(moduleUrl)`, so only the entry chunk URL is needed. The bundler handles chunk splitting and loading internally.
+
+### Why a separate `remix-build:compat` plugin
+
+`@cloudflare/vite-plugin` and the plugin both want to drive `buildApp`. Without coordination, both would call `builder.build(env)` for every environment, doubling build work and producing ENOENTs when one moves files the other expects. Patching `builder.build` and `writeAssetsManifest` in a `pre`-ordered plugin guarantees the guards are in place before either build hook runs, regardless of plugin registration order.
+
+### Why suppress `aborted` errors specifically
+
+Common UX patterns (search-as-you-type, navigating away mid-fetch) deliberately abort in-flight requests. Vite's default error handling treats the resulting `Error: aborted` as a real failure and shows the overlay. Filtering by `err.message === "aborted"` is narrow enough to not mask real bugs and broad enough to cover the practical sources of the noise.
+
+### Why preview server is a no-op when SSR import fails
+
+When deploying to Cloudflare Workers, the SSR bundle imports `cloudflare:workers` and other non-Node-resolvable modules. Trying to `import()` it under Node would crash `vp preview`. Instead, the plugin catches the import failure and returns early, letting `@cloudflare/vite-plugin`'s preview middleware take over.
