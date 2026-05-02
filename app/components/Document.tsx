@@ -24,10 +24,8 @@ export function Document() {
                 <meta content="width=device-width, initial-scale=1" name="viewport" />
                 <title>{SITE.title}</title>
 
-                <link href="/favicon-32.png" rel="icon" sizes="32x32" />
-                <link href="/favicon-128.png" rel="icon" sizes="128x128" />
-                <link href="/favicon-180.png" rel="icon" sizes="180x180" />
-                <link href="/favicon-192.png" rel="icon" sizes="192x192" />
+                <link href="/favicon.ico" rel="icon" sizes="32x32" />
+                <link href="/favicon.svg" rel="icon" sizes="any" type="image/svg+xml" />
                 <link href="/favicon-180.png" rel="apple-touch-icon" sizes="180x180" />
 
                 <link href={styles} rel="stylesheet" />
