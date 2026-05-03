@@ -6,8 +6,6 @@ import { routes } from "#/routes.ts";
 import { env } from "cloudflare:workers";
 import { createFileResponse as sendFile } from "remix/response/file";
 
-// Accessed directly from env because uploadHandler runs during formData
-// parsing, before asyncContext and loadFileStorage middleware execute.
 let storage = new R2FileStorage(env.FILES);
 
 export const ALLOWED_TYPES = [
