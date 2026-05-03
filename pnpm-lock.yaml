@@ -20,6 +20,9 @@ importers:
       es-toolkit:
         specifier: ^1.45.1
         version: 1.46.1
+      magic-string:
+        specifier: ^0.30.21
+        version: 0.30.21
       match-sorter:
         specifier: ^8.2.0
         version: 8.3.0
