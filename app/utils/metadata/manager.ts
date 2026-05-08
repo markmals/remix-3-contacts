@@ -51,7 +51,7 @@ function parseTemplateElement(template: HTMLTemplateElement): NormalizedMetadata
 function nodeToManaged(node: Element): ExistingManagedNode | null {
     let owner = node.getAttribute("data-pitlane-metadata-owner");
     let key = node.getAttribute("data-pitlane-metadata-key");
-    let lifecycle =
+    let lifecycle: ExistingManagedNode["lifecycle"] =
         node.getAttribute("data-pitlane-metadata-lifecycle") === "sticky"
             ? "sticky"
             : "replaceable";
@@ -167,7 +167,7 @@ export class MetadataManager {
             return;
         }
 
-        document.head.append(next);
+        document.head.appendChild(next);
     }
 }
 
