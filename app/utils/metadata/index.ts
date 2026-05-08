@@ -40,3 +40,6 @@ export { collectNormalizedEntriesFromHtml, injectMetadataIntoHtml } from "./ssr.
 export { renderWithMetadata, streamToString, stringToStream } from "./stream.ts";
 
 export { MetadataManager, createMetadataManager } from "./manager.ts";
+
+export type { MetadataFrameResponse, MetadataResolveFrame } from "./frames.ts";
+export { normalizeFrameHtml, withMetadataFrames } from "./frames.ts";
