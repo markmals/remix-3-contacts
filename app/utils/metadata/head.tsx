@@ -1,6 +1,8 @@
-import { createElement, type Handle, type RemixNode } from "remix/ui";
-import { createTransportHtml } from "./transport.ts";
+import type { Handle, RemixNode } from "remix/ui";
+
 import type { MetadataElementType, MetadataEntry, MetadataProps } from "./types.ts";
+
+import { createTransportHtml } from "./transport.ts";
 
 export interface HeadProps {
     children?: RemixNode;
@@ -105,10 +107,12 @@ export function Head(handle: Handle<HeadProps>) {
         let entries = entriesFromHeadChildren(handle.props.children);
         let html = createTransportHtml({ owner, entries });
 
-        return createElement("template", {
-            "data-pitlane-metadata": "true",
-            "data-pitlane-metadata-owner": owner,
-            innerHTML: html.replace(/^<template\b[^>]*>/i, "").replace(/<\/template>$/i, ""),
-        });
+        return (
+            <template
+                data-pitlane-metadata="true"
+                data-pitlane-metadata-owner={owner}
+                innerHTML={html.replace(/^<template\b[^>]*>/i, "").replace(/<\/template>$/i, "")}
+            />
+        );
     };
 }
