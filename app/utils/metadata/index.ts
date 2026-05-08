@@ -16,3 +16,10 @@ export {
     isSupportedEntry,
     normalizeEntry,
 } from "./rules.ts";
+
+export {
+    collectPrecedenceOrder,
+    dedupeEntries,
+    renderHeadEntriesToHtml,
+    renderHeadEntryToHtml,
+} from "./html.ts";
