@@ -1,8 +1,6 @@
-// @jsxRuntime classic
-// @jsx createElement
 import * as assert from "remix/assert";
 import { describe, it } from "remix/test";
-import { createElement, type RemixElement } from "remix/ui";
+import { type RemixElement } from "remix/ui";
 import { renderToString } from "remix/ui/server";
 import { Head, entriesFromHeadChildren } from "./head.tsx";
 import { extractTransportTemplates } from "./transport.ts";

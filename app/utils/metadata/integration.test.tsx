@@ -1,9 +1,6 @@
-// @jsxRuntime classic
-// @jsx createElement
-// @jsxFrag Fragment
 import * as assert from "remix/assert";
 import { describe, it } from "remix/test";
-import { Fragment, createElement, type Handle, type RemixNode } from "remix/ui";
+import { type Handle, type RemixNode } from "remix/ui";
 import { renderToString } from "remix/ui/server";
 import { Head, createMetadataManager, injectMetadataIntoHtml } from "./index.ts";
 

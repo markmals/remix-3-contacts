@@ -1,5 +1,3 @@
-// @jsxRuntime classic
-// @jsx createElement
 import { createElement, type Handle, type RemixNode } from "remix/ui";
 import { createTransportHtml } from "./transport.ts";
 import type { MetadataElementType, MetadataEntry, MetadataProps } from "./types.ts";
