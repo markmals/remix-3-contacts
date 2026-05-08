@@ -34,3 +34,5 @@ export {
 
 export { Head, entriesFromHeadChildren } from "./head.tsx";
 export type { HeadProps } from "./head.tsx";
+
+export { collectNormalizedEntriesFromHtml, injectMetadataIntoHtml } from "./ssr.ts";
