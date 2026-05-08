@@ -61,6 +61,9 @@ export default defineConfig({
                 command: "vp check --fix",
                 cache: false,
             },
+            test: {
+                command: "remix test",
+            },
             deploy: {
                 command: "wrangler deploy",
                 cache: false,
