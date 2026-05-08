@@ -39,7 +39,7 @@ export function Document() {
                 ))}
             </head>
             <body>
-                <Head owner="document">
+                <Head>
                     <title>{SITE.title}</title>
                 </Head>
                 <div id="root">

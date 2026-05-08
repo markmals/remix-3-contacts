@@ -16,7 +16,7 @@ function contactName(contact: Contact): string {
 export function EditContact() {
     return (props: { contact: Contact }) => (
         <div id="detail">
-            <Head owner={`contact-edit-${props.contact.id}`}>
+            <Head>
                 <title>{`Edit ${contactName(props.contact)} · ${SITE.title}`}</title>
             </Head>
             <RestfulForm

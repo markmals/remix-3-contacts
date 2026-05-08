@@ -24,7 +24,7 @@ export function ShowContact() {
 
         return (
             <div id="detail">
-                <Head owner={`contact-show-${props.contact.id}`}>
+                <Head>
                     <title>{`${name} · ${SITE.title}`}</title>
                     {description ? <meta content={description} name="description" /> : null}
                 </Head>
