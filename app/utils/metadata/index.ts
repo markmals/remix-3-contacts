@@ -23,3 +23,11 @@ export {
     renderHeadEntriesToHtml,
     renderHeadEntryToHtml,
 } from "./html.ts";
+
+export type { MetadataTransportPayload } from "./transport.ts";
+export {
+    createTransportHtml,
+    extractTransportTemplates,
+    parseTransportTemplate,
+    stripTransportTemplates,
+} from "./transport.ts";
