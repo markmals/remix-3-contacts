@@ -1,6 +1,7 @@
 import type { RemixNode } from "remix/ui";
 
 import { router } from "#/entry.server.tsx";
+import { renderWithMetadata } from "#/utils/metadata/index.ts";
 import { getContext } from "remix/async-context-middleware";
 import { isSafeHtml, type SafeHtml } from "remix/html-template";
 import { renderToStream } from "remix/ui/server";
@@ -22,6 +23,10 @@ export function render(node: RemixNode): ReadableStream<Uint8Array> {
             return response.body ?? (await response.text());
         },
     });
+}
+
+export function renderDocument(node: RemixNode): Promise<ReadableStream<Uint8Array>> {
+    return renderWithMetadata(render(node));
 }
 
 type HtmlBody = string | SafeHtml | Blob | BufferSource | ReadableStream<Uint8Array>;

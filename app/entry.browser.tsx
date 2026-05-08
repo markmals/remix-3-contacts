@@ -1,4 +1,7 @@
+import { createMetadataManager, withMetadataFrames } from "#/utils/metadata/index.ts";
 import { createRoot, navigate, on, run } from "remix/ui";
+
+createMetadataManager().hydrate(document);
 
 // Must be registered before `run` so `event.preventDefault` works properly
 //
@@ -60,12 +63,12 @@ let app = run({
 
         return exported;
     },
-    async resolveFrame(src, signal, target) {
+    resolveFrame: withMetadataFrames(async (src, signal, target) => {
         let headers = new Headers({ accept: "text/html", "x-remix-frame": "true" });
         if (target) headers.set("x-remix-target", target);
         let response = await fetch(src, { headers, signal });
         return response.body ?? (await response.text());
-    },
+    }),
 });
 
 // Global error boundary — renders a dismissible banner for any error

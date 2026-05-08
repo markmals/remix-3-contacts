@@ -1,6 +1,6 @@
 import { dedupeEntries, renderHeadEntryToHtml } from "./html.ts";
 import { normalizeEntry } from "./rules.ts";
-import type { MetadataManagerOptions, NormalizedMetadataEntry } from "./types.ts";
+import type { NormalizedMetadataEntry } from "./types.ts";
 
 interface ExistingManagedNode {
     node: Element;
@@ -75,11 +75,6 @@ export class MetadataManager {
     #document: Document | null = null;
     #observer: MutationObserver | null = null;
     #scheduled = false;
-    #options: MetadataManagerOptions;
-
-    constructor(options: MetadataManagerOptions = {}) {
-        this.#options = options;
-    }
 
     hydrate(document: Document = window.document): void {
         this.dispose();
@@ -171,6 +166,6 @@ export class MetadataManager {
     }
 }
 
-export function createMetadataManager(options: MetadataManagerOptions = {}): MetadataManager {
-    return new MetadataManager(options);
+export function createMetadataManager(): MetadataManager {
+    return new MetadataManager();
 }

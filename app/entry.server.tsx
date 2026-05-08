@@ -5,7 +5,7 @@ import { sidebar } from "#/controllers/sidebar.tsx";
 import { serveUpload, uploadHandler } from "#/controllers/uploads.ts";
 import { database } from "#/middleware.ts";
 import { routes } from "#/routes.ts";
-import { frame, render } from "#/utils/render.tsx";
+import { frame, render, renderDocument } from "#/utils/render.tsx";
 import { asyncContext } from "remix/async-context-middleware";
 import { createRouter, type Middleware } from "remix/fetch-router";
 import { formData } from "remix/form-data-middleware";
@@ -41,7 +41,7 @@ router.map(routes.uploads, serveUpload);
 router.map(routes.home, async ctx => {
     if (ctx.headers.get("x-remix-target") === "sidebar") return sidebar();
     if (ctx.headers.get("x-remix-target") === "detail") return frame(render(<ZeroState />));
-    return html(render(<Document />));
+    return html(await renderDocument(<Document />));
 });
 
 router.map(routes.contacts, contacts);

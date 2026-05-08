@@ -4,7 +4,7 @@ export type MetadataFrameResponse = string | ReadableStream<Uint8Array>;
 
 export type MetadataResolveFrame = (
     src: string,
-    signal: AbortSignal,
+    signal?: AbortSignal,
     target?: string | null,
     context?: unknown,
 ) => MetadataFrameResponse | Promise<MetadataFrameResponse>;

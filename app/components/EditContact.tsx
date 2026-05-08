@@ -2,13 +2,23 @@ import type { Contact } from "#/data/contacts.ts";
 
 import { CancelButton } from "#/components/Buttons.tsx";
 import { ALLOWED_TYPES } from "#/controllers/uploads.ts";
+import { SITE } from "#/data/meta.ts";
 import { routes } from "#/routes.ts";
+import { Head } from "#/utils/metadata/index.ts";
 
 import { RestfulForm } from "./RestfulForm.tsx";
+
+function contactName(contact: Contact): string {
+    let name = `${contact.first ?? ""} ${contact.last ?? ""}`.trim();
+    return name || "No Name";
+}
 
 export function EditContact() {
     return (props: { contact: Contact }) => (
         <div id="detail">
+            <Head owner={`contact-edit-${props.contact.id}`}>
+                <title>{`Edit ${contactName(props.contact)} · ${SITE.title}`}</title>
+            </Head>
             <RestfulForm
                 action={routes.contacts.update.href({ id: props.contact.id })}
                 enctype="multipart/form-data"
