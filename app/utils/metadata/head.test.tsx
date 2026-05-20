@@ -2,6 +2,7 @@ import * as assert from "remix/assert";
 import { describe, it } from "remix/test";
 import { type RemixElement } from "remix/ui";
 import { renderToString } from "remix/ui/server";
+
 import { Head, entriesFromHeadChildren } from "./head.tsx";
 import { extractTransportTemplates } from "./transport.ts";
 

@@ -1,31 +1,17 @@
-import type { SqlStatement } from "remix/data-table";
-
 // One trailing semicolon per statement, preceded by no whitespace.
 const TRAILING_SEMI_OR_SPACE = /[\s;]+$/;
 
 /**
- * Normalize compiled `SqlStatement[]` into ready-to-write SQL text lines.
- *
- * The data-table compiler emits parameterized SQL (`text`, `values`), but
- * migration DDL has no bound values. If any do show up — e.g. a migration
- * inserted a literal via `db.insert(...)` — we refuse to emit because the
- * `.sql` file would lose the parameters and execute incorrect SQL.
+ * Split a migration's SQL script into individual statement strings, ensuring
+ * each is terminated by exactly one semicolon. Empty or whitespace-only lines
+ * between statements are discarded; nothing else is reformatted.
  */
-export function normalizeSqlStatements(statements: SqlStatement[]): string[] {
-    return statements.map(stmt => {
-        if (stmt.values.length > 0) {
-            throw new Error(
-                "Cannot emit a migration SQL statement with bound values: " +
-                    JSON.stringify(stmt.values) +
-                    ". Migrations must use only schema operations when generating D1 SQL.",
-            );
-        }
-        let trimmed = stmt.text.replace(TRAILING_SEMI_OR_SPACE, "");
-        if (trimmed.length === 0) {
-            throw new Error("Refusing to emit empty SQL statement");
-        }
-        return trimmed + ";";
-    });
+export function normalizeSqlStatements(sql: string): string[] {
+    return sql
+        .split(/;\s*\n/)
+        .map(stmt => stmt.replace(TRAILING_SEMI_OR_SPACE, "").trim())
+        .filter(stmt => stmt.length > 0)
+        .map(stmt => stmt + ";");
 }
 
 /** Turn a migration id+name into the target `.sql` filename (Wrangler-compatible). */

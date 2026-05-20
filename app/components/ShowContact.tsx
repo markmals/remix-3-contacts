@@ -20,7 +20,8 @@ const AVATAR_PLACEHOLDER =
 export function ShowContact() {
     return (props: { contact: Contact; query?: string }) => {
         let name = contactName(props.contact);
-        let description = props.contact.notes || (props.contact.bsky ? `@${props.contact.bsky}` : "");
+        let description =
+            props.contact.notes || (props.contact.bsky ? `@${props.contact.bsky}` : "");
 
         return (
             <div id="detail">

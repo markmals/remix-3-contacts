@@ -2,8 +2,8 @@ import { SidebarItem } from "#/components/SidebarItem.tsx";
 import { getContacts } from "#/data/contacts.ts";
 import { QuerySchema } from "#/data/schemas.ts";
 import { frame, render } from "#/utils/render.tsx";
-import { getContext } from "remix/async-context-middleware";
 import * as s from "remix/data-schema";
+import { getContext } from "remix/middleware/async-context";
 
 export async function sidebar(selected?: string | number): Promise<Response> {
     let { url } = getContext();

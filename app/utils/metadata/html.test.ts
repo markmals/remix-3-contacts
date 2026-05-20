@@ -1,7 +1,9 @@
 import * as assert from "remix/assert";
 import { describe, it } from "remix/test";
-import { renderHeadEntriesToHtml, renderHeadEntryToHtml } from "./html.ts";
+
 import type { NormalizedMetadataEntry } from "./types.ts";
+
+import { renderHeadEntriesToHtml, renderHeadEntryToHtml } from "./html.ts";
 
 function normalized(
     entry: Omit<NormalizedMetadataEntry, "owner" | "lifecycle"> & {

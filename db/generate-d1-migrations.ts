@@ -1,9 +1,7 @@
 import { mkdirSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { createMigrationRunner } from "remix/data-table/migrations";
 import { loadMigrations } from "remix/data-table/migrations/node";
 
-import { DryRunAdapter } from "./lib/dry-run-adapter.ts";
 import {
     buildSqlFileContents,
     d1MigrationFilename,
@@ -26,8 +24,8 @@ async function main(): Promise<void> {
 
     console.log(`Generating SQL for ${migrations.length} migration(s) from ${TS_MIGRATIONS_DIR}`);
 
-    // Wipe stale .sql files that no longer correspond to a TS source, so the
-    // output dir is a pure function of db/migrations/. Only files matching
+    // Wipe stale .sql files that no longer correspond to a source migration, so
+    // the output dir is a pure function of db/migrations/. Only files matching
     // SQL_FILE_PATTERN are considered generated artifacts; unrelated files
     // (.gitkeep, README.md) are left alone.
     pruneStaleSql(
@@ -36,20 +34,17 @@ async function main(): Promise<void> {
     );
 
     for (let migration of migrations) {
-        let adapter = new DryRunAdapter();
-        let runner = createMigrationRunner(adapter, [migration]);
-        let result = await runner.up({ dryRun: true });
+        let statements = normalizeSqlStatements(migration.up);
 
-        if (result.sql.length === 0) {
+        if (statements.length === 0) {
             throw new Error(
-                `Migration ${migration.id}_${migration.name} produced no SQL during dry-run. ` +
-                    "Did its up() call schema.* operations?",
+                `Migration ${migration.id}_${migration.name} produced no SQL statements. ` +
+                    "Is up.sql empty?",
             );
         }
 
-        let statements = normalizeSqlStatements(result.sql);
         let contents = buildSqlFileContents({
-            sourceFilename: path.basename(migration.path ?? migration.id),
+            sourceFilename: `${migration.id}_${migration.name}/up.sql`,
             statements,
         });
         let outFile = path.join(

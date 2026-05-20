@@ -1,7 +1,7 @@
 import type { Contact } from "#/data/contacts.ts";
 
+import { ALLOWED_TYPES } from "#/actions/controller.tsx";
 import { CancelButton } from "#/components/Buttons.tsx";
-import { ALLOWED_TYPES } from "#/controllers/uploads.ts";
 import { SITE } from "#/data/meta.ts";
 import { routes } from "#/routes.ts";
 import { Head } from "#/utils/metadata/index.ts";

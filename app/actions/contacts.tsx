@@ -1,4 +1,3 @@
-import type { Controller } from "remix/fetch-router";
 import type { RemixNode } from "remix/ui";
 
 import { Document } from "#/components/Document.tsx";
@@ -11,13 +10,14 @@ import {
     getContact,
     updateContact,
 } from "#/data/contacts.ts";
-import { FavoriteSchema, QuerySchema, UpdateSchema, IdSchema } from "#/data/schemas.ts";
+import { FavoriteSchema, IdSchema, QuerySchema, UpdateSchema } from "#/data/schemas.ts";
 import { routes } from "#/routes.ts";
 import { frame, render, renderDocument } from "#/utils/render.tsx";
-import { getContext } from "remix/async-context-middleware";
 import * as s from "remix/data-schema";
+import { getContext } from "remix/middleware/async-context";
 import { createHtmlResponse as html } from "remix/response/html";
 import { redirect } from "remix/response/redirect";
+import { createController } from "remix/router";
 
 import { sidebar } from "./sidebar.tsx";
 
@@ -44,7 +44,7 @@ async function contactPage(detail: (contact: Contact) => RemixNode) {
     }
 }
 
-export default {
+export default createController(routes.contacts, {
     actions: {
         async show(ctx) {
             let { q } = s.parse(QuerySchema, ctx.url.searchParams);
@@ -90,4 +90,4 @@ export default {
             return redirect(routes.contacts.show.href({ id: ctx.params.id }));
         },
     },
-} satisfies Controller<typeof routes.contacts>;
+});

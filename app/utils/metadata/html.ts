@@ -1,5 +1,6 @@
-import { getPrecedence, isResourceHint } from "./rules.ts";
 import type { NormalizedMetadataEntry } from "./types.ts";
+
+import { getPrecedence, isResourceHint } from "./rules.ts";
 
 const VOID_ELEMENTS = new Set(["meta", "link"]);
 

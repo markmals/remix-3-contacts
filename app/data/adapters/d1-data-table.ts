@@ -3,9 +3,6 @@ import type {
     DataManipulationOperation,
     DataManipulationRequest,
     DataManipulationResult,
-    DataMigrationOperation,
-    DataMigrationRequest,
-    DataMigrationResult,
     DatabaseAdapter,
     SqlStatement,
     TableRef,
@@ -14,7 +11,7 @@ import type {
 } from "remix/data-table";
 
 import { getTablePrimaryKey } from "remix/data-table";
-import { SqliteDatabaseAdapter } from "remix/data-table-sqlite";
+import { SqliteDatabaseAdapter } from "remix/data-table/sqlite";
 
 // The SQLite adapter's compileSql method is pure SQL generation —
 // it never touches the database instance, so null is safe here.
@@ -45,7 +42,7 @@ export class D1DatabaseAdapter implements DatabaseAdapter {
         this.#d1 = d1;
     }
 
-    compileSql(operation: DataManipulationOperation | DataMigrationOperation): SqlStatement[] {
+    compileSql(operation: DataManipulationOperation): SqlStatement[] {
         return compiler.compileSql(operation);
     }
 
@@ -87,15 +84,9 @@ export class D1DatabaseAdapter implements DatabaseAdapter {
         };
     }
 
-    async migrate(request: DataMigrationRequest): Promise<DataMigrationResult> {
-        let statements = this.compileSql(request.operation);
-        for (let statement of statements) {
-            await this.#d1
-                .prepare(statement.text)
-                .bind(...statement.values)
-                .run();
-        }
-        return { affectedOperations: statements.length };
+    async executeScript(sql: string, _transaction?: TransactionToken): Promise<void> {
+        let d1 = this.#d1;
+        await d1.exec(sql);
     }
 
     async hasTable(table: TableRef, _transaction?: TransactionToken): Promise<boolean> {

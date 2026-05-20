@@ -1,4 +1,4 @@
-import type { RequestMethod } from "remix/fetch-router";
+import type { RequestMethod } from "remix/router";
 
 export function RestfulForm() {
     return ({

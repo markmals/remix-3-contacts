@@ -1,17 +1,12 @@
-import { Document } from "#/components/Document.tsx";
-import { ZeroState } from "#/components/ZeroState.tsx";
-import contacts from "#/controllers/contacts.tsx";
-import { sidebar } from "#/controllers/sidebar.tsx";
-import { serveUpload, uploadHandler } from "#/controllers/uploads.ts";
+import contacts from "#/actions/contacts.tsx";
+import controller, { uploadHandler } from "#/actions/controller.tsx";
 import { database } from "#/middleware.ts";
 import { routes } from "#/routes.ts";
-import { frame, render, renderDocument } from "#/utils/render.tsx";
-import { asyncContext } from "remix/async-context-middleware";
-import { createRouter, type Middleware } from "remix/fetch-router";
-import { formData } from "remix/form-data-middleware";
-import { methodOverride } from "remix/method-override-middleware";
-import { createHtmlResponse as html } from "remix/response/html";
-import { staticFiles } from "remix/static-middleware";
+import { asyncContext } from "remix/middleware/async-context";
+import { formData } from "remix/middleware/form-data";
+import { methodOverride } from "remix/middleware/method-override";
+import { staticFiles } from "remix/middleware/static";
+import { createRouter, type Middleware, type MiddlewareContext } from "remix/router";
 
 function rescueResponses(): Middleware {
     return async (ctx, next) => {
@@ -24,26 +19,25 @@ function rescueResponses(): Middleware {
     };
 }
 
-export let router = createRouter({
-    middleware: [
-        rescueResponses(),
-        staticFiles("./public"),
-        staticFiles("./dist/client"),
-        formData({ uploadHandler }),
-        methodOverride(),
-        asyncContext(),
-        database(),
-    ],
-});
+let middleware = [
+    rescueResponses(),
+    staticFiles("./public"),
+    staticFiles("./dist/client"),
+    formData({ uploadHandler }),
+    methodOverride(),
+    asyncContext(),
+    database(),
+] as const;
 
-router.map(routes.uploads, serveUpload);
+declare module "remix/router" {
+    interface RouterTypes {
+        context: MiddlewareContext<typeof middleware>;
+    }
+}
 
-router.map(routes.home, async ctx => {
-    if (ctx.headers.get("x-remix-target") === "sidebar") return sidebar();
-    if (ctx.headers.get("x-remix-target") === "detail") return frame(render(<ZeroState />));
-    return html(await renderDocument(<Document />));
-});
+export let router = createRouter({ middleware });
 
+router.map(routes, controller);
 router.map(routes.contacts, contacts);
 
 export default router;

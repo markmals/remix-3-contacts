@@ -1,5 +1,6 @@
 import * as assert from "remix/assert";
 import { describe, it } from "remix/test";
+
 import { normalizeFrameHtml, withMetadataFrames } from "./frames.ts";
 import { streamToString, stringToStream } from "./stream.ts";
 
@@ -21,7 +22,7 @@ describe("frame metadata helpers", () => {
         let resolve = withMetadataFrames(
             async () => "<html><head></head><body><p>Frame</p></body></html>",
         );
-        let result = await resolve("/frame", new AbortController().signal);
+        let result = await resolve("/frame", new AbortController().signal, "detail");
 
         assert.equal(result, "<p>Frame</p>");
     });
@@ -30,9 +31,17 @@ describe("frame metadata helpers", () => {
         let resolve = withMetadataFrames(async () =>
             stringToStream("<html><head></head><body><p>Frame</p></body></html>"),
         );
-        let result = await resolve("/frame", new AbortController().signal);
+        let result = await resolve("/frame", new AbortController().signal, "detail");
 
         assert.ok(result instanceof ReadableStream);
         assert.equal(await streamToString(result), "<p>Frame</p>");
+    });
+
+    it("passes top-frame responses through untouched", async () => {
+        let body = "<html><body><p>Frame</p></body></html><!-- rmx:flush document -->";
+        let resolve = withMetadataFrames(async () => body);
+        let result = await resolve("/frame", new AbortController().signal);
+
+        assert.equal(result, body);
     });
 });

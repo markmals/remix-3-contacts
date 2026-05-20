@@ -20,6 +20,13 @@ export function withMetadataFrames(resolveFrame: MetadataResolveFrame): Metadata
     return async (src, signal, target, context) => {
         let result = await resolveFrame(src, signal, target, context);
 
+        // Top-frame responses are full HTML documents and carry the trailing
+        // `<!-- rmx:flush document -->` marker that drives the runtime's
+        // document-level diff. Stripping the body would also strip that marker
+        // and force a fragment diff against the document, which fails because
+        // elements can't be inserted before the doctype.
+        if (!target) return result;
+
         if (typeof result === "string") {
             return normalizeFrameHtml(result);
         }

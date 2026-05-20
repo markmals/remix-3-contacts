@@ -1,9 +1,8 @@
 import { sortBy } from "es-toolkit/array";
 import { matchSorter } from "match-sorter";
 import { setTimeout as sleep } from "node:timers/promises";
-import { getContext } from "remix/async-context-middleware";
-import { column as c, ColumnBuilder, table, type TableRow } from "remix/data-table";
-import { Database } from "remix/data-table";
+import { column as c, ColumnBuilder, Database, table, type TableRow } from "remix/data-table";
+import { getContext } from "remix/middleware/async-context";
 
 export let Contacts = table({
     name: "contacts",

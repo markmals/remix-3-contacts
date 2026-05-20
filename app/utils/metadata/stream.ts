@@ -1,5 +1,6 @@
-import { injectMetadataIntoHtml } from "./ssr.ts";
 import type { MetadataManagerOptions } from "./types.ts";
+
+import { injectMetadataIntoHtml } from "./ssr.ts";
 
 export function stringToStream(value: string): ReadableStream<Uint8Array> {
     let encoder = new TextEncoder();

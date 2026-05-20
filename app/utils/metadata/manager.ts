@@ -1,6 +1,7 @@
+import type { NormalizedMetadataEntry } from "./types.ts";
+
 import { dedupeEntries, renderHeadEntryToHtml } from "./html.ts";
 import { normalizeEntry } from "./rules.ts";
-import type { NormalizedMetadataEntry } from "./types.ts";
 
 interface ExistingManagedNode {
     node: Element;

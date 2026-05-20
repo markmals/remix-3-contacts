@@ -1,10 +1,10 @@
 import { routes } from "#/routes.ts";
 import { link } from "#/utils/link.tsx";
 import { isServer, navigating } from "#/utils/navigating.ts";
-import { ArrayMatcher } from "remix/route-pattern";
+import { createMultiMatcher } from "remix/route-pattern/match";
 import { addEventListeners, clientEntry, type SerializableProps } from "remix/ui";
 
-let matcher = new ArrayMatcher<true>();
+let matcher = createMultiMatcher<true>();
 matcher.add(routes.contacts.show.pattern, true);
 matcher.add(routes.contacts.edit.pattern, true);
 

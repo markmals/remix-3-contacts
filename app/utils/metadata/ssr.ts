@@ -1,7 +1,8 @@
+import type { MetadataManagerOptions, NormalizedMetadataEntry } from "./types.ts";
+
 import { renderHeadEntriesToHtml } from "./html.ts";
 import { normalizeEntry } from "./rules.ts";
 import { extractTransportTemplates } from "./transport.ts";
-import type { MetadataManagerOptions, NormalizedMetadataEntry } from "./types.ts";
 
 export function collectNormalizedEntriesFromHtml(html: string): NormalizedMetadataEntry[] {
     let entries: NormalizedMetadataEntry[] = [];

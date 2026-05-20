@@ -1,7 +1,9 @@
 import * as assert from "remix/assert";
 import { describe, it } from "remix/test";
-import { deriveEntryKey, getEntryLifecycle, isSupportedEntry, normalizeEntry } from "./rules.ts";
+
 import type { MetadataEntry } from "./types.ts";
+
+import { deriveEntryKey, getEntryLifecycle, isSupportedEntry, normalizeEntry } from "./rules.ts";
 
 function entry(type: MetadataEntry["type"], props: MetadataEntry["props"] = {}): MetadataEntry {
     return { type, props };

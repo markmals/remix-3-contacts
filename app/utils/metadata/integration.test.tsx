@@ -2,6 +2,7 @@ import * as assert from "remix/assert";
 import { describe, it } from "remix/test";
 import { type Handle, type RemixNode } from "remix/ui";
 import { renderToString } from "remix/ui/server";
+
 import { Head, createMetadataManager, injectMetadataIntoHtml } from "./index.ts";
 
 function Layout(handle: Handle<{ children?: RemixNode }>) {
