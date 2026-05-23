@@ -8,32 +8,39 @@ A typical Remix 3 & Vite project:
 
 ```
 app/
-  entry.server.tsx    # Server entry: router, middleware stack, route mapping
-  entry.browser.ts    # Client entry: run(), navigation interception
-  routes.ts           # Route definitions (single source of truth for URLs)
-  index.css           # Global styles
-  controllers/        # Route handlers (one file per resource/domain)
-  components/         # UI components (server-only and hydrated)
+  entry.server.tsx       # Server entry: router, middleware stack, route mapping
+  entry.browser.tsx      # Client entry: run(), navigation interception, error banner
+  routes.ts              # Route definitions (single source of truth for URLs)
+  middleware.ts          # App-defined middleware (e.g. database injection)
+  index.css              # Global styles
+  actions/               # Route handlers (one file per resource/domain) — created with `createController`
+  components/            # UI components (server-only and hydrated)
   data/
-    contacts.ts       # Table definition, typed queries, business logic
-    schemas.ts        # Data validation schemas (form + search params)
-    meta.ts           # Site-wide metadata constants
-    adapters/         # Platform-specific database/storage adapters
-  middleware/          # Request middleware (database, file storage)
+    contacts.ts          # Table definition, typed queries, business logic
+    schemas.ts           # Data validation schemas (form + search params)
+    meta.ts              # Site-wide metadata constants
+    adapters/            # Platform-specific database/storage adapters
   utils/
-    frame.tsx         # Frame primitives (Target class, link mixin, helpers)
-    render.tsx        # Server rendering utilities (document, sidebar, frame)
-    navigating.ts     # Client navigation state tracking
+    link.tsx             # `link()` mixin for type-safe frame targeting
+    render.tsx           # Server rendering helpers (frame/document responses)
+    navigating.ts        # Client navigation state tracking
+    metadata/            # `<Head>` component + streaming metadata manager
 db/
-  migrate.ts          # Migration runner script
-  migrations/         # Timestamped migration files
-vite.config.ts        # Unified config: build, dev, fmt, lint, typecheck
-remix.plugin.ts       # Vite plugin for Remix (build, SSR, client entries)
+  migrations/            # Authored migrations — one directory per migration with up.sql / down.sql
+  d1-migrations/         # Generated Wrangler-format .sql files (committed)
+  apply-d1-migrations.ts # Applies SQL via `wrangler d1 migrations apply`
+  generate-d1-migrations.ts # Compiles db/migrations/ → db/d1-migrations/
+  seed.ts                # Idempotent local seed script
+  lib/                   # Shared helpers for the db scripts
+vite.config.ts           # Unified config: build, dev, fmt, lint, typecheck, db tasks
+remix.plugin.ts          # Vite plugin for Remix (build, SSR, client entries)
+remix-test.config.ts     # `remix test` config (glob patterns, playwright projects)
+wrangler.jsonc           # Cloudflare bindings (D1, R2, assets)
 ```
 
 **Key principle:** Everything runs through `vite.config.ts`. There are no separate config files for linting, formatting, or building. The CLI is `vp` (Vite+).
 
-For small apps with one or two resources, a controller can live at the top level of `app/` (e.g. `app/posts.tsx`). Once you have several, move them into `app/controllers/` to keep things organized.
+For small apps with one or two resources, an action file can live at the top level of `app/` (e.g. `app/posts.tsx`). Once you have several, move them into `app/actions/` to keep things organized.
 
 ---
 
@@ -173,7 +180,7 @@ Use this when you need full control over the response (e.g., optimistic UI, read
 **Method override for PUT/PATCH/DELETE:** HTML forms only support GET and POST. For other HTTP methods, use a hidden `_method` field with the `methodOverride()` middleware. Wrap this pattern in a `RestfulForm` component to avoid repeating the boilerplate:
 
 ```tsx
-import type { RequestMethod } from "remix/fetch-router";
+import type { RequestMethod } from "remix/router";
 
 export function RestfulForm() {
     return ({
@@ -401,76 +408,78 @@ navigate(url, { target: "detail" });
 </a>;
 ```
 
-**Server-side frame detection:** The server knows which frame is being requested via the `x-remix-target` header. Rather than reading raw headers in every controller, use a `Frame.Target` class and middleware to provide type-safe frame detection:
+**Server-side frame detection:** The server knows which frame is being requested via the `x-remix-target` header. Read it directly from `ctx.headers` in each action — there's no need for a custom middleware or wrapper class:
 
 ```tsx
-import * as s from "remix/data-schema";
-import { createMixin, Frame as RemixFrame, type RemixNode } from "remix/ui";
-import { renderToStream } from "remix/ui/server";
-import type { Middleware } from "remix/fetch-router";
+import { getContext } from "remix/middleware/async-context";
 
-// Define your app's valid frame names as a union type
-export namespace Frame {
-    export const Name = s.union([s.literal("sidebar" as const), s.literal("detail" as const)]);
-    export type Name = s.InferOutput<typeof Name>;
+async function contactPage(detail: (contact: Contact) => RemixNode) {
+    let ctx = getContext();
+    let target = ctx.headers.get("x-remix-target");
 
-    export class Target {
-        #name: string | null;
+    if (target === "sidebar") return sidebar(ctx.params.id);
 
-        constructor(headers: Headers) {
-            this.#name = headers.get("x-remix-target");
-        }
+    let contact = await getContact(ctx.params.id);
+    if (!contact) throw contact;
 
-        is(name: Frame.Name): boolean {
-            return this.#name === name;
-        }
-
-        get exists() {
-            let { success } = s.parseSafe(Frame.Name, this.#name);
-            return success;
-        }
-    }
-}
-
-// Middleware that parses the header once per request
-export function frameTarget(): Middleware {
-    return (ctx, next) => {
-        ctx.set(Frame.Target, new Frame.Target(ctx.headers));
-        return next();
-    };
+    if (target === "detail") return frame(render(detail(contact)));
+    return html(await renderDocument(<Document />));
 }
 ```
 
-Add `frameTarget()` to your middleware stack (see Recipe 7), then use `ctx.get(Frame.Target)` in controllers:
-
-```tsx
-let target = ctx.get(Frame.Target);
-
-if (target.is("sidebar")) return sidebar();
-if (target.is("detail")) return frame(<ItemDetail item={item} />);
-return document(); // Full page (initial load, hard refresh, no JS)
-```
+If you want a typed union of valid frame names, declare it once and use it on the client side (the `link()` mixin in Recipe 15) — the server can stay loose since `x-remix-target` is just a string.
 
 **The two fundamental response types:**
 
-- `document()` - Full HTML page with `<html>`, `<head>`, `<body>`. Used for initial page loads and no-JS fallback.
-- `frame(node)` - An HTML fragment for a specific frame region. Used when a named frame is targeted.
+- A **document** response — full HTML page with `<html>`, `<head>`, `<body>`. Used for initial page loads and no-JS fallback. Built with `renderDocument(<Document />)` (returns a stream) and wrapped in `createHtmlResponse as html` from `remix/response/html`.
+- A **frame** response — an HTML fragment for a specific frame region. Used when a named frame is targeted. Built with `render(node)` and wrapped in a thin `frame()` helper.
 
 You'll typically build helper functions on top of these for your app's specific layout patterns. For example, a `sidebar()` helper that fetches contacts, parses the current search query, and returns a rendered nav frame — eliminating duplication across every route that needs to update the sidebar.
 
-**Frame resolution on the server:** When rendering a full document, nested `<Frame>` components need their content resolved. The `resolveFrame` callback in `renderToStream` handles this by internally routing the frame's `src` through the router:
+**Render utilities** (`app/utils/render.tsx`) wire `renderToStream` to the router for in-process frame resolution and provide a small `frame()` constructor:
 
 ```tsx
-renderToStream(<Document />, {
-    frameSrc: context.url,
-    async resolveFrame(src, target, ctx) {
-        let url = new URL(src, ctx?.currentFrameSrc ?? context.url);
-        let headers = new Headers({ accept: "text/html" });
-        if (target) headers.set("x-remix-target", target);
-        return (await router.fetch(new Request(url, { headers }))).body;
-    },
-});
+import type { RemixNode } from "remix/ui";
+
+import { router } from "#/entry.server.tsx";
+import { renderWithMetadata } from "#/utils/metadata/index.ts";
+import { isSafeHtml, type SafeHtml } from "remix/html-template";
+import { getContext } from "remix/middleware/async-context";
+import { renderToStream } from "remix/ui/server";
+
+export function render(node: RemixNode): ReadableStream<Uint8Array> {
+    let context = getContext();
+    return renderToStream(node, {
+        frameSrc: context.url,
+        async resolveFrame(src, target, ctx) {
+            let url = new URL(src, ctx?.currentFrameSrc ?? context.url);
+            let headers = new Headers({ accept: "text/html" });
+            if (target) headers.set("x-remix-target", target);
+            let response = await router.fetch(new Request(url, { headers }));
+            if (!response.ok) throw new Error(`Failed to resolve frame ${url.pathname}`);
+            return response.body ?? (await response.text());
+        },
+    });
+}
+
+export function renderDocument(node: RemixNode): Promise<ReadableStream<Uint8Array>> {
+    return renderWithMetadata(render(node));
+}
+
+type HtmlBody = string | SafeHtml | Blob | BufferSource | ReadableStream<Uint8Array>;
+
+export function createFrameResponse(body: HtmlBody, init?: ResponseInit): Response {
+    if (isSafeHtml(body)) body = String(body);
+    return new Response(body, {
+        ...(init ? init : {}),
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+    });
+}
+
+export { createFrameResponse as frame };
 ```
+
+`renderDocument` pipes the rendered stream through `renderWithMetadata` so `<Head>` entries collected from any component (see Recipe 22) get inlined into the document `<head>` before it's flushed.
 
 ---
 
@@ -536,39 +545,70 @@ router.map(routes.posts, postsController); // Maps all sub-routes to a controlle
 
 **Decision:** What middleware do I need and in what order?
 
-**Heuristic:** Middleware runs in order for every request. Put cheap/broad middleware first, expensive/specific middleware last.
+**Heuristic:** Middleware runs in order for every request. Put cheap/broad middleware first, expensive/specific middleware last. Declare the middleware tuple `as const` and feed its type into `RouterTypes` via module augmentation so action handlers see precisely-typed `ctx` properties (e.g. `ctx.formData`, `ctx.get(Database)`).
 
 **Recommended middleware stack:**
 
 ```tsx
-export let router = createRouter({
-    middleware: [
-        staticFiles("./public"), // 1. Serve static files (short-circuits)
-        staticFiles("./dist/client"), // 2. Serve built client assets
-        formData({ uploadHandler }), // 3. Parse form data + file uploads
-        methodOverride(), // 4. Rewrite _method field to real HTTP method
-        asyncContext(), // 5. Enable request-scoped context (getContext())
-        loadDatabase(), // 6. Initialize database, inject into context
-        loadFileStorage(), // 7. Inject file storage into context
-        frameTarget(), // 8. Parse x-remix-target header into Frame.Target
-    ],
-});
-```
+import contacts from "#/actions/contacts.tsx";
+import controller, { uploadHandler } from "#/actions/controller.tsx";
+import { database } from "#/middleware.ts";
+import { routes } from "#/routes.ts";
+import { asyncContext } from "remix/middleware/async-context";
+import { formData } from "remix/middleware/form-data";
+import { methodOverride } from "remix/middleware/method-override";
+import { staticFiles } from "remix/middleware/static";
+import { createRouter, type Middleware, type MiddlewareContext } from "remix/router";
 
-**Why this order matters:**
+function rescueResponses(): Middleware {
+    return async (ctx, next) => {
+        try {
+            return await next();
+        } catch (error) {
+            if (error instanceof Response) return error;
+            throw error;
+        }
+    };
+}
 
-1. **Static files first:** Most requests for CSS/JS/images should return immediately without touching form parsing or database setup.
-2. **Form data before method override:** `methodOverride()` reads from the parsed form data, so `formData()` must run first. Pass an `uploadHandler` to `formData()` if your app handles file uploads (see Recipe 35).
-3. **Async context before database:** The database middleware uses `context.set()` which requires async context to be active.
-4. **Frame target last:** The `frameTarget()` middleware (see Recipe 5) parses the `x-remix-target` header into a `Frame.Target` instance. It's cheap and only reads a header, but placing it after async context ensures `getContext()` works in frame-related utilities.
+let middleware = [
+    rescueResponses(),           // 1. Convert thrown Responses into return values
+    staticFiles("./public"),     // 2. Serve static files (short-circuits)
+    staticFiles("./dist/client"),// 3. Serve built client assets
+    formData({ uploadHandler }), // 4. Parse form data + file uploads
+    methodOverride(),            // 5. Rewrite _method field to real HTTP method
+    asyncContext(),              // 6. Enable request-scoped context (getContext())
+    database(),                  // 7. Initialize database, inject into context
+] as const;
 
-**HMR support:** Add this at the bottom of your server entry so the dev server picks up changes:
+declare module "remix/router" {
+    interface RouterTypes {
+        context: MiddlewareContext<typeof middleware>;
+    }
+}
 
-```tsx
+export let router = createRouter({ middleware });
+
+router.map(routes, controller);
+router.map(routes.contacts, contacts);
+
+export default router;
+
 if (import.meta.hot) {
     import.meta.hot.accept();
 }
 ```
+
+**Why this order matters:**
+
+1. **Rescue first:** `rescueResponses()` wraps the whole pipeline so `throw new Response(...)` from any later middleware or action becomes the outgoing response. This lets `uploadHandler` (and other deep code) signal HTTP failures by throwing a `Response`.
+2. **Static files next:** Most requests for CSS/JS/images should return immediately without touching form parsing or database setup.
+3. **Form data before method override:** `methodOverride()` reads from the parsed form data, so `formData()` must run first. Pass an `uploadHandler` to `formData()` if your app handles file uploads (see Recipe 35).
+4. **Async context before database:** The database middleware uses `context.set()` which requires async context to be active.
+
+**The `RouterTypes` augmentation:** Declaring `interface RouterTypes { context: MiddlewareContext<typeof middleware> }` teaches `remix/router` about everything your stack contributes to the context. Inside actions, `ctx.formData` (from `formData()`), `ctx.params` (typed by the matched route pattern), and `ctx.get(Database)` (from `database()`) all become statically known — no manual typing required.
+
+**HMR support:** The `if (import.meta.hot) ...` block at the bottom lets the dev server pick up server changes without restarting.
 
 ---
 
@@ -578,53 +618,63 @@ if (import.meta.hot) {
 
 **Heuristic:**
 
-| Logic type                                     | Where it goes                   | Why                          |
-| ---------------------------------------------- | ------------------------------- | ---------------------------- |
-| Request handling for a specific route          | **Controller** (`controllers/`) | Tied to a route's URL/method |
-| Cross-cutting concern (auth, logging, parsing) | **Middleware** (`middleware/`)  | Runs across many routes      |
-| UI rendering                                   | **Component** (`components/`)   | Presentation layer           |
-| Data access / business rules                   | **Data layer** (`data/`)        | Reusable, testable           |
-| Validation schemas                             | **`data/schemas.ts`**           | Shared between controllers   |
-| Rendering helpers (document, frame)            | **`utils/render.tsx`**          | Shared rendering logic       |
-| Frame primitives and link mixin                | **`utils/frame.tsx`**           | Shared frame utilities       |
-| Platform adapters (D1, R2)                     | **`data/adapters/`**            | Swappable implementations    |
+| Logic type                                     | Where it goes                | Why                                |
+| ---------------------------------------------- | ---------------------------- | ---------------------------------- |
+| Request handling for a specific route          | **Actions** (`actions/`)     | Tied to a route's URL/method       |
+| Cross-cutting concern (auth, logging, parsing) | **`middleware.ts`**          | Runs across many routes            |
+| UI rendering                                   | **Components** (`components/`)| Presentation layer                |
+| Data access / business rules                   | **Data layer** (`data/`)     | Reusable, testable                 |
+| Validation schemas                             | **`data/schemas.ts`**        | Shared between actions             |
+| Rendering helpers (document, frame)            | **`utils/render.tsx`**       | Shared rendering logic             |
+| Link mixin for type-safe frame targeting       | **`utils/link.tsx`**         | Reused on `<a>` and `<button>`     |
+| Streaming `<Head>` metadata                    | **`utils/metadata/`**        | SSR + client metadata reconciliation |
+| Platform adapters (D1, R2)                     | **`data/adapters/`**         | Swappable implementations          |
 
-**Controllers** are objects that satisfy the `Controller` type. They map route actions to handler functions:
+**Actions** are grouped per resource and constructed with `createController(route, definition)`. The route argument anchors the type system so each action receives a `ctx` with `ctx.params` matched to the route's pattern and `ctx.formData` typed from the form-data middleware:
 
 ```tsx
-export default {
+import { createController } from "remix/router";
+import { routes } from "#/routes.ts";
+
+export default createController(routes.posts, {
     actions: {
-        async index(context) {
+        async index(ctx) {
             /* ... */
         },
-        async show(context) {
+        async show(ctx) {
             /* ... */
         },
-        async create(context) {
+        async create(ctx) {
             /* ... */
         },
-        async update(context) {
+        async update(ctx) {
             /* ... */
         },
-        async destroy(context) {
+        async destroy(ctx) {
             /* ... */
         },
     },
-} satisfies Controller<typeof routes.posts>;
+});
 ```
 
-The `satisfies Controller<typeof routes.posts>` ensures your action names match the route definitions. Each action receives the request context with typed `params` based on the route pattern.
+`createController` (a) verifies your action names match the route definitions, (b) closes over the route type to type `ctx.params`, and (c) lets the result be passed to `router.map(routes.posts, controller)` without further typing.
 
-**Middleware** is a function that receives `(context, next)` and returns a `Response`:
+**Middleware** is a function that receives `(ctx, next)` and returns a `Response`:
 
 ```tsx
-async (context, next) => {
-    context.set(Database, db);
-    return next();
-};
+import { type Middleware } from "remix/router";
+
+export function database(): Middleware<{ key: typeof Database; value: Database }> {
+    let adapter = new D1DatabaseAdapter(env.DB);
+    let db = new Database(adapter);
+    return (ctx, next) => {
+        ctx.set(Database, db);
+        return next();
+    };
+}
 ```
 
-Call `next()` to pass through to the next middleware or the matched route handler. You can modify the context before calling `next()` or modify the response after.
+Call `next()` to pass through to the next middleware or the matched route handler. The `Middleware<...>` generic declares what the middleware adds to the context — when combined with the `RouterTypes` augmentation (Recipe 7), this makes `ctx.get(Database)` statically typed in every action.
 
 ---
 
@@ -659,15 +709,17 @@ let ProfileSchema = f.object({
 });
 ```
 
-**Parsing in controllers:**
+**Parsing in actions:**
 
 ```tsx
 // Parse search params (URLSearchParams)
-let { q } = s.parse(SearchSchema, context.url.searchParams);
+let { q } = s.parse(SearchSchema, ctx.url.searchParams);
 
 // Parse form data (FormData from request body)
-let { enabled } = s.parse(ToggleSchema, context.get(FormData));
-let profile = s.parse(ProfileSchema, context.get(FormData));
+// `ctx.formData` is contributed by the `formData()` middleware (see Recipe 7)
+// and typed via the RouterTypes augmentation.
+let { enabled } = s.parse(ToggleSchema, ctx.formData);
+let profile = s.parse(ProfileSchema, ctx.formData);
 ```
 
 **Key concepts:**
@@ -743,7 +795,14 @@ This avoids managing per-item loading state. The navigation destination tells yo
 **The three-phase client entry:**
 
 ```tsx
-import { navigate, run } from "remix/ui";
+import { createMetadataManager, withMetadataFrames } from "#/utils/metadata/index.ts";
+import { createRoot, navigate, on, run } from "remix/ui";
+
+// Hydrate the streaming-metadata manager. It reads <template
+// data-pitlane-metadata> nodes flushed during SSR and applies them
+// to document.head, then keeps the head reconciled with future
+// frame updates (see Recipe 22).
+createMetadataManager().hydrate(document);
 
 // Phase 1: Form submission handler (before `run`)
 navigation.addEventListener("navigate", async event => {
@@ -760,19 +819,28 @@ navigation.addEventListener("navigate", async event => {
     let src = event.sourceElement.getAttribute("rmx-src") ?? undefined;
     let resetScroll = event.sourceElement.hasAttribute("rmx-reset-scroll") ?? undefined;
 
-    // Form POST submission
+    // Form POST submission — out-of-band so the URL only changes on success
     if (event.formData) {
-        event.intercept({
-            focusReset: "manual",
-            async handler() {
-                let response = await fetch(event.destination.url, {
-                    method: "POST",
-                    body: event.formData,
-                    signal: event.signal,
-                });
-                navigate(response.url, { target, src, resetScroll });
-            },
-        });
+        event.preventDefault();
+
+        let { destination, formData } = event;
+
+        void (async () => {
+            let response = await fetch(destination.url, {
+                method: "POST",
+                body: formData,
+            });
+
+            if (!response.ok) {
+                let body = (await response.text()).trim();
+                let message = body || `${response.status} ${response.statusText}`;
+                let error = Object.assign(new Error(message), { status: response.status });
+                app.dispatchEvent(new ErrorEvent("error", { error, message }));
+                return;
+            }
+
+            navigate(response.url, { target, src, resetScroll });
+        })();
         return;
     }
 
@@ -782,17 +850,52 @@ navigation.addEventListener("navigate", async event => {
 });
 
 // Phase 2: Remix runtime
-run({
+let app = run({
     async loadModule(moduleUrl, exportName) {
         let mod = await import(/* @vite-ignore */ moduleUrl);
-        return mod[exportName];
+        let exported = mod[exportName];
+        if (typeof exported !== "function") {
+            throw new TypeError(
+                `Expected export '${exportName}' from '${moduleUrl}' to be a function`,
+            );
+        }
+        return exported;
     },
-    async resolveFrame(src, signal, target) {
+    // withMetadataFrames wraps resolveFrame so any <template data-pitlane-metadata>
+    // payload arriving with a frame response gets handed to the metadata manager
+    // before the frame's body is committed.
+    resolveFrame: withMetadataFrames(async (src, signal, target) => {
         let headers = new Headers({ accept: "text/html", "x-remix-frame": "true" });
         if (target) headers.set("x-remix-target", target);
         let response = await fetch(src, { headers, signal });
         return response.body ?? (await response.text());
-    },
+    }),
+});
+
+// Global error boundary — renders a dismissible banner for any error
+// dispatched on the app runtime, including failed POST submissions above.
+let bannerHost = document.createElement("div");
+document.body.insertBefore(bannerHost, document.body.firstChild);
+let bannerRoot = createRoot(bannerHost);
+
+function ErrorBanner() {
+    return (props: { message: string }) => (
+        <div id="app-error-banner" role="alert">
+            <p>{props.message}</p>
+            <button
+                aria-label="Dismiss"
+                mix={on("click", () => bannerRoot.render(null))}
+                type="button"
+            >
+                ×
+            </button>
+        </div>
+    );
+}
+
+app.addEventListener("error", event => {
+    let message = event.message || String(event.error) || "Something went wrong.";
+    bannerRoot.render(<ErrorBanner message={message} />);
 });
 
 // Phase 3: Focus reset (after `run`, last intercept() call wins)
@@ -807,10 +910,12 @@ navigation.addEventListener("navigate", event => {
 **Why three phases:**
 
 1. **Phase 1 (before `run`):** Handles form submissions. Must register before `run()` so that `event.preventDefault()` on GET forms works before the Remix listener sees the event. Reads `rmx-target`, `rmx-src`, and `rmx-reset-scroll` from the submit button's attributes.
-2. **Phase 2 (`run`):** Initializes the Remix runtime — module loading for hydrated components and frame resolution for fetching frame content.
+2. **Phase 2 (`run`):** Initializes the Remix runtime — module loading for hydrated components and frame resolution for fetching frame content. The returned `app` event target is the runtime's error bus.
 3. **Phase 3 (after `run`):** Sets `focusReset: "manual"` for all non-traverse navigations. Registered last so its `intercept()` call wins, preventing the browser from resetting focus to the top of the page during frame updates.
 
-**Why `event.sourceElement`:** For form submissions triggered by a submit button, `event.sourceElement` is that `<button>`. This is how `rmx-*` attributes on form buttons work -- the listener reads them directly from the submitting element and passes them to `navigate()`.
+**Why out-of-band POST fetch:** Driving POSTs through `event.intercept({ handler })` ties the navigation URL to the request lifecycle — the URL bar can flip to the action URL even when the server returns an error. Doing the fetch outside `intercept` lets the URL stay put on failure; only the `navigate(response.url, ...)` call (after a successful response) commits the new URL. Errors are dispatched to `app` and rendered as a dismissible banner.
+
+**Why `event.sourceElement`:** For form submissions triggered by a submit button, `event.sourceElement` is that `<button>`. This is how `rmx-*` attributes on form buttons work — the listener reads them directly from the submitting element and passes them to `navigate()`.
 
 **Why traverse navigations are left alone:** Back/forward navigations are handled by the built-in Remix listener. Intercepting them again would conflict.
 
@@ -852,14 +957,17 @@ navigate(url, { history: "replace" });
 import { Database } from "remix/data-table";
 ```
 
-**Set it in middleware:**
+**Set it in middleware** (`app/middleware.ts`):
 
 ```tsx
 import { D1DatabaseAdapter } from "#/data/adapters/d1-data-table.ts";
+import { env } from "cloudflare:workers";
 import { Database } from "remix/data-table";
-import { type Middleware } from "remix/fetch-router";
+import { type Middleware } from "remix/router";
 
-export function loadDatabase(): Middleware {
+type DatabaseEntry = { key: typeof Database; value: Database };
+
+export function database(): Middleware<DatabaseEntry> {
     let adapter = new D1DatabaseAdapter(env.DB);
     let db = new Database(adapter);
 
@@ -870,25 +978,27 @@ export function loadDatabase(): Middleware {
 }
 ```
 
+The `Middleware<DatabaseEntry>` generic tells `remix/router` what this middleware adds to the context. When combined with the `RouterTypes` augmentation in Recipe 7, `ctx.get(Database)` becomes typed in every action.
+
 **Define custom context keys** when no built-in key exists:
 
 ```tsx
-import { createContextKey } from "remix/fetch-router";
+import { createContextKey } from "remix/router";
 export let MyService = createContextKey<MyServiceType>();
 ```
 
-**Read it in controllers or utilities:**
+**Read it in actions or utilities:**
 
 ```tsx
-// In a controller action:
-let db = context.get(Database);
+// In an action:
+let db = ctx.get(Database);
 
 // In a utility function (via async context):
-import { getContext } from "remix/async-context-middleware";
+import { getContext } from "remix/middleware/async-context";
 let db = getContext().get(Database);
 ```
 
-The `asyncContext()` middleware makes the request context available anywhere via `getContext()` without threading it through function arguments. This is especially useful in data access functions that are called from controllers but don't directly receive the request context.
+The `asyncContext()` middleware makes the request context available anywhere via `getContext()` without threading it through function arguments. This is especially useful in data access functions that are called from actions but don't directly receive the request context.
 
 ---
 
@@ -953,12 +1063,12 @@ This is the islands architecture pattern: the server renders the full page, but 
 
 **Decision:** How do I make a link or form button update a specific frame instead of the whole page?
 
-**Heuristic:** Use the `link()` mixin from your frame utilities. It accepts a `LinkProps` object where `target` is typed as `Frame.Name` — the same union type used by `Frame.Target.is()` on the server. This gives you compile-time safety: if you misspell a frame name or use one that doesn't exist, TypeScript catches it.
+**Heuristic:** Use the `link()` mixin from `app/utils/link.tsx`. It's a thin wrapper around `createMixin` that accepts a `LinkProps` object and renders `rmx-*` attributes that the client entry (Recipe 11) and the built-in Remix anchor listener pick up. The reason it exists (instead of using the built-in `link()` from `remix/ui`) is to support both `<a>` and `<button type="submit">` elements — the latter is the form-submit pathway that drives frame-targeted POSTs.
 
 **On links:**
 
 ```tsx
-import { link } from "#/utils/frame.tsx";
+import { link } from "#/utils/link.tsx";
 
 <a href={routes.contacts.show.href({ id: contact.id })} mix={link({ target: "detail" })}>
     {contact.first} {contact.last}
@@ -985,8 +1095,10 @@ For form submissions, the client entry's navigate listener reads the resulting `
 ```tsx
 import { createMixin } from "remix/ui";
 
-export type LinkProps = { target?: Frame.Name; src?: URL; resetScroll?: boolean };
+export type LinkProps = { target?: string; src?: URL; resetScroll?: boolean };
 
+// Only created instead of `remix/ui.link()` to support button elements
+// for our custom form submission handling as well as anchor elements
 export let link = createMixin<HTMLAnchorElement | HTMLButtonElement, [LinkProps]>(handle => {
     return props => (
         <handle.element
@@ -998,15 +1110,17 @@ export let link = createMixin<HTMLAnchorElement | HTMLButtonElement, [LinkProps]
 });
 ```
 
-The mixin renders `rmx-*` attributes onto the host element. Because `target` is typed as `Frame.Name` (e.g., `"sidebar" | "detail"`), you get autocompletion and type errors for invalid frame names — something raw string attributes can't provide.
+The mixin renders `rmx-*` attributes onto the host element.
+
+**Tightening the `target` type:** If you want compile-time validation of frame names, narrow `LinkProps["target"]` to a union literal (e.g. `"sidebar" | "detail"`). The server reads `ctx.headers.get("x-remix-target")` as a plain string (Recipe 5), so the typing is purely a client-side ergonomic choice.
 
 **Available props:**
 
-| Prop          | Type         | Purpose                               |
-| ------------- | ------------ | ------------------------------------- |
-| `target`      | `Frame.Name` | Target a named frame                  |
-| `src`         | `URL`        | Override the frame content source URL |
-| `resetScroll` | `boolean`    | Reset scroll position on frame update |
+| Prop          | Type      | Purpose                               |
+| ------------- | --------- | ------------------------------------- |
+| `target`      | `string`  | Target a named frame                  |
+| `src`         | `URL`     | Override the frame content source URL |
+| `resetScroll` | `boolean` | Reset scroll position on frame update |
 
 These are the declarative equivalents of the options you can pass to `navigate()`:
 
@@ -1022,26 +1136,31 @@ navigate(url, { target: "detail", src: someUrl, resetScroll: true });
 
 **Decision:** My controller handles the same route for initial loads and frame updates. How do I return the right response?
 
-**Heuristic:** Use the `Frame.Target` class (see Recipe 5) to determine which frame is being requested. Each controller action should handle both full-page and frame-targeted requests.
+**Heuristic:** Read `ctx.headers.get("x-remix-target")` (see Recipe 5) to determine which frame is being requested. Each action should handle all three cases: sidebar-only updates, detail-only updates, and full-page loads.
 
 ```tsx
+import { getContext } from "remix/middleware/async-context";
+import { createHtmlResponse as html } from "remix/response/html";
+import { redirect } from "remix/response/redirect";
+import { frame, render, renderDocument } from "#/utils/render.tsx";
+
 async function contactPage(detail: (contact: Contact) => RemixNode) {
     try {
         let ctx = getContext();
-        let target = ctx.get(Frame.Target);
+        let target = ctx.headers.get("x-remix-target");
         let { id } = s.parse(IdSchema, ctx.params);
 
-        if (target.is("sidebar")) {
+        if (target === "sidebar") {
             return sidebar(id);
         } else {
             let contact = await getContact(id);
             if (!contact) throw contact;
 
-            if (target.is("detail")) {
-                return frame(detail(contact));
+            if (target === "detail") {
+                return frame(render(detail(contact)));
             }
 
-            return document();
+            return html(await renderDocument(<Document />));
         }
     } catch {
         return redirect(routes.home.href());
@@ -1049,7 +1168,7 @@ async function contactPage(detail: (contact: Contact) => RemixNode) {
 }
 ```
 
-This helper accepts a render function for the detail frame and handles all three cases: sidebar-only updates, detail-only updates, and full-page loads. Controllers become one-liners:
+This helper accepts a render function for the detail frame and handles all three cases. Actions become one-liners:
 
 ```tsx
 async show(ctx) {
@@ -1103,7 +1222,7 @@ export type Post = TableRow<typeof Posts>;
 let post = await db.create(Posts, { title: "Hello", body: "World" }, { returnRow: true });
 ```
 
-**Migrations:** Use `remix/data-table/migrations` to create and manage tables. Each migration is a file in `db/migrations/` that default-exports a `createMigration(...)`. Migrations derive table structure from the `table()` definition, so the schema is defined once.
+**Migrations:** When deploying to Cloudflare D1, author migrations as TypeScript under `db/migrations/` using `remix/data-table/migrations`, then compile them to deterministic `.sql` files in `db/d1-migrations/` (committed to git). Cloudflare's own `wrangler d1 migrations apply` consumes the generated SQL — both `--local` and `--remote` use the same files, so there is no TypeScript-only path against the dev database.
 
 ```tsx
 // db/migrations/20260213161402_create_posts.ts
@@ -1121,38 +1240,61 @@ export default createMigration({
 });
 ```
 
-**Running migrations** with `loadMigrations` — reads a directory of migration files sorted by timestamp:
+> **D1 constraint:** Migrations MUST use only `schema.*` (DDL) operations. Anything that calls `db.*` data operations cannot be dry-run to SQL — put that logic in a standalone seed script (see "Seed data" below).
+
+**Compiling to SQL** — a helper script reads each TS migration via `loadMigrations` and writes one `.sql` file per migration:
 
 ```tsx
+// db/generate-d1-migrations.ts (simplified)
 import path from "node:path";
-import { createMigrationRunner } from "remix/data-table/migrations";
 import { loadMigrations } from "remix/data-table/migrations/node";
+import { buildSqlFileContents, d1MigrationFilename, normalizeSqlStatements } from "./lib/sql-generation.ts";
 
 let migrations = await loadMigrations(path.resolve("db/migrations"));
-let runner = createMigrationRunner(adapter, migrations);
-await runner.up();
+for (let migration of migrations) {
+    let statements = normalizeSqlStatements(migration.up);
+    let contents = buildSqlFileContents({
+        sourceFilename: `${migration.id}_${migration.name}/up.sql`,
+        statements,
+    });
+    let outFile = path.join("db/d1-migrations",
+        d1MigrationFilename({ id: migration.id, name: migration.name }));
+    writeFileSync(outFile, contents, "utf-8");
+}
 ```
 
 `schema.createTable()` reads column definitions directly from the `table()` call, so you never write raw SQL for table creation. `schema.createIndex()` takes the table and an array of column names. Use `{ ifNotExists: true }` / `{ ifExists: true }` for idempotent migrations.
 
-**Seed data migrations:** Use a separate migration file for seed data. Access the `db` handle to insert rows, and guard with a count check to avoid duplicating seeds on re-runs:
+**Seed data** lives in a separate standalone script (`db/seed.ts`), not a migration. It connects to D1 via Wrangler's `getPlatformProxy` and inserts rows directly:
 
 ```tsx
-// db/migrations/20260402234741_seed_posts.ts
-export default createMigration({
-    async up({ db }) {
-        let count = await db.count(Posts);
-        if (count > 0) return;
+// db/seed.ts
+import { D1DatabaseAdapter } from "#/data/adapters/d1-data-table.ts";
+import { Posts } from "#/data/posts.ts";
+import { Database } from "remix/data-table";
+import { getPlatformProxy } from "wrangler";
 
-        for (let post of SEED_POSTS) {
-            await db.create(Posts, post);
-        }
-    },
-    async down({ db }) {
-        await db.deleteMany(Posts, { where: {} });
-    },
-});
+let proxy = await getPlatformProxy<Env>({ configPath: "./wrangler.jsonc", persist: true });
+
+try {
+    let db = new Database(new D1DatabaseAdapter(proxy.env.DB));
+
+    let count = await db.count(Posts);
+    if (count > 0) {
+        console.log(`Seed skipped: ${count} row(s) already present.`);
+        process.exit(0);
+    }
+
+    for (let post of SEED_POSTS) {
+        await db.create(Posts, post);
+    }
+} finally {
+    await proxy.dispose();
+    process.exit(0);
+}
 ```
+
+The seed runs only against local D1 (via `getPlatformProxy`) — production starts empty.
 
 **Query functions** access the database through context:
 
@@ -1171,20 +1313,27 @@ export async function getPosts(): Promise<Post[]> {
 
 **Decision:** My app is already running in production and I need to add a column, rename a table, or make another schema change. How do I manage this?
 
-**Heuristic:** Use migration files -- one per schema change, timestamped and ordered. Each migration has an `up` (apply) and `down` (revert) function. A migration runner tracks which migrations have been applied in a journal table and only runs new ones.
+**Heuristic:** Use migration files — one per schema change, timestamped and ordered. Each migration has an `up` (apply) and `down` (revert) function. On Cloudflare D1, compile them to `.sql` and let Wrangler's `d1 migrations apply` track which have run via its built-in `d1_migrations` journal table.
 
 **Project structure:**
 
 ```
 db/
-  migrations/
+  migrations/                                # Source TS migrations
     20260228090000_create_posts.ts
     20260315140000_add_published_at.ts
     20260320100000_add_tags.ts
-  migrate.ts
+  d1-migrations/                             # Generated .sql (committed)
+    20260228090000_create_posts.sql
+    20260315140000_add_published_at.sql
+    20260320100000_add_tags.sql
+  generate-d1-migrations.ts                  # TS → SQL compiler
+  apply-d1-migrations.ts                     # Shells out to `wrangler d1 migrations apply`
+  seed.ts                                    # Standalone seed script
+  lib/                                       # Shared helpers
 ```
 
-Name each file as `YYYYMMDDHHmmss_name.ts`. The `id` and `name` are inferred from the filename. Each file default-exports a `createMigration(...)`.
+Name each TS file as `YYYYMMDDHHmmss_name.ts`. The `id` and `name` are inferred from the filename. Each file default-exports a `createMigration(...)`.
 
 **Writing a migration that adds a column:**
 
@@ -1258,82 +1407,108 @@ async up({ schema }) {
 }
 ```
 
-**Creating a runner script** (`db/migrate.ts`):
+**The two-step Cloudflare D1 workflow:**
+
+1. **Generate** — `vp run db:migrations:generate` runs each TS migration through the data-table runner in `dryRun: true` mode and writes one deterministic `.sql` file per source migration into `db/d1-migrations/`. These files are committed to git.
+2. **Apply** — `vp run db:migrations:apply:local` (or `:remote`) shells out to `wrangler d1 migrations apply DB --local` (or `--remote`), which reads `db/d1-migrations/` and uses Wrangler's own `d1_migrations` journal table on the target database.
+
+The apply helper is a thin wrapper around `wrangler`:
 
 ```tsx
-import { D1DatabaseAdapter } from "#/data/adapters/d1-data-table.ts";
-import path from "node:path";
-import * as s from "remix/data-schema";
-import { createMigrationRunner } from "remix/data-table/migrations";
-import { loadMigrations } from "remix/data-table/migrations/node";
-import { getPlatformProxy } from "wrangler";
+// db/apply-d1-migrations.ts (simplified)
+import { parseArgs } from "node:util";
+import { buildApplyCommand, runApplyCommand } from "./lib/wrangler-cli.ts";
+import { parseWranglerConfig } from "./lib/wrangler-config.ts";
 
-let Direction = s.union([s.literal("up" as const), s.literal("down" as const)]);
-let direction = s.parse(s.defaulted(Direction, "up"), process.argv[2]);
+let { values } = parseArgs({
+    options: {
+        local: { type: "boolean", default: false },
+        remote: { type: "boolean", default: false },
+    },
+});
+let target: "local" | "remote" = values.local ? "local" : "remote";
 
-let to = process.argv[3];
-
-let proxy = await getPlatformProxy<Env>({
-    configPath: "./wrangler.jsonc",
-    persist: true,
+let config = parseWranglerConfig();
+let cmd = buildApplyCommand({
+    d1Binding: config.d1.binding,
+    target,
+    configPath: config.configPath,
 });
 
-let adapter = new D1DatabaseAdapter(proxy.env.DB);
-let migrations = await loadMigrations(path.resolve("db/migrations"));
-let runner = createMigrationRunner(adapter, migrations);
-
-try {
-    let result = await runner[direction]({ to });
-    console.log(direction + " complete", {
-        applied: result.applied.map(entry => entry.id),
-        reverted: result.reverted.map(entry => entry.id),
-    });
-} finally {
-    await proxy.dispose();
-    process.exit(0);
-}
+let { stdout, stderr } = await runApplyCommand(cmd);
+process.stdout.write(stdout);
+process.stderr.write(stderr);
 ```
 
-**Key details:**
+The `--remote` target needs `CLOUDFLARE_API_TOKEN` (or `CLOUDFLARE_API_KEY`) in the environment.
 
-- `getPlatformProxy()` from `wrangler` creates a local proxy to Cloudflare bindings (D1, R2, etc.) — the same bindings your app uses at runtime, but available in a standalone script
-- `persist: true` ensures state is saved to `.wrangler/state/` between runs, matching dev server behavior
-- `proxy.dispose()` in a `finally` block ensures cleanup even if migration fails
-- The `to` argument allows migrating to a specific version: `node db/migrate.ts up 20260315140000`
-- Direction defaults to `"up"` when no argument is provided, validated with `remix/data-schema`
+**Wiring it into Vite+ tasks** (`vite.config.ts`):
 
-**Runner options:**
+```ts
+run: {
+    tasks: {
+        "db:migrations:generate": {
+            command: "node db/generate-d1-migrations.ts",
+            cache: false,
+        },
+        "db:migrations:apply:local": {
+            dependsOn: ["db:migrations:generate"],
+            command: "node db/apply-d1-migrations.ts --local",
+            cache: false,
+        },
+        "db:migrations:apply:remote": {
+            command: "node db/apply-d1-migrations.ts --remote",
+            cache: false,
+        },
+        "db:migrations:deploy": {
+            dependsOn: ["db:migrations:generate"],
+            command: "node db/apply-d1-migrations.ts --remote",
+            cache: false,
+        },
+        "db:seed": {
+            dependsOn: ["db:migrations:apply:local"],
+            command: "node db/seed.ts",
+        },
+        "db:reset": {
+            command: "rm -rf .wrangler/state/v3/d1",
+        },
+    },
+},
+```
 
-| Option         | Purpose                                       | Example                                                                          |
-| -------------- | --------------------------------------------- | -------------------------------------------------------------------------------- |
-| `to`           | Migrate up/down to a specific migration ID    | `runner.up({ to: "20260315140000" })`                                            |
-| `step`         | Apply or revert a fixed number of migrations  | `runner.down({ step: 1 })`                                                       |
-| `dryRun`       | Compile and inspect SQL without applying      | `runner.up({ dryRun: true })`                                                    |
-| `journalTable` | Custom name for the migrations tracking table | `createMigrationRunner(adapter, migrations, { journalTable: "app_migrations" })` |
+This makes `vp dev` (which `dependsOn: ["typegen", "db:seed"]`) idempotently regenerate SQL, apply migrations locally, and seed demo rows before starting the server.
 
-```sh
-node ./db/migrate.ts up
-node ./db/migrate.ts up 20260315140000   # migrate to a specific version
-node ./db/migrate.ts down                # revert all
-node ./db/migrate.ts down 20260228090000 # revert to a specific version
+**`wrangler.jsonc` setup:** Point `migrations_dir` at `db/d1-migrations/` (relative to the wrangler config file):
+
+```jsonc
+"d1_databases": [
+    {
+        "binding": "DB",
+        "database_name": "my-db",
+        "database_id": "local",
+        // Generated by `vp db:migrations:generate` from db/migrations/*.ts.
+        "migrations_dir": "./db/d1-migrations"
+    }
+]
 ```
 
 **The development workflow:**
 
-When you need to change your schema, you update two things together in the same commit:
+When you need to change your schema, you update three things together in the same commit:
 
-1. **Update the `table()` definition** in your source code to reflect the desired schema (e.g., add the new column to the `columns` object)
-2. **Write a migration file** that transitions the database from the old schema to the new one (e.g., `schema.alterTable` with `table.addColumn`)
+1. **Update the `table()` definition** in your source code to reflect the desired schema (e.g., add the new column to the `columns` object).
+2. **Write a TS migration** in `db/migrations/` that transitions the database (e.g., `schema.alterTable` with `table.addColumn`).
+3. **Regenerate `db/d1-migrations/`** by running `vp run db:migrations:generate` and commit the resulting `.sql` file alongside the source.
 
-The `table()` definition is the source of truth for what the schema looks like _now_. The migration file describes _how to get there_ from the previous state. Both ship together in the same deploy.
+The `table()` definition is the source of truth for what the schema looks like _now_. The TS migration describes _how to get there_. The committed `.sql` is the artifact Wrangler actually applies — keeping it under source control means CI/CD doesn't need to compile TS at deploy time, and `--local` and `--remote` are guaranteed to apply byte-identical SQL.
 
-**At deploy time**, run migrations before starting the app:
+**At deploy time**, apply migrations before the worker takes traffic:
 
 ```sh
-node ./db/migrate.ts up && node ./server.ts
+vp run db:migrations:deploy && wrangler deploy
 ```
 
-This ensures the database schema matches what the new code expects. The runner's journal table tracks which migrations have already been applied, so running `up` is always safe -- it only applies new migrations.
+Wrangler's `d1_migrations` journal table tracks which migrations have already been applied, so this is always safe — it only applies new ones.
 
 **Key principles:**
 
@@ -1348,9 +1523,11 @@ This ensures the database schema matches what the new code expects. The runner's
 
 **Decision:** What should happen after a create/update/delete?
 
-**Heuristic:** Follow the Post/Redirect/Get pattern. After every mutation, redirect to the appropriate page:
+**Heuristic:** Follow the Post/Redirect/Get pattern. After every mutation, redirect to the appropriate page. Import `redirect` from `remix/response/redirect`:
 
 ```tsx
+import { redirect } from "remix/response/redirect";
+
 // After create: redirect to the edit page for the new record
 async create() {
     let id = await createPost();
@@ -1358,15 +1535,17 @@ async create() {
 }
 
 // After update: redirect to the show page
-async update(context) {
-    let data = s.parse(PostSchema, context.get(FormData));
-    await updatePost(Number(context.params.id), data);
-    return redirect(routes.posts.show.href({ id: context.params.id }));
+async update(ctx) {
+    let data = s.parse(PostSchema, ctx.formData);
+    let { id } = s.parse(IdSchema, ctx.params);
+    await updatePost(id, data);
+    return redirect(routes.posts.show.href({ id }));
 }
 
 // After delete: redirect to the index or home
-async destroy(context) {
-    await deletePost(Number(context.params.id));
+async destroy(ctx) {
+    let { id } = s.parse(IdSchema, ctx.params);
+    await deletePost(id);
     return redirect(routes.posts.index.href());
 }
 ```
@@ -1376,9 +1555,10 @@ async destroy(context) {
 **For non-navigating mutations** (like toggling a boolean field), return data instead of redirecting:
 
 ```tsx
-async toggle(context) {
-    let { enabled } = s.parse(ToggleSchema, context.get(FormData));
-    let updated = await updateItem(Number(context.params.id), { enabled });
+async toggle(ctx) {
+    let { enabled } = s.parse(ToggleSchema, ctx.formData);
+    let { id } = s.parse(IdSchema, ctx.params);
+    let updated = await updateItem(id, { enabled });
     return Response.json(updated);
 }
 ```
@@ -1395,25 +1575,47 @@ The client handles the state update optimistically and doesn't need a redirect.
 
 ```tsx
 import { cloudflare } from "@cloudflare/vite-plugin";
+import devtoolsJson from "vite-plugin-devtools-json";
 import { defineConfig } from "vite-plus";
 
 import { remix } from "./remix.plugin.ts";
 
 export default defineConfig({
-    plugins: [remix({ serverHandler: false }), cloudflare({ viteEnvironment: { name: "ssr" } })],
+    plugins: [
+        remix({ serverHandler: false }),
+        cloudflare({ viteEnvironment: { name: "ssr" } }),
+        devtoolsJson(),
+    ],
     server: { port: 1612 },
     css: { transformer: "lightningcss" },
     run: {
         tasks: {
             dev: {
-                dependsOn: ["typegen", "db:migrate"],
+                dependsOn: ["typegen", "db:seed"],
                 command: "vp dev --host",
             },
-            "db:migrate": {
-                command: "node db/migrate.ts",
+            "db:seed": {
+                dependsOn: ["db:migrations:apply:local"],
+                command: "node db/seed.ts",
             },
-            "db:reset": {
-                command: "rm -rf .wrangler/state/v3/d1",
+            "db:reset": { command: "rm -rf .wrangler/state/v3/d1" },
+            "db:migrations:generate": {
+                command: "node db/generate-d1-migrations.ts",
+                cache: false,
+            },
+            "db:migrations:apply:local": {
+                dependsOn: ["db:migrations:generate"],
+                command: "node db/apply-d1-migrations.ts --local",
+                cache: false,
+            },
+            "db:migrations:apply:remote": {
+                command: "node db/apply-d1-migrations.ts --remote",
+                cache: false,
+            },
+            "db:migrations:deploy": {
+                dependsOn: ["db:migrations:generate"],
+                command: "node db/apply-d1-migrations.ts --remote",
+                cache: false,
             },
             typegen: {
                 input: ["wrangler.jsonc"],
@@ -1424,10 +1626,13 @@ export default defineConfig({
                 command: "tsgo --noEmit",
                 cache: false,
             },
-            deploy: {
-                command: "wrangler deploy",
+            check: {
+                dependsOn: ["typegen"],
+                command: "vp check --fix",
                 cache: false,
             },
+            test: { command: "remix test" },
+            deploy: { command: "wrangler deploy", cache: false },
         },
     },
     fmt: {
@@ -1446,10 +1651,11 @@ export default defineConfig({
 
 **Run tasks:** The `run.tasks` config defines orchestrated commands that `vp run <task>` executes. Key patterns:
 
-- **`dependsOn`:** Ensures prerequisites run first. `dev` depends on `typegen` (generates `Env` types from `wrangler.jsonc`) and `db:migrate` (applies pending migrations).
+- **`dependsOn`:** Ensures prerequisites run first. `dev` chains `typegen` (generates `Env` types from `wrangler.jsonc`) and `db:seed` (which itself chains `db:migrations:apply:local` → `db:migrations:generate`).
 - **`input`:** File-based cache invalidation. `typegen` only reruns when `wrangler.jsonc` changes.
-- **`cache: false`:** Disables caching for tasks that should always run (typecheck, deploy).
+- **`cache: false`:** Disables caching for tasks that should always run (typecheck, deploy, migrations).
 - **`db:reset`:** Deletes local D1 state for a clean slate during development.
+- **`test`:** Runs the in-tree `remix test` runner (see Recipe 32) against `remix-test.config.ts`.
 
 **What the `remix()` plugin provides:**
 
@@ -1460,12 +1666,14 @@ export default defineConfig({
 
 **Commands:**
 
-- `vp dev` -- start dev server with HMR (runs typegen + migrations first)
-- `vp build` -- production build
-- `vp preview` -- preview production build locally
-- `vp check` -- format + lint + typecheck in one pass
-- `vp run deploy` -- deploy to Cloudflare Workers
-- `vp run db:reset` -- wipe local D1 database
+- `vp dev` — start dev server with HMR (runs typegen + migrations + seed first)
+- `vp build` — production build
+- `vp preview` — preview production build locally
+- `vp check` — format + lint + typecheck in one pass
+- `vp run test` — run the `remix test` suite
+- `vp run db:migrations:deploy` — generate SQL + apply to remote D1
+- `vp run deploy` — deploy to Cloudflare Workers
+- `vp run db:reset` — wipe local D1 database
 
 ---
 
@@ -1476,10 +1684,10 @@ export default defineConfig({
 **Heuristic:** Use route pattern matching against the current URL (for active) and the navigation destination URL (for pending). This is necessary because frame-targeted navigations only update one frame -- components in other frames don't re-render, so server-provided props become stale.
 
 ```tsx
-import { ArrayMatcher } from "remix/route-pattern";
+import { createMultiMatcher } from "remix/route-pattern/match";
 
 // Set up a matcher for the routes this item could match
-let matcher = new ArrayMatcher<true>();
+let matcher = createMultiMatcher<true>();
 matcher.add(routes.posts.show.pattern, true);
 matcher.add(routes.posts.edit.pattern, true);
 
@@ -1489,10 +1697,8 @@ let isActive = Number(currentMatch?.params?.id ?? selected) === item.id;
 
 // Pending: destination matches this item but isn't the current page
 let destination = navigating.to.url ? matcher.match(navigating.to.url.href) : null;
-let isPending =
-    !isActive &&
-    navigating.to.url?.pathname !== location.pathname &&
-    Number(destination?.params.id) === item.id;
+let isPathChange = !isServer && navigating.to.url?.pathname !== location.pathname;
+let isPending = !isActive && isPathChange && Number(destination?.params.id) === item.id;
 ```
 
 **Why derive from URL instead of props:** Frame-targeted navigations don't re-render components outside the targeted frame. A server-provided `selected` prop becomes stale after client-side navigation. Reading `window.location.href` directly gives the true current state.
@@ -1501,53 +1707,60 @@ let isPending =
 
 ---
 
-### 22. How do I update the document title during frame navigations?
+### 22. How do I update head metadata during frame navigations?
 
-**Decision:** How do I change `<title>` when frame content changes without a full page load?
+**Decision:** How do I change `<title>`, `<meta>`, `<link>`, and other head elements when frame content changes without a full page load?
 
-**Heuristic:** When using frames, navigating between frame content doesn't trigger a full page load, so the `<title>` in `<head>` never changes. Use a hydrated `<Title>` component that sets `document.title` on both the server and the client.
+**Heuristic:** Use the `<Head>` component from `app/utils/metadata/`. It lets frame components declare head entries in their JSX; the server inlines them into `document.head` at SSR time, and a hydrated `MetadataManager` reconciles them across subsequent frame navigations. This handles `<title>`, `<meta>`, `<link>`, `<style>`, and `<script>` uniformly — no per-element components required.
 
-**The pattern:**
+**The pieces:**
 
-```tsx
-import { clientEntry } from "remix/ui";
-import { isServer } from "#/utils/navigating.ts";
-
-export let Title = clientEntry(import.meta.url, () => {
-    return ({ children }: { children: string | string[] }) => {
-        let title = Array.isArray(children) ? children.join("") : children;
-
-        if (isServer) {
-            // Inline script sets document.title during HTML parsing, before
-            // hydration JS loads, eliminating the flash of the default title.
-            return <script>{`document.title=${JSON.stringify(title)}`}</script>;
-        } else {
-            // Client title changes for when navigating between frames.
-            document.title = title;
-        }
-    };
-});
+```
+app/utils/metadata/
+  index.ts        # public API surface
+  head.tsx        # <Head> component (collects + transports entries)
+  manager.ts      # MetadataManager (client reconciliation)
+  rules.ts        # precedence / dedupe / lifecycle rules
+  html.ts         # HTML rendering of head entries
+  ssr.ts          # injects collected entries into the document
+  stream.ts       # streaming integration (renderWithMetadata)
+  transport.ts    # serializes entries into <template data-pitlane-metadata>
+  frames.ts       # withMetadataFrames wrapper for resolveFrame
 ```
 
-**Usage in frame content components:**
+**Usage in any component** (server-only or hydrated):
 
 ```tsx
+import { Head } from "#/utils/metadata/index.ts";
+
 export function PostDetail() {
     return (props: { post: Post }) => (
         <div>
-            <Title>{props.post.title} | My App</Title>
+            <Head>
+                <title>{`${props.post.title} · ${SITE.title}`}</title>
+                {props.post.summary ? (
+                    <meta content={props.post.summary} name="description" />
+                ) : null}
+            </Head>
             <h1>{props.post.title}</h1>
         </div>
     );
 }
 ```
 
-**How it works:**
+`<Head>` accepts any combination of `<title>`, `<meta>`, `<link>`, `<style>`, and `<script>` children. They never render in place — the component emits a `<template data-pitlane-metadata>` placeholder that the rest of the pipeline reads.
 
-- **Server:** Renders an inline `<script>` tag that sets `document.title` during HTML parsing. This runs before hydration JS loads, avoiding a flash of the default title set in `<head>`.
-- **Client:** Sets `document.title` directly during the render phase when navigating between frames.
+**How the pieces fit together:**
 
-Place `<Title>` in any frame content component that should update the document title. The base `<title>` tag in your document's `<head>` serves as the default for initial load and no-JS environments.
+1. **Server render:** `<Head>` writes a transport `<template>` into the stream. `renderDocument()` pipes the rendered stream through `renderWithMetadata` (`stream.ts`), which collects all transport templates and injects their entries into `document.head` (via `ssr.ts`) before the response is flushed. So the initial HTML arrives with a fully-populated `<head>` — no flash, no script.
+
+2. **Client hydration:** `entry.browser.tsx` calls `createMetadataManager().hydrate(document)` before `run()`. The manager indexes head entries by precedence and owner so it can later remove or replace them.
+
+3. **Frame navigation:** The client entry passes its `resolveFrame` through `withMetadataFrames(...)`. When a frame response contains `<template data-pitlane-metadata>` payloads, the wrapper extracts them and hands them to the manager, which reconciles `<head>` against the new entries before committing the frame body.
+
+**Why a transport layer:** A naive "set `document.title` on render" approach can only update the title. The metadata module handles arbitrary head elements with precedence rules — multiple frames can each contribute `<meta>` tags, and the manager dedupes by key and unloads entries whose owner frame disappears.
+
+**Per-page baseline:** The base `<title>` and shared meta tags belong in `Document.tsx` inside `<Head>`. Frame components add or override entries from there. The "owner" of an entry is inferred from where `<Head>` lives (page, frame, leaf component) — see [head.tsx:104](app/utils/metadata/head.tsx#L104).
 
 ---
 
@@ -1868,19 +2081,19 @@ import { pressEvents } from "remix/ui";
 
 Use `pressEvents()` when a non-button element needs to behave like an interactive control across both pointer and keyboard input. It normalizes click, touch, and Enter/Space into a single interaction model.
 
-**`link()` — type-safe frame targeting on anchors and buttons:**
+**`link()` — frame targeting on anchors and buttons:**
 
-The `link()` mixin (defined in your frame utilities — see Recipe 15) is the standard way to target frames from `<a>` and `<button>` elements. Its `target` prop is typed as `Frame.Name`, so invalid frame names are caught at compile time:
+The `link()` mixin (defined in `app/utils/link.tsx` — see Recipe 15) is the standard way to target frames from `<a>` and `<button>` elements:
 
 ```tsx
-import { link } from "#/utils/frame.tsx";
+import { link } from "#/utils/link.tsx";
 
 <a href={routes.contacts.show.href({ id })} mix={link({ target: "detail" })}>
     View
 </a>;
 ```
 
-Prefer real `<a>` tags and `<form><button type="submit"></button></form>` tags with the `link()` mixin — they're accessible, work without JavaScript, and provide type safety for frame names. The generic `link()` from `remix/ui` can make any element behave like a navigation link, but reserve that for cases where an anchor or button tag isn't practical (e.g., a complex interactive card that needs to navigate on click).
+Prefer real `<a>` tags and `<form><button type="submit"></button></form>` tags with the `link()` mixin — they're accessible and work without JavaScript. The generic `link()` from `remix/ui` can make any element behave like a navigation link, but reserve that for cases where an anchor or button tag isn't practical (e.g., a complex interactive card that needs to navigate on click).
 
 ---
 
@@ -2158,51 +2371,91 @@ function Icon(props: { name: string; size?: number }) {
 
 **Decision:** How do I write unit tests for Remix components?
 
-**Heuristic:** Use `createRoot()` to mount components in a real DOM container, and `root.flush()` to synchronously process renders and queued tasks. Test through real DOM interactions (clicks, input events) rather than mocking framework internals.
+**Heuristic:** Use the built-in `remix test` runner from `remix/test`. It provides `describe`/`it`, hooks, and runs both server-side unit tests and in-browser component tests via Playwright. For component DOM tests, import `render` from `remix/ui/test` (or assert directly against `document` for tests written against the browser pool).
 
-**Basic test pattern:**
+**Configuration** — `remix-test.config.ts`:
 
-```tsx
-import { expect } from "vitest";
-import { createRoot } from "remix/ui";
+```ts
+import type { RemixTestConfig } from "remix/test";
 
-let container = document.createElement("div");
-let root = createRoot(container);
-
-root.render(<Counter label="Count" />);
-root.flush();
-
-// Initial state
-expect(container.textContent).toContain("Count: 0");
-
-// Interact
-container.querySelector("button")?.click();
-root.flush();
-
-// Updated state
-expect(container.textContent).toContain("Count: 1");
+export default {
+    glob: {
+        test: "app/**/*.test.{ts,tsx}",
+        browser: "app/**/*.test.{ts,tsx}",
+    },
+    playwrightConfig: {
+        projects: [{ name: "chromium", use: { browserName: "chromium" } }],
+    },
+} satisfies RemixTestConfig;
 ```
 
-**Why `root.flush()` is needed:**
+Wire it into a Vite+ task so `vp run test` invokes the runner:
 
-- After `root.render()` — so listeners and queued tasks from the initial render are attached
-- After user interactions that call `handle.update()` — so the DOM reflects the new state
-- After async work resolves if the component uses `handle.queueTask()` — so post-render effects have run
-
-**Cleanup:**
-
-```tsx
-root.dispose();
+```ts
+test: { command: "remix test" },
 ```
 
-Use `root.dispose()` to verify cleanup behavior when relevant (e.g., checking that global listeners are removed, timers are cleared).
+**Basic server-side test:**
+
+```ts
+import * as assert from "remix/assert";
+import { describe, it } from "remix/test";
+
+import { entriesFromHeadChildren } from "./head.tsx";
+
+describe("entriesFromHeadChildren", () => {
+    it("collects title and meta entries in order", () => {
+        let entries = entriesFromHeadChildren(
+            <>
+                <title>Hello</title>
+                <meta content="x" name="description" />
+            </>,
+        );
+        assert.equal(entries[0].type, "title");
+        assert.equal(entries[1].type, "meta");
+    });
+});
+```
+
+**Browser/component test** — use a real `document` from the browser runner. Mount markup via DOM APIs rather than direct property writes:
+
+```tsx
+import * as assert from "remix/assert";
+import { describe, it } from "remix/test";
+
+import { MetadataManager } from "./manager.ts";
+import { createTransportHtml } from "./transport.ts";
+
+function setDocument(html: string) {
+    let parser = new DOMParser();
+    let parsed = parser.parseFromString(`<!DOCTYPE html><html>${html}</html>`, "text/html");
+    document.head.replaceChildren(...Array.from(parsed.head.childNodes));
+    document.body.replaceChildren(...Array.from(parsed.body.childNodes));
+}
+
+describe("MetadataManager", () => {
+    it("hydrates templates into document.head", () => {
+        setDocument(
+            `<head></head><body>${createTransportHtml({
+                owner: "page",
+                entries: [{ type: "title", props: {}, children: "Page" }],
+            })}</body>`,
+        );
+
+        let manager = new MetadataManager();
+        manager.hydrate(document);
+
+        assert.equal(document.head.querySelector("title")?.textContent, "Page");
+        manager.dispose();
+    });
+});
+```
 
 **High-value testing patterns:**
 
-- **Minimal component state:** Test the fewest state transitions that prove the behavior
-- **Work in event handlers first:** Verify that click/submit/input handlers produce the right DOM changes
-- **Use `queueTask` assertions:** When a component uses `handle.queueTask()`, flush and then assert the post-render effect (focus moved, scroll position changed, etc.)
-- **Prefer browser or CSS state:** For hover/focus behavior, test the actual focus state on DOM nodes rather than checking CSS classes
+- **Server-renderable behavior first:** Pure logic (schema parsing, rendering helpers, route matchers) tests cleanly without a DOM — keep it in the `test` glob.
+- **Browser tests for DOM commit semantics:** Anything that depends on the manager, `handle.queueTask`, focus, or event dispatch belongs in the `browser` glob.
+- **Use `remix/assert`:** Avoid external matchers — the built-in `assert.equal`/`assert.deepEqual` keep the test surface tight and match what's used across the project's own tests.
 
 **What to avoid:**
 
@@ -2223,7 +2476,7 @@ Use `root.dispose()` to verify cleanup behavior when relevant (e.g., checking th
 ```tsx
 import { createCookie } from "remix/cookie";
 import { Session } from "remix/session";
-import { session } from "remix/session-middleware";
+import { session } from "remix/middleware/session";
 import { createCookieSessionStorage } from "remix/session/cookie-storage";
 
 // 1. Create a signed cookie (secrets are required)
@@ -2248,49 +2501,49 @@ let router = createRouter({
 
 The middleware reads the session from the cookie on each request, makes it available as `context.get(Session)`, and automatically saves changes and sets the response cookie.
 
-**Reading and writing session data in controllers:**
+**Reading and writing session data in actions:**
 
 ```tsx
-router.map(routes.user, {
+router.map(routes.user, createController(routes.user, {
     actions: {
         // POST
-        preferences(context) {
-            let session = context.get(Session);
-            let { theme } = s.parse(ThemeSchema, context.get(FormData));
+        preferences(ctx) {
+            let session = ctx.get(Session);
+            let { theme } = s.parse(ThemeSchema, ctx.formData);
             session.set("theme", theme);
             return redirect(routes.user.settings.href());
         },
         // GET
-        settings(context) {
-            let session = context.get(Session);
+        settings(ctx) {
+            let session = ctx.get(Session);
             let theme = session.get("theme") ?? "system";
-            return frame(<Settings theme={theme} />);
+            return frame(render(<Settings theme={theme} />));
         },
     },
-});
+}));
 ```
 
 **Flash messages (persist for one request only):**
 
 ```tsx
-router.map(routes.contacts, {
+router.map(routes.contacts, createController(routes.contacts, {
     actions: {
         // In the action — set the flash
-        async create(context) {
-            let contact = await createContact(context.get(FormData));
-            let session = context.get(Session);
+        async create(ctx) {
+            let contact = await createContact(ctx.formData);
+            let session = ctx.get(Session);
             session.flash("message", `Created ${contact.name}`);
             return redirect(routes.contacts.show.href({ id: contact.id }));
         },
         // In the next request — read and display it
-        async show(context) {
-            let session = context.get(Session);
+        async show(ctx) {
+            let session = ctx.get(Session);
             let flash = session.get("message"); // Available once, then gone
-            let contact = await getContact(context.params.id);
-            return frame(<ContactDetail contact={contact} flash={flash} />);
+            let contact = await getContact(Number(ctx.params.id));
+            return frame(render(<ContactDetail contact={contact} flash={flash} />));
         },
     },
-});
+}));
 ```
 
 Flash values are available on the next request after they're set, then automatically cleared. This is the standard pattern for success/error notifications after form submissions.
@@ -2337,14 +2590,14 @@ session.destroy(); // Clears all data, clears client cookie on next response
 
 **Decision:** How do I implement login/logout with session-based auth, and optionally external OAuth providers?
 
-**Heuristic:** Use `remix/auth` for the login flow (verifying credentials or handling OAuth callbacks) and `remix/auth-middleware` for protecting routes on subsequent requests. Auth forms should use standard `<form>` submissions for progressive enhancement — authentication must work without client-side JavaScript.
+**Heuristic:** Use `remix/auth` for the login flow (verifying credentials or handling OAuth callbacks) and `remix/middleware/auth` for protecting routes on subsequent requests. Auth forms should use standard `<form>` submissions for progressive enhancement — authentication must work without client-side JavaScript.
 
 **The auth middleware stack:**
 
 ```tsx
-import { auth, createSessionAuthScheme, requireAuth } from "remix/auth-middleware";
+import { auth, createSessionAuthScheme, requireAuth } from "remix/middleware/auth";
 import { Session } from "remix/session";
-import { session } from "remix/session-middleware";
+import { session } from "remix/middleware/session";
 
 let router = createRouter({
     middleware: [
@@ -2376,11 +2629,11 @@ let router = createRouter({
 
 ```tsx
 import { completeAuth, createCredentialsAuthProvider, verifyCredentials } from "remix/auth";
+import { redirect } from "remix/response/redirect";
 
 let passwordProvider = createCredentialsAuthProvider({
-    parse(context) {
-        let formData = context.get(FormData);
-        let { email, password } = s.parse(AuthSchema, formData);
+    parse(ctx) {
+        let { email, password } = s.parse(AuthSchema, ctx.formData);
         return { email, password };
     },
     async verify({ email, password }) {
@@ -2389,17 +2642,17 @@ let passwordProvider = createCredentialsAuthProvider({
 });
 
 router.map(routes.auth.login.action, {
-    async handler(context) {
-        let user = await verifyCredentials(passwordProvider, context);
+    async handler(ctx) {
+        let user = await verifyCredentials(passwordProvider, ctx);
 
         if (user === null) {
-            let session = context.get(Session);
+            let session = ctx.get(Session);
             session.flash("error", "Invalid email or password");
             return redirect(routes.auth.login.href());
         }
 
         // Rotate session ID (prevents session fixation) and write auth record
-        let session = completeAuth(context);
+        let session = completeAuth(ctx);
         session.set("auth", { userId: user.id });
         return redirect(routes.dashboard.href());
     },
@@ -2453,14 +2706,14 @@ The logout form is also a plain `<form method="POST">` — no JavaScript require
 **Protecting routes:**
 
 ```tsx
-import { Auth, requireAuth } from "remix/auth-middleware";
-import type { GoodAuth } from "remix/auth-middleware";
+import { Auth, requireAuth } from "remix/middleware/auth";
+import type { GoodAuth } from "remix/middleware/auth";
 
 router.map(routes.dashboard, {
     middleware: [requireAuth()],
-    handler(context) {
-        let { identity } = context.get(Auth) as GoodAuth<User>;
-        return document(<Dashboard user={identity} />);
+    handler(ctx) {
+        let { identity } = ctx.get(Auth) as GoodAuth<User>;
+        return html(await renderDocument(<Dashboard user={identity} />));
     },
 });
 ```
@@ -2469,10 +2722,10 @@ router.map(routes.dashboard, {
 
 ```tsx
 let requireLogin = requireAuth({
-    onFailure(context) {
-        let isFrame = context.request.headers.get("x-remix-frame") === "true";
+    onFailure(ctx) {
+        let isFrame = ctx.request.headers.get("x-remix-frame") === "true";
         if (isFrame) {
-            return frame(<p>Please log in</p>, { status: 401 });
+            return frame(render(<p>Please log in</p>), { status: 401 });
         }
         return redirect(routes.auth.login.href());
     },
@@ -2528,7 +2781,7 @@ router.map(routes.auth.google.callback, {
 **Multiple auth schemes:** The `auth()` middleware tries each scheme in order. Use this for APIs that accept both session cookies and bearer tokens:
 
 ```tsx
-import { createBearerTokenAuthScheme, createSessionAuthScheme } from "remix/auth-middleware";
+import { createBearerTokenAuthScheme, createSessionAuthScheme } from "remix/middleware/auth";
 
 auth({
     schemes: [
@@ -2556,6 +2809,7 @@ auth({
 
 ```tsx
 import type { FileUpload } from "remix/form-data-parser";
+import { routes } from "#/routes.ts";
 
 const ALLOWED_TYPES = [
     "image/jpeg",
@@ -2565,9 +2819,14 @@ const ALLOWED_TYPES = [
     "image/svg+xml",
     "image/avif",
 ];
+const ALLOWED_TYPE_SET = new Set(ALLOWED_TYPES);
 
-export async function uploadHandler(file: FileUpload): Promise<string> {
-    if (!new Set(ALLOWED_TYPES).has(file.type)) {
+export async function uploadHandler(file: FileUpload): Promise<string | undefined> {
+    // Empty file inputs still produce a multipart part — skip them so the
+    // existing avatar value is preserved by the action.
+    if (file.size === 0) return undefined;
+
+    if (!ALLOWED_TYPE_SET.has(file.type)) {
         throw new Response(
             "Unsupported image format. Please upload a JPEG, PNG, GIF, or WebP file.",
             { status: 415 },
@@ -2578,16 +2837,16 @@ export async function uploadHandler(file: FileUpload): Promise<string> {
     let key = `${file.fieldName}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
 
     await storage.set(key, file);
-
-    return `/uploads/${key}`;
+    return routes.uploads.href({ key });
 }
 ```
 
 **Key details:**
 
 - The handler receives a `FileUpload` object (a `File` with metadata) for every file field in the form
-- Return a **string** — this replaces the file in the parsed `FormData`, so your controller receives a URL string instead of binary data
-- Validate the file type early and throw a `Response` to short-circuit with an appropriate HTTP status
+- Return a **string** to replace the file with a URL, or `undefined` to drop the field entirely (use this for empty file inputs so the existing avatar value is preserved by the action)
+- Build the returned URL via `routes.uploads.href({ key })` so it stays in sync with the route definition (see Recipe 6) — never hardcode `/uploads/${key}`
+- Validate the file type early and throw a `Response` to short-circuit with an appropriate HTTP status. The `rescueResponses()` middleware (Recipe 7) catches it and turns it into the outgoing response
 - Generate unique keys using a combination of field name, timestamp, and random suffix to prevent collisions
 
 **Wiring the handler into middleware:**
@@ -2605,23 +2864,19 @@ import { env } from "cloudflare:workers";
 let storage = new R2FileStorage(env.FILES);
 ```
 
-**Serving uploaded files:**
+**Serving uploaded files** — register a `GET /uploads/*key` action that streams from R2:
 
 ```tsx
 import { createFileResponse as sendFile } from "remix/response/file";
 
-export let serveUpload: BuildAction<"GET", typeof routes.uploads> = async ctx => {
-    let storage = ctx.get(R2FileStorage);
+// inside createController(routes, { actions: { ... } })
+async uploads(ctx) {
     let file = await storage.get(ctx.params.key);
-
-    if (!file) {
-        return new Response("File not found", { status: 404 });
-    }
-
+    if (!file) return new Response("File not found", { status: 404 });
     return sendFile(file, ctx.request, {
         cacheControl: "public, max-age=31536000",
     });
-};
+},
 ```
 
 Use `createFileResponse` from `remix/response/file` to serve files with proper headers (content type, range requests, caching). The `cacheControl` option sets a long cache lifetime for immutable uploads.
@@ -2697,8 +2952,8 @@ The `#` prefix is required by the Node.js subpath imports spec. This maps `#/com
 ```tsx
 import { SearchBar } from "#/components/SearchBar.tsx";
 import { routes } from "#/routes.ts";
-import { loadDatabase } from "#/middleware/database.ts";
-import { Frame } from "#/utils/frame.tsx";
+import { database } from "#/middleware.ts";
+import { link } from "#/utils/link.tsx";
 ```
 
 **What you don't need:**
@@ -2762,9 +3017,12 @@ The `#` prefix is the only one that works everywhere without configuration beyon
             "binding": "DB",
             "database_name": "my-db",
             "database_id": "local",
-        },
+            // Generated by `vp db:migrations:generate` from db/migrations/*.ts.
+            // `migrations_dir` is resolved relative to this wrangler config file.
+            "migrations_dir": "./db/d1-migrations"
+        }
     ],
-    "r2_buckets": [{ "binding": "FILES", "bucket_name": "my-files" }],
+    "r2_buckets": [{ "binding": "FILES", "bucket_name": "my-files" }]
 }
 ```
 
@@ -2773,7 +3031,7 @@ The `#` prefix is the only one that works everywhere without configuration beyon
 - `main` — Your server entry point. Cloudflare Workers loads this as the request handler.
 - `assets.directory` — Points to the client build output. Workers serves these as static assets before hitting your server code.
 - `compatibility_flags: ["nodejs_compat"]` — Enables Node.js API compatibility (required for `node:` imports like `node:path`, `node:timers/promises`).
-- `d1_databases` — Declares D1 database bindings. Use `"database_id": "local"` for development; replace with the real ID for production.
+- `d1_databases` — Declares D1 database bindings. Use `"database_id": "local"` for development; replace with the real ID for production. The `migrations_dir` points Wrangler at the generated SQL files (see Recipe 18).
 - `r2_buckets` — Declares R2 object storage bindings.
 
 **Generating types from bindings:**
@@ -2811,9 +3069,11 @@ let bucket = env.FILES;
 
 // In middleware (preferred — inject into request context)
 import { Database } from "remix/data-table";
-import { type Middleware } from "remix/fetch-router";
+import { type Middleware } from "remix/router";
 
-export function loadDatabase(): Middleware {
+type DatabaseEntry = { key: typeof Database; value: Database };
+
+export function database(): Middleware<DatabaseEntry> {
     let adapter = new D1DatabaseAdapter(env.DB);
     let db = new Database(adapter);
 
@@ -2833,10 +3093,10 @@ export function loadDatabase(): Middleware {
 
 **Writing a D1 database adapter:**
 
-The `remix/data-table` package expects a `DatabaseAdapter`. For D1, you need an adapter that uses D1's prepared-statement API for execution while delegating SQL generation to the built-in SQLite adapter:
+The `remix/data-table` package expects a `DatabaseAdapter`. For D1, you need an adapter that uses D1's prepared-statement API for execution while delegating SQL generation to the built-in SQLite adapter from `remix/data-table/sqlite`:
 
 ```tsx
-import { SqliteDatabaseAdapter } from "remix/data-table-sqlite";
+import { SqliteDatabaseAdapter } from "remix/data-table/sqlite";
 
 // Reuse the SQLite adapter purely for SQL compilation (never touches the database)
 let compiler = new SqliteDatabaseAdapter(null as never);
@@ -2908,11 +3168,13 @@ export class R2FileStorage implements FileStorage {
 
 **The development workflow:**
 
-1. `wrangler.jsonc` declares your D1 + R2 bindings
-2. `wrangler types` generates the `Env` interface
+1. `wrangler.jsonc` declares your D1 + R2 bindings and points `migrations_dir` at `./db/d1-migrations`
+2. `wrangler types` generates the `Env` interface (wired into Vite+ via the `typegen` task — see Recipe 20)
 3. The Cloudflare Vite plugin (`@cloudflare/vite-plugin`) injects local proxies for D1/R2 during `vp dev`
-4. Local D1 state persists in `.wrangler/state/v3/d1/` — delete this directory to reset
-5. `wrangler deploy` pushes your built worker to Cloudflare
+4. `vp run db:migrations:apply:local` (chained from `vp dev`) compiles and applies SQL migrations to the local D1
+5. Local D1 state persists in `.wrangler/state/v3/d1/` — `vp run db:reset` wipes it
+6. `vp run db:migrations:deploy` (or `db:migrations:apply:remote`) applies SQL migrations to the remote database — needs `CLOUDFLARE_API_TOKEN`
+7. `vp run deploy` (i.e. `wrangler deploy`) pushes your built worker to Cloudflare
 
 **Production setup:**
 
@@ -2923,4 +3185,4 @@ wrangler d1 create my-db
 wrangler r2 bucket create my-files
 ```
 
-Replace `"database_id": "local"` with the ID returned by `wrangler d1 create`.
+Replace `"database_id": "local"` with the ID returned by `wrangler d1 create`. Then run `vp run db:migrations:deploy` once to seed the schema on the remote DB.
