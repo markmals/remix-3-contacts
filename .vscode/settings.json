@@ -49,7 +49,8 @@
         "vite.config.*": "*.plugin.ts, worker-configuration.d.ts"
     },
     "files.exclude": {
-        ".wrangler": true
+        ".wrangler": true,
+        "dist": true
     },
 
     "npmx.ignore.vulnerability": ["@hiogawa/vite-plugin-fullstack@0.0.11"],
