@@ -63,7 +63,7 @@ export default createController(routes.contacts, {
             return redirect(routes.home.href());
         },
         async favorite(ctx) {
-            let { favorite } = s.parse(FavoriteSchema, ctx.get(FormData));
+            let { favorite } = s.parse(FavoriteSchema, ctx.formData);
             let { id } = s.parse(IdSchema, ctx.params);
             let update = await updateContact(id, {
                 favorite,
@@ -78,7 +78,7 @@ export default createController(routes.contacts, {
                 return redirect(routes.home.href());
             }
 
-            let updates = s.parse(UpdateSchema, ctx.get(FormData));
+            let updates = s.parse(UpdateSchema, ctx.formData);
 
             // Preserve existing avatar when no new file is uploaded
             if (!updates.avatar) {
