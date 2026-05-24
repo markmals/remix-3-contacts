@@ -1,10 +1,10 @@
 # Getting Started
 
-Create interactive UIs with Remix Component using a two-phase component model: setup runs once, render runs on every update.
+Create interactive UIs with Remix UI using a two-phase component model: setup runs once, and render runs on every update.
 
 ## Client-Only Root
 
-To start using Remix Component on the client, create a root and render your top-level component:
+To start using Remix UI on the client, create a root and render your top-level component:
 
 ```tsx
 import { createRoot } from "remix/ui";
@@ -122,7 +122,7 @@ let app = run({
         return mod[exportName];
     },
     async resolveFrame(src, signal) {
-        let res = await fetch(src, { headers: { accept: "text/html" }, signal });
+        let res = await fetch(src, { headers: { Accept: "text/html" }, signal });
         return res.body ?? (await res.text());
     },
 });
@@ -137,7 +137,7 @@ await app.ready();
 import { clientEntry, on, type Handle } from "remix/ui";
 
 export let Counter = clientEntry(
-    import.meta.url,
+    "/assets/counter.js#Counter",
     function Counter(handle: Handle<{ initialCount?: number; label: string }>) {
         let count = handle.props.initialCount ?? 0;
 
@@ -166,7 +166,7 @@ export let Counter = clientEntry(
 
 - [Components](./components.md) - Component structure and runtime behavior
 - [Handle API](./handle.md) - The component's interface to the framework
-- [Server Rendering](./server-rendering.md) - `renderToString` and `renderToStream`
+- [Server](../src/server/README.md) - `renderToString` and `renderToStream`
 - [Hydration](./hydration.md) - `clientEntry` and `run`
 - [Frames](./frames.md) - Streaming partial server UI with `<Frame>`
 - [Styling](./styling.md) - CSS mixin for inline styling

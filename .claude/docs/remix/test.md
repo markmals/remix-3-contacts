@@ -1,4 +1,4 @@
-# `test`
+# test
 
 A test framework for JavaScript and TypeScript projects.
 
@@ -49,13 +49,6 @@ remix test "src/**/*.test.ts" "tests/**/*.test.tsx"
 ```
 
 Or, you may control via the `glob.test` config field/CLI arg. Each `glob.*` field accepts a single string or an array of patterns, and `--glob.*` flags can be repeated on the CLI.
-
-If you install `@remix-run/test` directly instead of the umbrella `remix` package, the same runner is available as `remix-test`:
-
-```sh
-npm i @remix-run/test
-remix-test
-```
 
 ### Config File
 
@@ -216,11 +209,10 @@ suite("My Test Suite", () => {
 
 ### Programmatic runner
 
-`@remix-run/test/cli` exports `runRemixTest()` for tools that want to run the test runner without
-exiting the current process:
+`remix/test/cli` exports `runRemixTest()` for tools that want to run the test runner without exiting the current process:
 
 ```ts
-import { runRemixTest } from "@remix-run/test/cli";
+import { runRemixTest } from "remix/test/cli";
 
 let exitCode = await runRemixTest({
     argv: ["--type", "server"],
@@ -228,9 +220,7 @@ let exitCode = await runRemixTest({
 });
 ```
 
-`runRemixTest()` returns the runner exit code. The `remix test` and `remix-test` bin wrappers call
-`process.exit()` with that code when the run finishes so open workers, browsers, or project handles
-cannot keep the CLI alive.
+`runRemixTest()` returns the runner exit code. The `remix test` bin wrapper calls `process.exit()` with that code when the run finishes so open workers, browsers, or project handles cannot keep the CLI alive.
 
 ### Test Context
 

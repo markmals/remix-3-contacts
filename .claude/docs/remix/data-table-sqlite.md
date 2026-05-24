@@ -1,14 +1,13 @@
 # data-table-sqlite
 
-SQLite adapter for [`remix/data-table`](https://github.com/remix-run/remix/tree/main/packages/data-table).
-Use this package when you want `data-table` APIs backed by a synchronous SQLite client.
+SQLite adapter for [`remix/data-table`](https://github.com/remix-run/remix/tree/main/packages/data-table). Use this package when you want `data-table` APIs backed by a synchronous SQLite client.
 
 ## Features
 
 - **Native Runtime SQLite Support**: Works with Node's `node:sqlite` `DatabaseSync`, Bun's `bun:sqlite` `Database`, and compatible synchronous SQLite clients
 - **Full `data-table` API Support**: Queries, relations, writes, and transactions
 - **Adapter-Owned Compiler**: SQL compilation lives in this adapter, with optional shared pure helpers from `data-table`
-- **Migration DDL Support**: Compiles and executes `DataMigrationOperation` operations for `remix/data-table/migrations`
+- **Multi-Statement Migrations**: `executeScript()` runs `up.sql` / `down.sql` files via `Database.exec()`
 - **SQLite Capabilities Enabled By Default**:
     - `returning: true`
     - `savepoints: true`
@@ -29,7 +28,7 @@ npm i remix
 ```ts
 import { DatabaseSync } from "node:sqlite";
 import { createDatabase } from "remix/data-table";
-import { createSqliteDatabaseAdapter } from "remix/data-table-sqlite";
+import { createSqliteDatabaseAdapter } from "remix/data-table/sqlite";
 
 let sqlite = new DatabaseSync("app.db");
 let db = createDatabase(createSqliteDatabaseAdapter(sqlite));
@@ -40,14 +39,13 @@ let db = createDatabase(createSqliteDatabaseAdapter(sqlite));
 ```ts
 import { Database } from "bun:sqlite";
 import { createDatabase } from "remix/data-table";
-import { createSqliteDatabaseAdapter } from "remix/data-table-sqlite";
+import { createSqliteDatabaseAdapter } from "remix/data-table/sqlite";
 
 let sqlite = new Database("app.db");
 let db = createDatabase(createSqliteDatabaseAdapter(sqlite));
 ```
 
-This is a good fit for local development, embedded deployments, and single-node services.
-Import any driver-specific types you need directly from your runtime's SQLite module.
+This is a good fit for local development, embedded deployments, and single-node services. Import any driver-specific types you need directly from your runtime's SQLite module.
 
 ## Adapter Capabilities
 
@@ -66,7 +64,7 @@ Import any driver-specific types you need directly from your runtime's SQLite mo
 ```ts
 import { DatabaseSync } from "node:sqlite";
 import { createDatabase } from "remix/data-table";
-import { createSqliteDatabaseAdapter } from "remix/data-table-sqlite";
+import { createSqliteDatabaseAdapter } from "remix/data-table/sqlite";
 
 let sqlite = new DatabaseSync(":memory:");
 let db = createDatabase(createSqliteDatabaseAdapter(sqlite));

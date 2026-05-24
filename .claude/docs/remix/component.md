@@ -48,8 +48,8 @@ function App() {
 
 let stream = renderToStream(<App />, {
     resolveFrame(src, target, context) {
-        let headers = new Headers({ accept: "text/html" });
-        if (target) headers.set("x-remix-target", target);
+        let headers = new Headers({ Accept: "text/html" });
+        if (target) headers.set("X-Remix-Target", target);
         return fetch(new URL(src, context?.currentFrameSrc ?? request.url), { headers }).then(res =>
             res.text(),
         );
@@ -69,7 +69,7 @@ Mark components that need client-side interactivity with `clientEntry`. They ren
 import { clientEntry, on, type Handle } from "remix/ui";
 
 export let Counter = clientEntry(
-    import.meta.url,
+    "/assets/counter.js#Counter",
     function Counter(handle: Handle<{ initialCount?: number; label: string }>) {
         let count = handle.props.initialCount ?? 0;
 
@@ -109,8 +109,8 @@ let app = run({
         return mod[exportName];
     },
     async resolveFrame(src, signal, target) {
-        let headers = new Headers({ accept: "text/html" });
-        if (target) headers.set("x-remix-target", target);
+        let headers = new Headers({ Accept: "text/html" });
+        if (target) headers.set("X-Remix-Target", target);
         let res = await fetch(src, { headers, signal });
         return res.body ?? (await res.text());
     },
@@ -614,7 +614,7 @@ function LabeledInput(handle: Handle) {
 Context API for ancestor/descendant communication. All components are potential context providers and consumers. Use `handle.context.set()` to provide values and `handle.context.get()` to consume them.
 
 ```tsx
-function App(handle: Handle<{ theme: string }>) {
+function App(handle: Handle<Record<string, never>, { theme: string }>) {
     handle.context.set({ theme: "dark" });
 
     return () => (
@@ -652,7 +652,7 @@ class Theme extends TypedEventTarget<{ change: Event }> {
     }
 }
 
-function App(handle: Handle<Theme>) {
+function App(handle: Handle<Record<string, never>, Theme>) {
     let theme = new Theme();
     handle.context.set(theme);
 
@@ -705,22 +705,22 @@ function List(handle: Handle) {
 
 ## Documentation
 
-- [Getting Started](./docs/getting-started.md)
-- [Components](./docs/components.md)
-- [Handle API](./docs/handle.md)
-- [Server Rendering](./docs/server-rendering.md)
-- [Hydration](./docs/hydration.md)
-- [Frames](./docs/frames.md)
-- [Styling](./docs/styling.md)
-- [Events](./docs/events.md)
-- [Interactions](./docs/interactions.md)
-- [Context](./docs/context.md)
-- [Composition](./docs/composition.md)
-- [Patterns](./docs/patterns.md)
-- [Testing](./docs/testing.md)
+- [Getting Started](./getting-started.md)
+- [Components](./components.md)
+- [Handle API](./handle.md)
+- [Server](../src/server/README.md)
+- [Hydration](./hydration.md)
+- [Frames](./frames.md)
+- [Styling](./styling.md)
+- [Events](./events.md)
+- [Interactions](./interactions.md)
+- [Context](./context.md)
+- [Composition](./composition.md)
+- [Patterns](./patterns.md)
+- [Test](../src/test/README.md)
 - Animations
-    - [spring](./docs/spring.md)
-    - [tween](./docs/tween.md)
-- [Server Rendering](./docs/server-rendering.md)
+    - [spring](./spring.md)
+    - [tween](./tween.md)
+- [Server](../src/server/README.md)
 
 See [LICENSE](https://github.com/remix-run/remix/blob/main/LICENSE)

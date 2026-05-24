@@ -21,8 +21,8 @@ npm i remix
 Static middleware is useful for serving static files from a directory.
 
 ```ts
-import { createRouter } from "remix/fetch-router";
-import { staticFiles } from "remix/static-middleware";
+import { createRouter } from "remix/router";
+import { staticFiles } from "remix/middleware/static";
 
 let router = createRouter({
     middleware: [staticFiles("./public")],
@@ -33,7 +33,7 @@ router.get("/", () => new Response("Home"));
 
 ### With Cache Control
 
-Internally, the `staticFiles()` middleware uses the [`createFileResponse()` helper from `@remix-run/response`](https://github.com/remix-run/remix/tree/main/packages/response/README.md#file-responses) to send files with full HTTP semantics. This means it also accepts the same options as the `createFileResponse()` helper.
+Internally, the `staticFiles()` middleware uses the [`createFileResponse()` helper from `remix/response`](https://github.com/remix-run/remix/tree/main/packages/response/README.md#file-responses) to send files with full HTTP semantics. This means it also accepts the same options as the `createFileResponse()` helper.
 
 ```ts
 let router = createRouter({

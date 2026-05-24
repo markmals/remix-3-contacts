@@ -4,6 +4,7 @@ Typed utilities for parsing, manipulating, and serializing HTTP header values. `
 
 ## Features
 
+- **Enhanced `Headers` Class** - Use `SuperHeaders` for lazy, typed property accessors that still work anywhere native `Headers` are expected
 - **Header-Specific Classes** - Purpose-built APIs for `Accept`, `Cache-Control`, `Content-Type`, and more
 - **Round-Trip Safety** - Parse from raw values and serialize back with `.toString()`
 - **Typed Operations** - Work with structured values instead of manual string parsing
@@ -12,6 +13,64 @@ Typed utilities for parsing, manipulating, and serializing HTTP header values. `
 
 ```sh
 npm i remix
+```
+
+## Usage
+
+`SuperHeaders` extends the native `Headers` class and adds lazy, typed property accessors for common headers. It is also the default export from this package.
+
+```ts
+import Headers from "remix/headers";
+
+let headers = new Headers(request.headers);
+
+headers.contentType = { mediaType: "text/html", charset: "utf-8" };
+headers.cacheControl = { public: true, maxAge: 3600 };
+headers.setCookie = { name: "session", value: "abc", httpOnly: true };
+
+headers.contentType.charset = "iso-8859-1";
+headers.cacheControl.maxAge = 60;
+headers.setCookie.push({ name: "theme", value: "dark", path: "/" });
+
+return new Response(html, { headers });
+```
+
+Because `SuperHeaders` is a real `Headers` subclass, it can be passed directly to platform APIs:
+
+```ts
+let headers = new Headers({ contentType: "text/plain" });
+
+headers instanceof globalThis.Headers; // true
+new Response("Hello", { headers }).headers.get("Content-Type"); // 'text/plain'
+```
+
+Typed accessors parse values only when you read them:
+
+```ts
+let headers = new Headers({ "Content-Type": "application/json; charset=utf-8" });
+
+headers.get("Content-Type"); // no typed parse needed
+headers.contentType.mediaType; // parses Content-Type lazily
+```
+
+Use `apply()` to apply a `SuperHeadersInit` value to an existing instance with header-aware semantics:
+
+```ts
+let headers = new Headers({
+    contentType: "text/html",
+    setCookie: { name: "session", value: "abc" },
+    vary: "Accept-Encoding",
+});
+
+headers.apply({
+    contentType: "application/json",
+    setCookie: { name: "theme", value: "dark" },
+    vary: ["Accept-Encoding", "Accept-Language"],
+});
+
+headers.get("Content-Type"); // 'application/json'
+headers.get("Vary"); // 'accept-encoding, accept-language'
+headers.getSetCookie(); // ['session=abc', 'theme=dark']
 ```
 
 ## Individual Header Utilities
@@ -35,6 +94,16 @@ The following headers are currently supported:
 - [Set-Cookie](./README.md#set-cookie)
 - [Vary](./README.md#vary)
 
+If you only need a specific header parser (for example, just `Content-Type`), import that parser directly from its subpath. This avoids pulling the package barrel and `SuperHeaders`:
+
+```ts
+import { ContentType } from "remix/headers/content-type";
+import { SetCookie } from "remix/headers/set-cookie";
+
+let contentType = ContentType.from("text/plain; charset=utf-8");
+let setCookie = new SetCookie("session=abc; Path=/");
+```
+
 ### Accept
 
 Parse, manipulate and stringify [`Accept` headers](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept).
@@ -45,7 +114,7 @@ Implements `Map<mediaType, quality>`.
 import { Accept } from "remix/headers";
 
 // Parse from headers
-let accept = Accept.from(request.headers.get("accept"));
+let accept = Accept.from(request.headers.get("Accept"));
 
 accept.mediaTypes; // ['text/html', 'text/*']
 accept.weights; // [1, 0.9]
@@ -88,7 +157,7 @@ Implements `Map<encoding, quality>`.
 import { AcceptEncoding } from "remix/headers";
 
 // Parse from headers
-let acceptEncoding = AcceptEncoding.from(request.headers.get("accept-encoding"));
+let acceptEncoding = AcceptEncoding.from(request.headers.get("Accept-Encoding"));
 
 acceptEncoding.encodings; // ['gzip', 'deflate']
 acceptEncoding.weights; // [1, 0.8]
@@ -124,7 +193,7 @@ Implements `Map<language, quality>`.
 import { AcceptLanguage } from "remix/headers";
 
 // Parse from headers
-let acceptLanguage = AcceptLanguage.from(request.headers.get("accept-language"));
+let acceptLanguage = AcceptLanguage.from(request.headers.get("Accept-Language"));
 
 acceptLanguage.languages; // ['en-us', 'en']
 acceptLanguage.weights; // [1, 0.9]
@@ -158,7 +227,7 @@ Parse, manipulate and stringify [`Cache-Control` headers](https://developer.mozi
 import { CacheControl } from "remix/headers";
 
 // Parse from headers
-let cacheControl = CacheControl.from(response.headers.get("cache-control"));
+let cacheControl = CacheControl.from(response.headers.get("Cache-Control"));
 
 cacheControl.public; // true
 cacheControl.maxAge; // 3600
@@ -194,7 +263,7 @@ Parse, manipulate and stringify [`Content-Disposition` headers](https://develope
 import { ContentDisposition } from "remix/headers";
 
 // Parse from headers
-let contentDisposition = ContentDisposition.from(response.headers.get("content-disposition"));
+let contentDisposition = ContentDisposition.from(response.headers.get("Content-Disposition"));
 
 contentDisposition.type; // 'attachment'
 contentDisposition.filename; // 'example.pdf'
@@ -228,7 +297,7 @@ Parse, manipulate and stringify [`Content-Range` headers](https://developer.mozi
 import { ContentRange } from "remix/headers";
 
 // Parse from headers
-let contentRange = ContentRange.from(response.headers.get("content-range"));
+let contentRange = ContentRange.from(response.headers.get("Content-Range"));
 
 contentRange.unit; // "bytes"
 contentRange.start; // 200
@@ -260,7 +329,7 @@ Parse, manipulate and stringify [`Content-Type` headers](https://developer.mozil
 import { ContentType } from "remix/headers";
 
 // Parse from headers
-let contentType = ContentType.from(request.headers.get("content-type"));
+let contentType = ContentType.from(request.headers.get("Content-Type"));
 
 contentType.mediaType; // "text/html"
 contentType.charset; // "utf-8"
@@ -286,15 +355,16 @@ headers.set("Content-Type", new ContentType({ mediaType: "text/html", charset: "
 
 Parse, manipulate and stringify [`Cookie` headers](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cookie).
 
-Implements `Map<name, value>`.
+Implements an ordered list of name/value pairs. Duplicate cookie names are preserved, such as when cookies with the same name were set for different paths.
 
 ```ts
 import { Cookie } from "remix/headers";
 
 // Parse from headers
-let cookie = Cookie.from(request.headers.get("cookie"));
+let cookie = Cookie.from(request.headers.get("Cookie"));
 
 cookie.get("session_id"); // 'abc123'
+cookie.getAll("session_id"); // ['abc123']
 cookie.get("theme"); // 'dark'
 cookie.has("session_id"); // true
 cookie.size; // 2
@@ -306,6 +376,7 @@ for (let [name, value] of cookie) {
 
 // Modify and set header
 cookie.set("theme", "light");
+cookie.append("session_id", "def456");
 cookie.delete("session_id");
 headers.set("Cookie", cookie);
 
@@ -335,7 +406,7 @@ Implements `Set<etag>`.
 import { IfMatch } from "remix/headers";
 
 // Parse from headers
-let ifMatch = IfMatch.from(request.headers.get("if-match"));
+let ifMatch = IfMatch.from(request.headers.get("If-Match"));
 
 ifMatch.tags; // ['"67ab43"', '"54ed21"']
 ifMatch.has('"67ab43"'); // true
@@ -372,7 +443,7 @@ Implements `Set<etag>`.
 import { IfNoneMatch } from "remix/headers";
 
 // Parse from headers
-let ifNoneMatch = IfNoneMatch.from(request.headers.get("if-none-match"));
+let ifNoneMatch = IfNoneMatch.from(request.headers.get("If-None-Match"));
 
 ifNoneMatch.tags; // ['"67ab43"', '"54ed21"']
 ifNoneMatch.has('"67ab43"'); // true
@@ -406,7 +477,7 @@ Parse, manipulate and stringify [`If-Range` headers](https://developer.mozilla.o
 import { IfRange } from "remix/headers";
 
 // Parse from headers
-let ifRange = IfRange.from(request.headers.get("if-range"));
+let ifRange = IfRange.from(request.headers.get("If-Range"));
 
 // With HTTP date
 ifRange.matches({ lastModified: 1609459200000 }); // true
@@ -439,7 +510,7 @@ Parse, manipulate and stringify [`Range` headers](https://developer.mozilla.org/
 import { Range } from "remix/headers";
 
 // Parse from headers
-let range = Range.from(request.headers.get("range"));
+let range = Range.from(request.headers.get("Range"));
 
 range.unit; // "bytes"
 range.ranges; // [{ start: 200, end: 1000 }]
@@ -474,7 +545,7 @@ Parse, manipulate and stringify [`Set-Cookie` headers](https://developer.mozilla
 import { SetCookie } from "remix/headers";
 
 // Parse from headers
-let setCookie = SetCookie.from(response.headers.get("set-cookie"));
+let setCookie = SetCookie.from(response.headers.get("Set-Cookie"));
 
 setCookie.name; // "session_id"
 setCookie.value; // "abc"
@@ -519,7 +590,7 @@ Implements `Set<headerName>`.
 import { Vary } from "remix/headers";
 
 // Parse from headers
-let vary = Vary.from(response.headers.get("vary"));
+let vary = Vary.from(response.headers.get("Vary"));
 
 vary.headerNames; // ['accept-encoding', 'accept-language']
 vary.has("Accept-Encoding"); // true (case-insensitive)
@@ -551,8 +622,8 @@ Parse and stringify raw HTTP header strings.
 import { parse, stringify } from "remix/headers";
 
 let headers = parse("Content-Type: text/html\r\nCache-Control: no-cache");
-headers.get("content-type"); // 'text/html'
-headers.get("cache-control"); // 'no-cache'
+headers.get("Content-Type"); // 'text/html'
+headers.get("Cache-Control"); // 'no-cache'
 
 stringify(headers);
 // 'Content-Type: text/html\r\nCache-Control: no-cache'

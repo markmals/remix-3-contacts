@@ -572,13 +572,13 @@ function rescueResponses(): Middleware {
 }
 
 let middleware = [
-    rescueResponses(),           // 1. Convert thrown Responses into return values
-    staticFiles("./public"),     // 2. Serve static files (short-circuits)
-    staticFiles("./dist/client"),// 3. Serve built client assets
+    rescueResponses(), // 1. Convert thrown Responses into return values
+    staticFiles("./public"), // 2. Serve static files (short-circuits)
+    staticFiles("./dist/client"), // 3. Serve built client assets
     formData({ uploadHandler }), // 4. Parse form data + file uploads
-    methodOverride(),            // 5. Rewrite _method field to real HTTP method
-    asyncContext(),              // 6. Enable request-scoped context (getContext())
-    database(),                  // 7. Initialize database, inject into context
+    methodOverride(), // 5. Rewrite _method field to real HTTP method
+    asyncContext(), // 6. Enable request-scoped context (getContext())
+    database(), // 7. Initialize database, inject into context
 ] as const;
 
 declare module "remix/router" {
@@ -618,17 +618,17 @@ if (import.meta.hot) {
 
 **Heuristic:**
 
-| Logic type                                     | Where it goes                | Why                                |
-| ---------------------------------------------- | ---------------------------- | ---------------------------------- |
-| Request handling for a specific route          | **Actions** (`actions/`)     | Tied to a route's URL/method       |
-| Cross-cutting concern (auth, logging, parsing) | **`middleware.ts`**          | Runs across many routes            |
-| UI rendering                                   | **Components** (`components/`)| Presentation layer                |
-| Data access / business rules                   | **Data layer** (`data/`)     | Reusable, testable                 |
-| Validation schemas                             | **`data/schemas.ts`**        | Shared between actions             |
-| Rendering helpers (document, frame)            | **`utils/render.tsx`**       | Shared rendering logic             |
-| Link mixin for type-safe frame targeting       | **`utils/link.tsx`**         | Reused on `<a>` and `<button>`     |
-| Streaming `<Head>` metadata                    | **`utils/metadata/`**        | SSR + client metadata reconciliation |
-| Platform adapters (D1, R2)                     | **`data/adapters/`**         | Swappable implementations          |
+| Logic type                                     | Where it goes                  | Why                                  |
+| ---------------------------------------------- | ------------------------------ | ------------------------------------ |
+| Request handling for a specific route          | **Actions** (`actions/`)       | Tied to a route's URL/method         |
+| Cross-cutting concern (auth, logging, parsing) | **`middleware.ts`**            | Runs across many routes              |
+| UI rendering                                   | **Components** (`components/`) | Presentation layer                   |
+| Data access / business rules                   | **Data layer** (`data/`)       | Reusable, testable                   |
+| Validation schemas                             | **`data/schemas.ts`**          | Shared between actions               |
+| Rendering helpers (document, frame)            | **`utils/render.tsx`**         | Shared rendering logic               |
+| Link mixin for type-safe frame targeting       | **`utils/link.tsx`**           | Reused on `<a>` and `<button>`       |
+| Streaming `<Head>` metadata                    | **`utils/metadata/`**          | SSR + client metadata reconciliation |
+| Platform adapters (D1, R2)                     | **`data/adapters/`**           | Swappable implementations            |
 
 **Actions** are grouped per resource and constructed with `createController(route, definition)`. The route argument anchors the type system so each action receives a `ctx` with `ctx.params` matched to the route's pattern and `ctx.formData` typed from the form-data middleware:
 
@@ -1248,7 +1248,11 @@ export default createMigration({
 // db/generate-d1-migrations.ts (simplified)
 import path from "node:path";
 import { loadMigrations } from "remix/data-table/migrations/node";
-import { buildSqlFileContents, d1MigrationFilename, normalizeSqlStatements } from "./lib/sql-generation.ts";
+import {
+    buildSqlFileContents,
+    d1MigrationFilename,
+    normalizeSqlStatements,
+} from "./lib/sql-generation.ts";
 
 let migrations = await loadMigrations(path.resolve("db/migrations"));
 for (let migration of migrations) {
@@ -1257,8 +1261,10 @@ for (let migration of migrations) {
         sourceFilename: `${migration.id}_${migration.name}/up.sql`,
         statements,
     });
-    let outFile = path.join("db/d1-migrations",
-        d1MigrationFilename({ id: migration.id, name: migration.name }));
+    let outFile = path.join(
+        "db/d1-migrations",
+        d1MigrationFilename({ id: migration.id, name: migration.name }),
+    );
     writeFileSync(outFile, contents, "utf-8");
 }
 ```
@@ -2504,46 +2510,52 @@ The middleware reads the session from the cookie on each request, makes it avail
 **Reading and writing session data in actions:**
 
 ```tsx
-router.map(routes.user, createController(routes.user, {
-    actions: {
-        // POST
-        preferences(ctx) {
-            let session = ctx.get(Session);
-            let { theme } = s.parse(ThemeSchema, ctx.formData);
-            session.set("theme", theme);
-            return redirect(routes.user.settings.href());
+router.map(
+    routes.user,
+    createController(routes.user, {
+        actions: {
+            // POST
+            preferences(ctx) {
+                let session = ctx.get(Session);
+                let { theme } = s.parse(ThemeSchema, ctx.formData);
+                session.set("theme", theme);
+                return redirect(routes.user.settings.href());
+            },
+            // GET
+            settings(ctx) {
+                let session = ctx.get(Session);
+                let theme = session.get("theme") ?? "system";
+                return frame(render(<Settings theme={theme} />));
+            },
         },
-        // GET
-        settings(ctx) {
-            let session = ctx.get(Session);
-            let theme = session.get("theme") ?? "system";
-            return frame(render(<Settings theme={theme} />));
-        },
-    },
-}));
+    }),
+);
 ```
 
 **Flash messages (persist for one request only):**
 
 ```tsx
-router.map(routes.contacts, createController(routes.contacts, {
-    actions: {
-        // In the action — set the flash
-        async create(ctx) {
-            let contact = await createContact(ctx.formData);
-            let session = ctx.get(Session);
-            session.flash("message", `Created ${contact.name}`);
-            return redirect(routes.contacts.show.href({ id: contact.id }));
+router.map(
+    routes.contacts,
+    createController(routes.contacts, {
+        actions: {
+            // In the action — set the flash
+            async create(ctx) {
+                let contact = await createContact(ctx.formData);
+                let session = ctx.get(Session);
+                session.flash("message", `Created ${contact.name}`);
+                return redirect(routes.contacts.show.href({ id: contact.id }));
+            },
+            // In the next request — read and display it
+            async show(ctx) {
+                let session = ctx.get(Session);
+                let flash = session.get("message"); // Available once, then gone
+                let contact = await getContact(Number(ctx.params.id));
+                return frame(render(<ContactDetail contact={contact} flash={flash} />));
+            },
         },
-        // In the next request — read and display it
-        async show(ctx) {
-            let session = ctx.get(Session);
-            let flash = session.get("message"); // Available once, then gone
-            let contact = await getContact(Number(ctx.params.id));
-            return frame(render(<ContactDetail contact={contact} flash={flash} />));
-        },
-    },
-}));
+    }),
+);
 ```
 
 Flash values are available on the next request after they're set, then automatically cleared. This is the standard pattern for success/error notifications after form submissions.
@@ -3019,10 +3031,10 @@ The `#` prefix is the only one that works everywhere without configuration beyon
             "database_id": "local",
             // Generated by `vp db:migrations:generate` from db/migrations/*.ts.
             // `migrations_dir` is resolved relative to this wrangler config file.
-            "migrations_dir": "./db/d1-migrations"
-        }
+            "migrations_dir": "./db/d1-migrations",
+        },
     ],
-    "r2_buckets": [{ "binding": "FILES", "bucket_name": "my-files" }]
+    "r2_buckets": [{ "binding": "FILES", "bucket_name": "my-files" }],
 }
 ```
 

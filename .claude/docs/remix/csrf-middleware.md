@@ -21,10 +21,10 @@ This middleware requires [`session-middleware`](https://github.com/remix-run/rem
 
 ```ts
 import { createCookie } from "remix/cookie";
-import { createRouter } from "remix/fetch-router";
-import { createCookieSessionStorage } from "remix/session/cookie-storage";
-import { session } from "remix/session-middleware";
-import { csrf, getCsrfToken } from "remix/csrf-middleware";
+import { createRouter } from "remix/router";
+import { createCookieSessionStorage } from "remix/session-storage/cookie";
+import { session } from "remix/middleware/session";
+import { csrf, getCsrfToken } from "remix/middleware/csrf";
 
 let sessionCookie = createCookie("__session", { secrets: ["secret1"] });
 let sessionStorage = createCookieSessionStorage();
@@ -49,7 +49,7 @@ router.get("/form", context => {
 
 By default, `csrf()` checks token values in this order:
 
-1. Request headers: `x-csrf-token`, `x-xsrf-token`, `csrf-token`
+1. Request headers: `X-Csrf-Token`, `X-Xsrf-Token`, `Csrf-Token`
 2. Form field: `_csrf` (requires `formData()` middleware to parse request bodies)
 3. Query param: `_csrf`
 
@@ -74,18 +74,11 @@ For unsafe methods (`POST`, `PUT`, `PATCH`, `DELETE`), the middleware validates 
 
 ## Why This Exists
 
-Modern browsers now provide stronger cross-origin signals like `Sec-Fetch-Site`, and explicit
-`SameSite=Lax` cookies already block many CSRF attacks. We have considered the lighter,
-tokenless model used by Go's `CrossOriginProtection`, and we think it is a good fit when a
-deployment can make all of the guarantees that model depends on.
+Modern browsers now provide stronger cross-origin signals like `Sec-Fetch-Site`, and explicit `SameSite=Lax` cookies already block many CSRF attacks. We have considered the lighter, tokenless model used by Go's `CrossOriginProtection`, and we think it is a good fit when a deployment can make all of the guarantees that model depends on.
 
-Remix cannot assume those guarantees for every app. `csrf()` still exists as the conservative
-option for apps that want synchronizer tokens in addition to origin checks, especially for
-session-backed HTML form workflows and mixed deployment environments.
+Remix cannot assume those guarantees for every app. `csrf()` still exists as the conservative option for apps that want synchronizer tokens in addition to origin checks, especially for session-backed HTML form workflows and mixed deployment environments.
 
-If your deployment can guarantee the prerequisites for the tokenless model, this middleware is
-optional. In that case, [`cop-middleware`](https://github.com/remix-run/remix/tree/main/packages/cop-middleware)
-may be a better fit.
+If your deployment can guarantee the prerequisites for the tokenless model, this middleware is optional. In that case, [`cop-middleware`](https://github.com/remix-run/remix/tree/main/packages/cop-middleware) may be a better fit.
 
 ## Related Packages
 

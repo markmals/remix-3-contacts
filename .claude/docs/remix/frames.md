@@ -73,19 +73,22 @@ Client entries inside a frame can trigger a reload via `handle.frame.reload()`:
 ```tsx
 import { clientEntry, on, type Handle } from "remix/ui";
 
-export let RefreshButton = clientEntry(import.meta.url, function RefreshButton(handle: Handle) {
-    return () => (
-        <button
-            mix={[
-                on("click", () => {
-                    handle.frame.reload();
-                }),
-            ]}
-        >
-            Refresh
-        </button>
-    );
-});
+export let RefreshButton = clientEntry(
+    "/assets/refresh.js#RefreshButton",
+    function RefreshButton(handle: Handle) {
+        return () => (
+            <button
+                mix={[
+                    on("click", () => {
+                        handle.frame.reload();
+                    }),
+                ]}
+            >
+                Refresh
+            </button>
+        );
+    },
+);
 ```
 
 You can also reload adjacent named frames:
@@ -161,8 +164,8 @@ On the client, `run` accepts an optional `resolveFrame` implementation:
 let app = run({
   loadModule: ...,
   async resolveFrame(src, signal, target) {
-    let headers = new Headers({ accept: 'text/html' })
-    if (target) headers.set('x-remix-target', target)
+    let headers = new Headers({ Accept: 'text/html' })
+    if (target) headers.set('X-Remix-Target', target)
     let response = await fetch(src, { headers, signal })
     return response.body ?? (await response.text())
   },
@@ -180,5 +183,5 @@ This is used both for initial hydration of pending frames and for `handle.frame.
 
 ## See Also
 
-- [Server Rendering](./server-rendering.md) - Streaming HTML with `renderToStream`
+- [Server](../src/server/README.md) - Streaming HTML with `renderToStream`
 - [Hydration](./hydration.md) - Client entries and the `run` function

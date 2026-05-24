@@ -18,8 +18,8 @@ npm i remix
 ## Usage
 
 ```ts
-import { createRouter } from "remix/fetch-router";
-import { compression } from "remix/compression-middleware";
+import { createRouter } from "remix/router";
+import { compression } from "remix/middleware/compression";
 
 let router = createRouter({
     middleware: [compression()],
@@ -40,8 +40,8 @@ The middleware will automatically compress responses for compressible MIME types
 Set the minimum response size in bytes to compress:
 
 ```ts
-import { createRouter } from "remix/fetch-router";
-import { compression } from "remix/compression-middleware";
+import { createRouter } from "remix/router";
+import { compression } from "remix/middleware/compression";
 
 let router = createRouter({
     middleware: [
@@ -59,8 +59,8 @@ let router = createRouter({
 Customize which compression algorithms to support:
 
 ```ts
-import { createRouter } from "remix/fetch-router";
-import { compression } from "remix/compression-middleware";
+import { createRouter } from "remix/router";
+import { compression } from "remix/middleware/compression";
 
 let router = createRouter({
     middleware: [
@@ -74,8 +74,8 @@ let router = createRouter({
 The `encodings` option can also be a function that receives the response:
 
 ```ts
-import { createRouter } from "remix/fetch-router";
-import { compression } from "remix/compression-middleware";
+import { createRouter } from "remix/router";
+import { compression } from "remix/middleware/compression";
 
 let router = createRouter({
     middleware: [
@@ -94,13 +94,13 @@ let router = createRouter({
 
 ### Filter Media Type
 
-**Default:** Uses `isCompressibleMimeType()` from [`@remix-run/mime`](https://github.com/remix-run/remix/tree/main/packages/mime)
+**Default:** Uses `isCompressibleMimeType()` from [`remix/mime`](https://github.com/remix-run/remix/tree/main/packages/mime)
 
 You can customize this behavior with the `filterMediaType` option:
 
 ```ts
-import { createRouter } from "remix/fetch-router";
-import { compression } from "remix/compression-middleware";
+import { createRouter } from "remix/router";
+import { compression } from "remix/middleware/compression";
 import { isCompressibleMimeType } from "remix/mime";
 
 let router = createRouter({
@@ -125,8 +125,8 @@ let router = createRouter({
 You can pass options options to the underlying Node.js `zlib` and `brotli` compressors for fine-grained control:
 
 ```ts
-import { createRouter } from "remix/fetch-router";
-import { compression } from "remix/compression-middleware";
+import { createRouter } from "remix/router";
+import { compression } from "remix/middleware/compression";
 import { zlib } from "node:zlib";
 
 let router = createRouter({
@@ -149,8 +149,8 @@ Like `encodings`, both `zlib` and `brotli` options can also be functions that re
 
 ```ts
 import zlib from "node:zlib";
-import { createRouter } from "remix/fetch-router";
-import { compression } from "remix/compression-middleware";
+import { createRouter } from "remix/router";
+import { compression } from "remix/middleware/compression";
 
 let router = createRouter({
     middleware: [
@@ -172,9 +172,9 @@ let router = createRouter({
 
 ## Related Packages
 
-- [`@remix-run/fetch-router`](https://github.com/remix-run/remix/tree/main/packages/fetch-router) - Router for the web Fetch API
-- [`@remix-run/mime`](https://github.com/remix-run/remix/tree/main/packages/mime) - MIME type utilities
-- [`@remix-run/response`](https://github.com/remix-run/remix/tree/main/packages/response) - Response helpers
+- [`remix/router`](https://github.com/remix-run/remix/tree/main/packages/fetch-router) - Router for the web Fetch API
+- [`remix/mime`](https://github.com/remix-run/remix/tree/main/packages/mime) - MIME type utilities
+- [`remix/response`](https://github.com/remix-run/remix/tree/main/packages/response) - Response helpers
 
 ## License
 

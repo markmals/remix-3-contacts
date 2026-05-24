@@ -12,7 +12,7 @@ Use `clientEntry` to mark a component for hydration. The first argument is the m
 import { clientEntry, on, type Handle } from "remix/ui";
 
 export let Counter = clientEntry(
-    import.meta.url,
+    "/assets/counter.js#Counter",
     function Counter(handle: Handle<{ initialCount?: number; label: string }>) {
         let count = handle.props.initialCount ?? 0;
 
@@ -54,7 +54,7 @@ let app = run({
         return mod[exportName];
     },
     async resolveFrame(src, signal) {
-        let res = await fetch(src, { headers: { accept: "text/html" }, signal });
+        let res = await fetch(src, { headers: { Accept: "text/html" }, signal });
         return res.body ?? (await res.text());
     },
 });
@@ -65,7 +65,7 @@ await app.ready();
 ### `run` options
 
 - **`loadModule(moduleUrl, exportName)`** (required) - Called for each client entry found in the page. Return the component function. Typically uses dynamic `import()`.
-- **`resolveFrame(src, signal, target)`** (optional) - Called when a `<Frame>` needs to load or reload content. The examples here only use `src` and `signal`, but `target` is also available when frame targeting matters. If omitted, Remix Component uses a placeholder HTML response (`<p>resolve frame unimplemented</p>`). See [Frames](./frames.md) for details.
+- **`resolveFrame(src, signal, target)`** (optional) - Called when a `<Frame>` needs to load or reload content. The examples here only use `src` and `signal`, but `target` is also available when frame targeting matters. If omitted, Remix UI uses a placeholder HTML response (`<p>resolve frame unimplemented</p>`). See [Frames](./frames.md) for details.
 
 ### `app` methods
 
@@ -107,6 +107,6 @@ This means:
 
 ## See Also
 
-- [Server Rendering](./server-rendering.md) - Rendering components to HTML
+- [Server](../src/server/README.md) - Rendering components to HTML
 - [Frames](./frames.md) - Streaming partial server UI
 - [Components](./components.md) - Component model and lifecycle

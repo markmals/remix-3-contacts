@@ -135,13 +135,15 @@ let Theme = createTheme({
 Render the theme once near the top of your document:
 
 ```tsx
-function Layout(props: { children: RemixNode }) {
-    return (
+import type { Handle, RemixNode } from "remix/ui";
+
+function Layout(handle: Handle<{ children: RemixNode }>) {
+    return () => (
         <html>
             <head>
                 <Theme />
             </head>
-            <body>{props.children}</body>
+            <body>{handle.props.children}</body>
         </html>
     );
 }
@@ -168,13 +170,13 @@ let card = css({
 Render shared glyphs separately from the theme styles:
 
 ```tsx
-import type { RemixNode } from "remix/ui";
-import { Button } from "@remix-run/ui/button";
-import { Glyph } from "@remix-run/ui/glyph";
-import { RMX_01, RMX_01_GLYPHS } from "@remix-run/ui/theme";
+import type { Handle, RemixNode } from "remix/ui";
+import { Button } from "remix/ui/button";
+import { Glyph } from "remix/ui/glyph";
+import { RMX_01, RMX_01_GLYPHS } from "remix/ui/theme";
 
-function Layout(props: { children: RemixNode }) {
-    return (
+function Layout(handle: Handle<{ children: RemixNode }>) {
+    return () => (
         <html>
             <head>
                 <RMX_01 />
@@ -184,10 +186,31 @@ function Layout(props: { children: RemixNode }) {
                 <Button startIcon={<Glyph name="add" />} tone="primary">
                     New project
                 </Button>
-                {props.children}
+                {handle.props.children}
             </body>
         </html>
     );
+}
+```
+
+## Cascade Layers
+
+Remix UI emits its built-in theme reset in `rmx-reset` and generated `css(...)` rules under `rmx`. Unlayered CSS outranks layered component CSS, so use explicit layer order when mixing Remix UI with global styles.
+
+Put layers that should lose to Remix UI before `rmx-reset` and `rmx`:
+
+```css
+@layer base, rmx-reset, rmx;
+
+@layer base {
+    button,
+    input,
+    textarea,
+    select {
+        font: inherit;
+        margin: 0;
+        padding: 0;
+    }
 }
 ```
 

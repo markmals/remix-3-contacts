@@ -80,6 +80,65 @@ function ProgressBar(handle: Handle) {
 - Dynamic styles that change based on state or props
 - Computed values that update frequently
 
+## Cascade Layers
+
+Generated `css(...)` rules are emitted in native CSS cascade layers under the stable parent layer `rmx`. Each generated class gets its own sublayer, so a class such as `rmxc-k4a9f` is emitted as `@layer rmx.rmxc-k4a9f { ... }`. This keeps mix ordering stable across roots and frames.
+
+Unlayered author CSS outranks normal layered CSS. That means global styles can override generated component styles even when Remix UI inserts its rules later.
+
+The built-in theme reset is emitted in `rmx-reset` and ordered before `rmx`. No extra layer setup is needed unless the app adds layers that should sit before or after Remix UI.
+
+Put layers that should lose to Remix UI before `rmx-reset` and `rmx`. The layer can use any app-owned name; `base` is a common choice for defaults:
+
+```css
+@layer base, rmx-reset, rmx;
+
+@layer base {
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        font-size: inherit;
+        font-weight: inherit;
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+        font: inherit;
+        margin: 0;
+        padding: 0;
+    }
+
+    code,
+    pre {
+        font-size: 1em;
+    }
+}
+```
+
+Put layers that should override Remix UI after `rmx`:
+
+```css
+@layer base, rmx-reset, rmx, app;
+
+@layer app {
+    .marketing-heading {
+        font-size: clamp(2rem, 6vw, 4rem);
+    }
+}
+```
+
+For imported styles, use an import layer when your build supports it:
+
+```css
+@layer base, rmx-reset, rmx;
+@import "./base.css" layer(base);
+```
+
 ## Pseudo-Selectors
 
 Use `&` to reference the current element in pseudo-selectors:
@@ -126,8 +185,8 @@ function Button() {
 Use `&::before` and `&::after` for pseudo-elements:
 
 ```tsx
-function Badge() {
-    return (props: { count: number }) => (
+function Badge(handle: Handle<{ count: number }>) {
+    return () => (
         <div
             mix={[
                 css({
@@ -146,7 +205,7 @@ function Badge() {
                 }),
             ]}
         >
-            {props.count > 0 && <span>{props.count}</span>}
+            {handle.props.count > 0 && <span>{handle.props.count}</span>}
         </div>
     );
 }
@@ -157,10 +216,10 @@ function Badge() {
 Use `&[attribute]` for attribute selectors:
 
 ```tsx
-function Input() {
-    return (props: { required?: boolean }) => (
+function Input(handle: Handle<{ required?: boolean }>) {
+    return () => (
         <input
-            required={props.required}
+            required={handle.props.required}
             mix={[
                 css({
                     padding: "8px",
@@ -185,8 +244,8 @@ function Input() {
 Use class names or element selectors directly for descendant selectors:
 
 ```tsx
-function Card() {
-    return (props: { children: RemixNode }) => (
+function Card(handle: Handle<{ children: RemixNode }>) {
+    return () => (
         <div
             mix={[
                 css({
@@ -216,7 +275,7 @@ function Card() {
                 }),
             ]}
         >
-            {props.children}
+            {handle.props.children}
         </div>
     );
 }
@@ -242,10 +301,10 @@ Use nested selectors when **parent state affects children**. Don't nest when you
 
 ```tsx
 // ❌ Avoid: Managing hover state in JavaScript
-function CardWithJSState(handle: Handle) {
+function CardWithJSState(handle: Handle<{ children: RemixNode }>) {
     let isHovered = false;
 
-    return (props: { children: RemixNode }) => (
+    return () => (
         <div
             mix={[
                 on("mouseenter", () => {
@@ -270,8 +329,8 @@ function CardWithJSState(handle: Handle) {
 }
 
 // ✅ Prefer: CSS nested selectors handle state declaratively
-function Card(handle: Handle) {
-    return (props: { children: RemixNode }) => (
+function Card(handle: Handle<{ children: RemixNode }>) {
+    return () => (
         <div
             mix={[
                 css({
@@ -379,8 +438,8 @@ function Navigation() {
 Use `@media` for responsive design:
 
 ```tsx
-function ResponsiveGrid() {
-    return (props: { children: RemixNode }) => (
+function ResponsiveGrid(handle: Handle<{ children: RemixNode }>) {
+    return () => (
         <div
             mix={[
                 css({
@@ -396,7 +455,7 @@ function ResponsiveGrid() {
                 }),
             ]}
         >
-            {props.children}
+            {handle.props.children}
         </div>
     );
 }
@@ -407,8 +466,8 @@ function ResponsiveGrid() {
 Here's a comprehensive example demonstrating parent-state-affecting-children and media queries:
 
 ```tsx
-function ProductCard() {
-    return (props: { title: string; price: number; image: string }) => (
+function ProductCard(handle: Handle<{ title: string; price: number; image: string }>) {
+    return () => (
         <div
             mix={[
                 css({
@@ -437,8 +496,8 @@ function ProductCard() {
             ]}
         >
             <img
-                src={props.image}
-                alt={props.title}
+                src={handle.props.image}
+                alt={handle.props.title}
                 mix={[
                     css({
                         width: "100%",
@@ -473,7 +532,7 @@ function ProductCard() {
                         }),
                     ]}
                 >
-                    {props.title}
+                    {handle.props.title}
                 </h3>
                 <div
                     className="price"
@@ -485,7 +544,7 @@ function ProductCard() {
                         }),
                     ]}
                 >
-                    ${props.price}
+                    ${handle.props.price}
                 </div>
                 <button
                     mix={[
