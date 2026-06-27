@@ -37,7 +37,11 @@ export type { HeadProps } from "./head.tsx";
 
 export { collectNormalizedEntriesFromHtml, injectMetadataIntoHtml } from "./ssr.ts";
 
-export { renderWithMetadata, streamToString, stringToStream } from "./stream.ts";
+export {
+    renderWithMetadata,
+    bufferStream as streamToString,
+    createStream as stringToStream,
+} from "./stream.ts";
 
 export { MetadataManager, createMetadataManager } from "./manager.ts";
 

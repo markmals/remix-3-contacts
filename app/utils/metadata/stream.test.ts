@@ -1,12 +1,12 @@
 import * as assert from "remix/assert";
 import { describe, it } from "remix/test";
 
-import { renderWithMetadata, stringToStream, streamToString } from "./stream.ts";
+import { renderWithMetadata, createStream, bufferStream } from "./stream.ts";
 import { createTransportHtml } from "./transport.ts";
 
 describe("metadata stream wrapper", () => {
     it("converts strings to streams and streams to strings", async () => {
-        assert.equal(await streamToString(stringToStream("hello")), "hello");
+        assert.equal(await bufferStream(createStream("hello")), "hello");
     });
 
     it("injects metadata into a render stream", async () => {
@@ -16,10 +16,10 @@ describe("metadata stream wrapper", () => {
         });
 
         let stream = await renderWithMetadata(
-            Promise.resolve(stringToStream(`<html><head></head><body>${marker}</body></html>`)),
+            Promise.resolve(createStream(`<html><head></head><body>${marker}</body></html>`)),
         );
 
-        let html = await streamToString(stream);
+        let html = await bufferStream(stream);
 
         assert.ok(html.includes("<title"));
         assert.ok(html.includes(">Streamed</title>"));

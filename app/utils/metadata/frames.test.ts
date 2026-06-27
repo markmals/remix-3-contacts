@@ -2,7 +2,7 @@ import * as assert from "remix/assert";
 import { describe, it } from "remix/test";
 
 import { normalizeFrameHtml, withMetadataFrames } from "./frames.ts";
-import { streamToString, stringToStream } from "./stream.ts";
+import { bufferStream, createStream } from "./stream.ts";
 
 describe("frame metadata helpers", () => {
     it("leaves fragments alone", () => {
@@ -29,12 +29,12 @@ describe("frame metadata helpers", () => {
 
     it("wraps stream frame responses", async () => {
         let resolve = withMetadataFrames(async () =>
-            stringToStream("<html><head></head><body><p>Frame</p></body></html>"),
+            createStream("<html><head></head><body><p>Frame</p></body></html>"),
         );
         let result = await resolve("/frame", new AbortController().signal, "detail");
 
         assert.ok(result instanceof ReadableStream);
-        assert.equal(await streamToString(result), "<p>Frame</p>");
+        assert.equal(await bufferStream(result), "<p>Frame</p>");
     });
 
     it("passes top-frame responses through untouched", async () => {

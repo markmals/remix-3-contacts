@@ -2,7 +2,7 @@ import type { MetadataManagerOptions } from "./types.ts";
 
 import { injectMetadataIntoHtml } from "./ssr.ts";
 
-export function stringToStream(value: string): ReadableStream<Uint8Array> {
+export function createStream(value: string): ReadableStream<Uint8Array> {
     let encoder = new TextEncoder();
 
     return new ReadableStream<Uint8Array>({
@@ -13,7 +13,7 @@ export function stringToStream(value: string): ReadableStream<Uint8Array> {
     });
 }
 
-export async function streamToString(stream: ReadableStream<Uint8Array>): Promise<string> {
+export async function bufferStream(stream: ReadableStream<Uint8Array>): Promise<string> {
     let reader = stream.getReader();
     let decoder = new TextDecoder();
     let chunks: string[] = [];
@@ -33,6 +33,6 @@ export async function renderWithMetadata(
     options: MetadataManagerOptions = {},
 ): Promise<ReadableStream<Uint8Array>> {
     let stream = await streamOrPromise;
-    let html = await streamToString(stream);
-    return stringToStream(injectMetadataIntoHtml(html, options));
+    let html = await bufferStream(stream);
+    return createStream(injectMetadataIntoHtml(html, options));
 }

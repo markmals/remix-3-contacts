@@ -12,7 +12,7 @@ import {
 } from "#/data/contacts.ts";
 import { FavoriteSchema, IdSchema, QuerySchema, UpdateSchema } from "#/data/schemas.ts";
 import { routes } from "#/routes.ts";
-import { frame, render, renderDocument } from "#/utils/render.tsx";
+import { render, renderDocument } from "#/utils/render.tsx";
 import * as s from "remix/data-schema";
 import { getContext } from "remix/middleware/async-context";
 import { createHtmlResponse as html } from "remix/response/html";
@@ -34,7 +34,7 @@ async function contactPage(detail: (contact: Contact) => RemixNode) {
             if (!contact) throw contact;
 
             if (target === "detail") {
-                return frame(render(detail(contact)));
+                return html(render(detail(contact)));
             }
 
             return html(await renderDocument(<Document />));

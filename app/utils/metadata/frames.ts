@@ -1,4 +1,4 @@
-import { streamToString, stringToStream } from "./stream.ts";
+import { bufferStream, createStream } from "./stream.ts";
 
 export type MetadataFrameResponse = string | ReadableStream<Uint8Array>;
 
@@ -31,7 +31,7 @@ export function withMetadataFrames(resolveFrame: MetadataResolveFrame): Metadata
             return normalizeFrameHtml(result);
         }
 
-        let html = await streamToString(result);
-        return stringToStream(normalizeFrameHtml(html));
+        let html = await bufferStream(result);
+        return createStream(normalizeFrameHtml(html));
     };
 }
