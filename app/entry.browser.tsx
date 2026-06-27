@@ -1,5 +1,5 @@
 import { createMetadataManager, withMetadataFrames } from "#/utils/metadata/index.ts";
-import { createRoot, navigate, on, run } from "remix/ui";
+import { createRoot, navigate, on, run, type Handle } from "remix/ui";
 
 createMetadataManager().hydrate(document);
 
@@ -77,10 +77,10 @@ let bannerHost = document.createElement("div");
 document.body.insertBefore(bannerHost, document.body.firstChild);
 let bannerRoot = createRoot(bannerHost);
 
-function ErrorBanner() {
-    return (props: { message: string }) => (
+function ErrorBanner(handle: Handle<{ message: string }>) {
+    return () => (
         <div id="app-error-banner" role="alert">
-            <p>{props.message}</p>
+            <p>{handle.props.message}</p>
             <button
                 aria-label="Dismiss"
                 mix={on("click", () => bannerRoot.render(null))}

@@ -1,3 +1,5 @@
+import type { Handle } from "remix/ui";
+
 import { routes } from "#/routes.ts";
 import { clientEntry, on } from "remix/ui";
 
@@ -16,10 +18,10 @@ export let CancelButton = clientEntry(import.meta.url, () => {
     );
 });
 
-export let DeleteButton = clientEntry(import.meta.url, () => {
-    return (props: { contactId: number }) => (
+export let DeleteButton = clientEntry(import.meta.url, (handle: Handle<{ contactId: number }>) => {
+    return () => (
         <RestfulForm
-            action={routes.contacts.destroy.href({ id: props.contactId })}
+            action={routes.contacts.destroy.href({ id: handle.props.contactId })}
             method={routes.contacts.destroy.method}
             mix={on("submit", async event => {
                 if (!confirm("Please confirm you want to delete this record.")) {

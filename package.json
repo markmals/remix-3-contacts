@@ -10,18 +10,18 @@
         "@std/jsonc": "jsr:^1.0.2",
         "es-toolkit": "^1.45.1",
         "match-sorter": "^8.2.0",
-        "remix": "3.0.0-beta.2"
+        "remix": "3.0.0-beta.4"
     },
     "devDependencies": {
         "@cloudflare/vite-plugin": "^1.31.0",
         "@types/node": "^25.5.0",
         "@typescript/native-preview": "latest",
-        "eslint-plugin-perfectionist": "^5.7.0",
+        "eslint-plugin-perfectionist": "^5.8.0",
         "eslint-plugin-prefer-let": "^4.2.2",
         "magic-string": "^0.30.21",
         "oxc-parser": "^0.121.0",
-        "oxlint-tsgolint": "^0.17.2",
-        "playwright": "^1.59.1",
+        "oxlint-tsgolint": "^0.22.1",
+        "playwright": "^1.60.0",
         "vite": "npm:@voidzero-dev/vite-plus-core@latest",
         "vite-plugin-devtools-json": "^1.0.0",
         "vite-plus": "latest",

@@ -1,4 +1,5 @@
 import type { Contact } from "#/data/contacts.ts";
+import type { Handle } from "remix/ui";
 
 import { DeleteButton } from "#/components/Buttons.tsx";
 import { Favorite } from "#/components/Favorite.tsx";
@@ -17,8 +18,9 @@ function contactName(contact: Contact): string {
 const AVATAR_PLACEHOLDER =
     "https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png";
 
-export function ShowContact() {
-    return (props: { contact: Contact; query?: string }) => {
+export function ShowContact(handle: Handle<{ contact: Contact; query?: string }>) {
+    return () => {
+        let props = handle.props;
         let name = contactName(props.contact);
         let description =
             props.contact.notes || (props.contact.bsky ? `@${props.contact.bsky}` : "");

@@ -1,4 +1,5 @@
 import type { Contact } from "#/data/contacts.ts";
+import type { Handle } from "remix/ui";
 
 import { ALLOWED_TYPES } from "#/actions/controller.tsx";
 import { CancelButton } from "#/components/Buttons.tsx";
@@ -13,8 +14,9 @@ function contactName(contact: Contact): string {
     return name || "No Name";
 }
 
-export function EditContact() {
-    return (props: { contact: Contact }) => (
+export function EditContact(handle: Handle<{ contact: Contact }>) {
+    let props = handle.props;
+    return () => (
         <div id="detail">
             <Head>
                 <title>{`Edit ${contactName(props.contact)} · ${SITE.title}`}</title>

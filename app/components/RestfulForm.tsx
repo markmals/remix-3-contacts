@@ -1,11 +1,11 @@
 import type { RequestMethod } from "remix/router";
+import type { Handle } from "remix/ui";
 
-export function RestfulForm() {
-    return ({
-        children,
-        method,
-        ...props
-    }: JSX.IntrinsicHTMLElements["form"] & { method?: RequestMethod | "ANY" }) => {
+export function RestfulForm(
+    handle: Handle<JSX.IntrinsicHTMLElements["form"] & { method?: RequestMethod | "ANY" }>,
+) {
+    return () => {
+        let { children, method, ...props } = handle.props;
         let isGET = method === "GET" || typeof method === "undefined";
         return (
             <form method={isGET ? "GET" : "POST"} {...props}>

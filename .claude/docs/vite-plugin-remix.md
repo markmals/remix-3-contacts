@@ -396,9 +396,10 @@ export const Counter = clientEntry(import.meta.url, handle => {
     );
 });
 
-export const Toggle = clientEntry(import.meta.url, handle => {
+export const Toggle = clientEntry(import.meta.url, (handle: Handle<{ label: string }>) => {
     let open = false;
-    return (props: { label: string }) => (
+    let props = handle.props;
+    return () => (
         <div>
             <button
                 mix={[

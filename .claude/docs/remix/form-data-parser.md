@@ -7,7 +7,7 @@ A streaming `multipart/form-data` parser that solves memory issues with file upl
 - **Drop-in replacement** for `request.formData()` with streaming file upload support
 - **Minimal buffering** - processes file upload streams with minimal memory footprint
 - **Standards-based** - built on the [web Streams API](https://developer.mozilla.org/en-US/docs/Web/API/Streams_API) and [File API](https://developer.mozilla.org/en-US/docs/Web/API/File)
-- **Smart fallback** - automatically uses native `request.formData()` for non-`multipart/form-data` requests
+- **Smart fallback** - parses `application/x-www-form-urlencoded` requests with the same total size and field count limits, and uses native `request.formData()` for other form requests
 - **Storage agnostic** - works with any storage backend (local disk, S3, R2, etc.)
 
 ## Why You Need This
@@ -35,109 +35,109 @@ npm i remix
 The `parseFormData` interface allows you to define an "upload handler" function for fine-grained control of handling file uploads.
 
 ```ts
-import * as fsp from "node:fs/promises";
-import type { FileUpload } from "remix/form-data-parser";
-import { parseFormData } from "remix/form-data-parser";
+import * as fsp from 'node:fs/promises'
+import type { FileUpload } from 'remix/form-data-parser'
+import { parseFormData } from 'remix/form-data-parser'
 
 // Define how to handle incoming file uploads
 async function uploadHandler(fileUpload: FileUpload) {
-    // Is this file upload from the <input type="file" name="user-avatar"> field?
-    if (fileUpload.fieldName === "user-avatar") {
-        let filename = `/uploads/user-${user.id}-avatar.bin`;
+  // Is this file upload from the <input type="file" name="user-avatar"> field?
+  if (fileUpload.fieldName === 'user-avatar') {
+    let filename = `/uploads/user-${user.id}-avatar.bin`
 
-        // Store the file safely on disk
-        await fsp.writeFile(filename, fileUpload.bytes);
+    // Store the file safely on disk
+    await fsp.writeFile(filename, fileUpload.bytes)
 
-        // Return the file name to use in the FormData object so we don't
-        // keep the file contents around in memory.
-        return filename;
-    }
+    // Return the file name to use in the FormData object so we don't
+    // keep the file contents around in memory.
+    return filename
+  }
 
-    // Ignore unrecognized fields
+  // Ignore unrecognized fields
 }
 
 // Handle form submissions with file uploads
 async function requestHandler(request: Request) {
-    // Parse the form data from the request.body stream, passing any files
-    // through your upload handler as they are parsed from the stream
-    let formData = await parseFormData(request, uploadHandler);
+  // Parse the form data from the request.body stream, passing any files
+  // through your upload handler as they are parsed from the stream
+  let formData = await parseFormData(request, uploadHandler)
 
-    let avatarFilename = formData.get("user-avatar");
+  let avatarFilename = formData.get('user-avatar')
 
-    if (avatarFilename != null) {
-        console.log(`User avatar uploaded to ${avatarFilename}`);
-    } else {
-        console.log(`No user avatar file was uploaded`);
-    }
+  if (avatarFilename != null) {
+    console.log(`User avatar uploaded to ${avatarFilename}`)
+  } else {
+    console.log(`No user avatar file was uploaded`)
+  }
 }
 ```
 
 To validate the resulting `FormData` object with `remix/data-schema`, use the `remix/data-schema/form-data` helpers.
 
-To limit the overall shape of multipart requests, use the `maxHeaderSize`, `maxFileSize`, `maxFiles`, `maxParts`, and `maxTotalSize` options. By default, `parseFormData()` uses `maxFiles = 20`, `maxParts = 1000`, and `maxTotalSize = maxFiles * maxFileSize + 1 MiB`.
+To limit the overall shape of multipart requests, use the `maxHeaderSize`, `maxFileSize`, `maxFiles`, `maxParts`, and `maxTotalSize` options. For `application/x-www-form-urlencoded` requests, `maxParts` limits the number of form fields and `maxTotalSize` limits the raw request body size. By default, `parseFormData()` uses `maxFiles = 20`, `maxParts = 1000`, and `maxTotalSize = maxFiles * maxFileSize + 1 MiB`.
 
 Known limit errors are thrown directly so you can handle them with `instanceof` checks. Other failures while parsing the request body are wrapped in `FormDataParseError`, with the original error available as `error.cause`. Errors thrown or rejected by your `uploadHandler` are not wrapped.
 
 ```ts
 import {
-    FormDataParseError,
-    MaxFilesExceededError,
-    MaxFileSizeExceededError,
-    MaxHeaderSizeExceededError,
-    MaxPartsExceededError,
-    MaxTotalSizeExceededError,
-} from "remix/form-data-parser";
+  FormDataParseError,
+  MaxFilesExceededError,
+  MaxFileSizeExceededError,
+  MaxHeaderSizeExceededError,
+  MaxPartsExceededError,
+  MaxTotalSizeExceededError,
+} from 'remix/form-data-parser'
 
-const oneKb = 1024;
-const oneMb = 1024 * oneKb;
+const oneKb = 1024
+const oneMb = 1024 * oneKb
 
 try {
-    let formData = await parseFormData(request, {
-        maxFiles: 5,
-        maxFileSize: 10 * oneMb,
-        maxParts: 25,
-        maxTotalSize: 12 * oneMb,
-    });
+  let formData = await parseFormData(request, {
+    maxFiles: 5,
+    maxFileSize: 10 * oneMb,
+    maxParts: 25,
+    maxTotalSize: 12 * oneMb,
+  })
 } catch (error) {
-    if (error instanceof MaxFilesExceededError) {
-        console.error(`Request may not contain more than 5 files`);
-    } else if (error instanceof MaxHeaderSizeExceededError) {
-        console.error(`Multipart headers may not exceed the configured size limit`);
-    } else if (error instanceof MaxFileSizeExceededError) {
-        console.error(`Files may not be larger than 10 MiB`);
-    } else if (error instanceof MaxPartsExceededError) {
-        console.error(`Request may not contain more than 25 multipart parts`);
-    } else if (error instanceof MaxTotalSizeExceededError) {
-        console.error(`Multipart request may not exceed 12 MiB of total content`);
-    } else if (error instanceof FormDataParseError) {
-        console.error(`Could not parse form data:`, error.cause ?? error);
-    } else {
-        throw error;
-    }
+  if (error instanceof MaxFilesExceededError) {
+    console.error(`Request may not contain more than 5 files`)
+  } else if (error instanceof MaxHeaderSizeExceededError) {
+    console.error(`Multipart headers may not exceed the configured size limit`)
+  } else if (error instanceof MaxFileSizeExceededError) {
+    console.error(`Files may not be larger than 10 MiB`)
+  } else if (error instanceof MaxPartsExceededError) {
+    console.error(`Request may not contain more than 25 form fields or multipart parts`)
+  } else if (error instanceof MaxTotalSizeExceededError) {
+    console.error(`Form data request may not exceed 12 MiB of total content`)
+  } else if (error instanceof FormDataParseError) {
+    console.error(`Could not parse form data:`, error.cause ?? error)
+  } else {
+    throw error
+  }
 }
 ```
 
 If you're looking for a more flexible storage solution for `FileUpload` objects, this library pairs really well with [the `file-storage` library](https://github.com/remix-run/remix/tree/main/packages/file-storage) for keeping files in various storage backends.
 
 ```ts
-import { createFsFileStorage } from "remix/file-storage/fs";
-import type { FileUpload } from "remix/form-data-parser";
-import { parseFormData } from "remix/form-data-parser";
+import { createFsFileStorage } from 'remix/file-storage/fs'
+import type { FileUpload } from 'remix/form-data-parser'
+import { parseFormData } from 'remix/form-data-parser'
 
 // Set up storage for uploaded files
-const fileStorage = createFsFileStorage("/uploads/user-avatars");
+const fileStorage = createFsFileStorage('/uploads/user-avatars')
 
 // Define how to handle incoming file uploads
 async function uploadHandler(fileUpload: FileUpload) {
-    // Is this file upload from the <input type="file" name="user-avatar"> field?
-    if (fileUpload.fieldName === "user-avatar") {
-        let storageKey = `user-${user.id}-avatar`;
+  // Is this file upload from the <input type="file" name="user-avatar"> field?
+  if (fileUpload.fieldName === 'user-avatar') {
+    let storageKey = `user-${user.id}-avatar`
 
-        // Put the file in storage and return the stored LazyFile
-        return fileStorage.put(storageKey, fileUpload);
-    }
+    // Put the file in storage and return the stored LazyFile
+    return fileStorage.put(storageKey, fileUpload)
+  }
 
-    // Ignore unrecognized fields
+  // Ignore unrecognized fields
 }
 ```
 

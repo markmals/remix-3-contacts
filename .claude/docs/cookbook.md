@@ -60,8 +60,9 @@ For small apps with one or two resources, an action file can live at the top lev
 **Server-only component** (no hydration, zero client JS):
 
 ```tsx
-export function UserProfile() {
-    return (props: { user: User }) => (
+export function UserProfile(handle: Handle<{ user: User }>) {
+    let props = handle.props;
+    return () => (
         <div>
             <h1>{props.user.name}</h1>
             <p>{props.user.bio}</p>
@@ -73,11 +74,12 @@ export function UserProfile() {
 **Hydrated component** (ships JS to client):
 
 ```tsx
-export let LikeButton = clientEntry(import.meta.url, (handle: Handle) => {
+export let LikeButton = clientEntry(import.meta.url, (handle: Handle<{ itemId: number; liked: boolean }>) => {
     let submitting = false;
     let liked!: boolean;
 
-    return (props: { itemId: number; liked: boolean }) => {
+    return () => {
+        let props = handle.props;
         if (!submitting) liked = props.liked;
         return (
             <form
@@ -131,8 +133,9 @@ This works with JavaScript disabled. The browser POSTs, the server handles the a
 **Level 2 - Enhanced with `navigate()` (frame-targeted):**
 
 ```tsx
-export let EditButton = clientEntry(import.meta.url, () => {
-    return (props: { itemId: number }) => (
+export let EditButton = clientEntry(import.meta.url, (handle: Handle<{ itemId: number }>) => {
+    let props = handle.props;
+    return () => (
         <form
             action={routes.items.edit.href({ id: props.itemId })}
             method="GET"
@@ -240,11 +243,12 @@ The `methodOverride()` middleware in your server entry reads `_method` from the 
 5. On failure: revert local state, call `handle.update()` again
 
 ```tsx
-export let LikeButton = clientEntry(import.meta.url, (handle: Handle) => {
+export let LikeButton = clientEntry(import.meta.url, (handle: Handle<{ itemId: number; liked: boolean }>) => {
     let submitting = false;
     let liked!: boolean;
 
-    return (props: { itemId: number; liked: boolean }) => {
+    return () => {
+        let props = handle.props;
         // Accept server value only when not mid-submission
         if (!submitting) liked = props.liked;
 
@@ -304,7 +308,7 @@ export let LikeButton = clientEntry(import.meta.url, (handle: Handle) => {
 **The pattern:**
 
 ```tsx
-export let SearchBar = clientEntry(import.meta.url, handle => {
+export let SearchBar = clientEntry(import.meta.url, (handle: Handle<{ query?: string }>) => {
     // Re-render when navigation state changes (for loading indicator)
     addEventListeners(navigating, handle.signal, {
         destinationchange() {
@@ -312,7 +316,8 @@ export let SearchBar = clientEntry(import.meta.url, handle => {
         },
     });
 
-    return (props: { query?: string }) => {
+    return () => {
+        let props = handle.props;
         let searching = Boolean(navigating.to.url?.searchParams.has("q"));
 
         return (
@@ -878,8 +883,9 @@ let bannerHost = document.createElement("div");
 document.body.insertBefore(bannerHost, document.body.firstChild);
 let bannerRoot = createRoot(bannerHost);
 
-function ErrorBanner() {
-    return (props: { message: string }) => (
+function ErrorBanner(handle: Handle<{ message: string }>) {
+    let props = handle.props;
+    return () => (
         <div id="app-error-banner" role="alert">
             <p>{props.message}</p>
             <button
@@ -1011,9 +1017,10 @@ The `asyncContext()` middleware makes the request context available anywhere via
 **Server-only component:**
 
 ```tsx
-export function UserCard() {
+export function UserCard(handle: Handle<{ user: User }>) {
     // Setup: runs once per render on the server
-    return (props: { user: User }) => (
+    let props = handle.props;
+    return () => (
         // Render: the actual JSX
         <div>{props.user.name}</div>
     );
@@ -1025,7 +1032,7 @@ For server-only components, the setup phase is minimal -- there's no persistent 
 **Hydrated component:**
 
 ```tsx
-export let SearchInput = clientEntry(import.meta.url, (handle: Handle) => {
+export let SearchInput = clientEntry(import.meta.url, (handle: Handle<{ query?: string }>) => {
     // Setup: runs once on hydration
     addEventListeners(navigating, handle.signal, {
         destinationchange() {
@@ -1033,7 +1040,8 @@ export let SearchInput = clientEntry(import.meta.url, (handle: Handle) => {
         },
     });
 
-    return (props: { query?: string }) => {
+    return () => {
+        let props = handle.props;
         // Render: runs on every update
         let searching = Boolean(navigating.to.url?.searchParams.has("q"));
         return <input defaultValue={props.query} />;
@@ -1044,8 +1052,9 @@ export let SearchInput = clientEntry(import.meta.url, (handle: Handle) => {
 **Composing components:** Use standard JSX composition. Server-only components can contain hydrated components (creating islands of interactivity):
 
 ```tsx
-export function ItemDetail() {
-    return (props: { item: Item }) => (
+export function ItemDetail(handle: Handle<{ item: Item }>) {
+    let props = handle.props;
+    return () => (
         <div>
             <h1>{props.item.title}</h1>
             {/* LikeButton is hydrated; ItemDetail is not */}
@@ -1739,8 +1748,9 @@ app/utils/metadata/
 ```tsx
 import { Head } from "#/utils/metadata/index.ts";
 
-export function PostDetail() {
-    return (props: { post: Post }) => (
+export function PostDetail(handle: Handle<{ post: Post }>) {
+    let props = handle.props;
+    return () => (
         <div>
             <Head>
                 <title>{`${props.post.title} · ${SITE.title}`}</title>
@@ -2674,8 +2684,9 @@ router.map(routes.auth.login.action, {
 **The login form (progressive enhancement):**
 
 ```tsx
-export function LoginForm() {
-    return (props: { error?: string }) => (
+export function LoginForm(handle: Handle<{ error?: string }>) {
+    let props = handle.props;
+    return () => (
         <form action={routes.auth.login.action.href()} method={routes.auth.login.action.method}>
             {props.error && <p class="error">{props.error}</p>}
             <label>
@@ -2923,7 +2934,7 @@ Use `createFileResponse` from `remix/response/file` to serve files with proper h
 - In your controller, check whether a new file was uploaded. If no file was provided, preserve the existing value:
 
 ```tsx
-let updates = s.parse(UpdateSchema, ctx.get(FormData));
+let updates = s.parse(UpdateSchema, ctx.formData);
 
 // Preserve existing avatar when no new file is uploaded
 if (!updates.avatar) {

@@ -9,11 +9,11 @@ PostgreSQL adapter for [`remix/data-table`](https://github.com/remix-run/remix/t
 - **Adapter-Owned Compiler**: SQL compilation lives in this adapter, with optional shared pure helpers from `data-table`
 - **Multi-Statement Migrations**: `executeScript()` runs `up.sql` / `down.sql` files natively via `pg`
 - **Postgres Capabilities Enabled By Default**:
-    - `returning: true`
-    - `savepoints: true`
-    - `upsert: true`
-    - `transactionalDdl: true`
-    - `migrationLock: true`
+  - `returning: true`
+  - `savepoints: true`
+  - `upsert: true`
+  - `transactionalDdl: true`
+  - `migrationLock: true`
 
 ## Installation
 
@@ -24,15 +24,15 @@ npm i remix pg
 ## Usage
 
 ```ts
-import { Pool } from "pg";
-import { createDatabase } from "remix/data-table";
-import { createPostgresDatabaseAdapter } from "remix/data-table/postgres";
+import { Pool } from 'pg'
+import { createDatabase } from 'remix/data-table'
+import { createPostgresDatabaseAdapter } from 'remix/data-table/postgres'
 
 let pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-});
+  connectionString: process.env.DATABASE_URL,
+})
 
-let db = createDatabase(createPostgresDatabaseAdapter(pool));
+let db = createDatabase(createPostgresDatabaseAdapter(pool))
 ```
 
 Use `db.query(...)`, relation loading, and transactions from `remix/data-table`. Import any driver-specific types you need directly from `pg`.
@@ -54,10 +54,36 @@ Use `db.query(...)`, relation loading, and transactions from `remix/data-table`.
 Transaction options are passed through to the adapter as hints.
 
 ```ts
-await db.transaction(async txDb => txDb.exec("select 1"), {
-    isolationLevel: "serializable",
-    readOnly: false,
-});
+await db.transaction(async (txDb) => txDb.exec('select 1'), {
+  isolationLevel: 'serializable',
+  readOnly: false,
+})
+```
+
+## Running integration tests locally
+
+To start a local Postgres container matching CI:
+
+```sh
+podman run --name postgres \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=remix \
+  -p 5432:5432 \
+  -d postgres:16
+```
+
+Then run:
+
+```sh
+REMIX_DATA_TABLE_POSTGRES_TEST_URL=postgres://postgres:postgres@127.0.0.1:5432/remix \
+pnpm test src/lib/adapter.integration.test.ts
+```
+
+Remove the container when you are done:
+
+```sh
+podman rm -f postgres
 ```
 
 ## Related Packages

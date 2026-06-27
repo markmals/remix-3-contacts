@@ -9,11 +9,11 @@ MySQL adapter for [`remix/data-table`](https://github.com/remix-run/remix/tree/m
 - **Adapter-Owned Compiler**: SQL compilation lives in this adapter, with optional shared pure helpers from `data-table`
 - **Multi-Statement Migrations**: `executeScript()` runs `up.sql` / `down.sql` files via `mysql2` (requires `multipleStatements: true`)
 - **MySQL Capabilities Enabled By Default**:
-    - `returning: false`
-    - `savepoints: true`
-    - `upsert: true`
-    - `transactionalDdl: false`
-    - `migrationLock: true`
+  - `returning: false`
+  - `savepoints: true`
+  - `upsert: true`
+  - `transactionalDdl: false`
+  - `migrationLock: true`
 
 ## Installation
 
@@ -24,12 +24,12 @@ npm i remix mysql2
 ## Usage
 
 ```ts
-import { createPool } from "mysql2/promise";
-import { createDatabase } from "remix/data-table";
-import { createMysqlDatabaseAdapter } from "remix/data-table/mysql";
+import { createPool } from 'mysql2/promise'
+import { createDatabase } from 'remix/data-table'
+import { createMysqlDatabaseAdapter } from 'remix/data-table/mysql'
 
-let pool = createPool(process.env.DATABASE_URL as string);
-let db = createDatabase(createMysqlDatabaseAdapter(pool));
+let pool = createPool(process.env.DATABASE_URL as string)
+let db = createDatabase(createMysqlDatabaseAdapter(pool))
 ```
 
 Use `db.query(...)`, relation loading, and transactions from `remix/data-table`. Import any driver-specific types you need directly from `mysql2/promise`.
@@ -51,12 +51,12 @@ Use `db.query(...)`, relation loading, and transactions from `remix/data-table`.
 `remix/data-table/migrations` sends each migration to the adapter as a single multi-statement SQL script. mysql2 only accepts multi-statement scripts when the connection is created with `multipleStatements: true`:
 
 ```ts
-import { createPool } from "mysql2/promise";
+import { createPool } from 'mysql2/promise'
 
 let pool = createPool({
-    uri: process.env.DATABASE_URL,
-    multipleStatements: true,
-});
+  uri: process.env.DATABASE_URL,
+  multipleStatements: true,
+})
 ```
 
 ### `returning` On MySQL
@@ -66,17 +66,42 @@ MySQL does not natively support SQL `RETURNING`. In this adapter, using `returni
 Use write metadata (`affectedRows`, `insertId`) on MySQL, or switch adapters when returned rows are required.
 
 ```ts
-import { DataTableQueryError } from "remix/data-table";
+import { DataTableQueryError } from 'remix/data-table'
 
 try {
-    await db
-        .query(Accounts)
-        .insert({ email: "a@example.com", status: "active" }, { returning: ["id"] });
+  await db
+    .query(Accounts)
+    .insert({ email: 'a@example.com', status: 'active' }, { returning: ['id'] })
 } catch (error) {
-    if (error instanceof DataTableQueryError) {
-        // insert() returning is not supported by this adapter
-    }
+  if (error instanceof DataTableQueryError) {
+    // insert() returning is not supported by this adapter
+  }
 }
+```
+
+## Running integration tests locally
+
+To start a local MySQL container matching CI:
+
+```sh
+podman run --name mysql \
+  -e MYSQL_ROOT_PASSWORD=root \
+  -e MYSQL_DATABASE=remix \
+  -p 3306:3306 \
+  -d mysql:8
+```
+
+Then run:
+
+```sh
+REMIX_DATA_TABLE_MYSQL_TEST_URL=mysql://root:root@127.0.0.1:3306/remix \
+pnpm test src/lib/adapter.integration.test.ts
+```
+
+Remove the container when you are done:
+
+```sh
+podman rm -f mysql
 ```
 
 ## Related Packages

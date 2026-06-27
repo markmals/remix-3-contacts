@@ -2,7 +2,7 @@ import { routes } from "#/routes.ts";
 import { link } from "#/utils/link.tsx";
 import { isServer, navigating } from "#/utils/navigating.ts";
 import { createMultiMatcher } from "remix/route-pattern/match";
-import { addEventListeners, clientEntry, type SerializableProps } from "remix/ui";
+import { addEventListeners, clientEntry, type Handle, type SerializableProps } from "remix/ui";
 
 let matcher = createMultiMatcher<true>();
 matcher.add(routes.contacts.show.pattern, true);
@@ -22,14 +22,15 @@ export namespace SidebarItem {
     }
 }
 
-export let SidebarItem = clientEntry(import.meta.url, handle => {
+export let SidebarItem = clientEntry(import.meta.url, (handle: Handle<SidebarItem.Props>) => {
     addEventListeners(navigating, handle.signal, {
         destinationchange() {
             handle.update();
         },
     });
 
-    return ({ selected, query, contact }: SidebarItem.Props) => {
+    return () => {
+        let { selected, query, contact } = handle.props;
         // Derive active state from the current URL on the client,
         // since frame-targeted navigations don't re-render the sidebar
         // and the server-provided `selected` prop becomes stale.
