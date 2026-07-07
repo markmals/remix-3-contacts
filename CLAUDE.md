@@ -2,8 +2,7 @@
 
 This repo contains a Remix 3 project. This is **NOT** old Remix.
 
-Old Remix (v1/v2) was React-based, and its direct framework continuation became React Router v7.
-Current Remix 3 is a separate reboot that explicitly does not depend on React. Do not generate React-style Remix code in this repository at all.
+Old Remix (v1/v2) was React-based, and its direct framework continuation became React Router v7. Current Remix 3 is a separate reboot that explicitly does not depend on React. Do not generate React-style Remix code in this repository at all.
 
 Follow this repo’s own primitives, imports, component model, and build/runtime conventions.
 
@@ -28,7 +27,7 @@ This project uses **Vite+** as its unified toolchain. All commands go through `v
 - `vp preview` — preview the production build
 - `vp fmt` — format code with Oxfmt
 - `vp lint` — lint code with Oxlint
-- `vp check` — run format, lint, and typecheck (via `tsgo`) together
+- `vp check` — run format, lint, and typecheck (via `tsc`) together
 - `vp install` / `vp add` / `vp remove` — package management (delegates to pnpm)
 
 Configuration for formatting, linting, and build lives in `vite.config.ts`. There is no separate linter or formatter config file.

@@ -15,7 +15,7 @@ A contacts CRUD app demo, showcasing [Remix 3](https://remix.run) SSR features. 
 - **Toolchain:** [Vite+](https://viteplus.dev)
 - **Formatting:** [Oxfmt](https://oxc.rs/docs/guide/usage/formatter) (via `vp fmt`)
 - **Linting:** [Oxlint](https://oxc.rs/docs/guide/usage/linter) (via `vp lint`)
-- **Type Checking:** [`tsgo`](https://npmx.dev/package/@typescript/native-preview) (via `vp check`)
+- **Type Checking:** [TypeScript 7 `tsc`](https://npmx.dev/package/typescript/v/rc) (via `vp check`)
 
 ## Getting Started
 

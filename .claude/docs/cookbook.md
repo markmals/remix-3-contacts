@@ -1644,7 +1644,7 @@ export default defineConfig({
             },
             typecheck: {
                 dependsOn: ["typegen"],
-                command: "tsgo --noEmit",
+                command: "tsc --noEmit",
                 cache: false,
             },
             check: {
