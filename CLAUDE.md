@@ -11,7 +11,7 @@ Follow this repo’s own primitives, imports, component model, and build/runtime
 
 This repository contains a comprehensive overview of the Remix API, its runtime behavior, and practical use cases for building interactive UIs and web services, as well as documentation on the various subpath-packages included within the `remix` package.
 
-> Take a look at the files in `./docs/**/*.md` for detailed documentation on the many functions of the `remix` APIs.
+> Take a look at the files in `./.claude/docs/**/*.md` for detailed documentation on the many functions of the `remix` APIs.
 
 ## Debugging Approach
 

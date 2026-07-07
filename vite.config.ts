@@ -71,7 +71,7 @@ export default defineConfig({
         },
     },
     fmt: {
-        ignorePatterns: ["**/worker-configuration.d.ts", "dist/**"],
+        ignorePatterns: ["**/worker-configuration.d.ts", "dist/**", ".claude/docs/remix/**"],
         printWidth: 100,
         tabWidth: 4,
         arrowParens: "avoid",

@@ -188,7 +188,7 @@ if (originalWrite) {
 1. Resolves the SSR output path from `server.config.environments.ssr.build.outDir` (defaulting to `dist/ssr`).
 2. Dynamically imports `<ssrOutDir>/index.js`. If the import fails (e.g. the SSR bundle targets Cloudflare Workers, which provides its own preview), it returns early so other plugins can take over.
 3. Pulls the router from `mod.default ?? mod.router`.
-4. Imports `createRequestListener` from `remix/node-serve` and registers it as middleware:
+4. Imports `createRequestListener` from `remix/node-fetch-server` and registers it as middleware:
 
 ```ts
 server.middlewares.use(createRequestListener(request => router.fetch(request)));
@@ -488,23 +488,34 @@ The plugin's `config()` hook defines the `client` and `ssr` environments (`dist/
 
 #### Production server
 
-In production, run the SSR entry with `serve()` from `remix/node-serve`. This bundles a high-throughput uWebSockets.js-backed server that speaks the standard Fetch API, plus serves your built client assets:
+In production, run the SSR entry under Node's `http` server with `createRequestListener()` from `remix/node-fetch-server`, which adapts Node's request/response objects to the standard Fetch API:
 
 ```ts
 // server.ts
-import { serve } from "remix/node-serve";
+import * as http from "node:http";
+
+import { createRequestListener } from "remix/node-fetch-server";
 
 // @ts-expect-error - no types for the built output
 import ssr from "./dist/ssr/index.js";
 
-const router = ssr.default ?? ssr.router;
+let router = ssr.default ?? ssr.router;
 
-const server = serve(request => router.fetch(request), {
-    port: Number.parseInt(process.env.PORT || "3000"),
+let server = http.createServer(createRequestListener(request => router.fetch(request)));
+
+let port = process.env.PORT ? Number.parseInt(process.env.PORT, 10) : 3000;
+
+server.listen(port, () => {
+    console.log(`Server listening on http://localhost:${port}`);
 });
+```
 
-await server.ready;
-console.log(`Server listening on http://localhost:${server.port}`);
+Behind a trusted reverse proxy (nginx, a load balancer), pass `trustProxy: true` so `request.url` and the client address reflect the `Forwarded` / `X-Forwarded-*` headers:
+
+```ts
+let server = http.createServer(
+    createRequestListener(request => router.fetch(request), { trustProxy: true }),
+);
 ```
 
 Static asset serving (`/dist/client`, `/public`) is handled by `staticFiles()` middleware composed inside the server entry's router rather than by a separate static-file layer in `server.ts`. That keeps a single source of truth for routing — middleware order (and therefore caching headers) lives next to the rest of the request stack instead of being split between `server.ts` and your router.
@@ -569,7 +580,7 @@ The server entry exports a Cloudflare Workers-compatible `fetch` handler. Since 
 // app/entry.server.tsx
 import { Document } from "#/components/Document.tsx";
 import { Counter } from "#/components/Counter.tsx";
-import { createRouter } from "remix/fetch-router";
+import { createRouter } from "remix/router";
 import { createHtmlResponse as html } from "remix/response/html";
 import { route } from "remix/routes";
 
@@ -616,7 +627,7 @@ Regardless of deployment target, the following pieces are identical:
 - **`entry.browser.ts`** — the client boot code (`run()`) is identical since it runs in the browser regardless of where the server lives.
 - **`createHtmlResponse` / response helpers** — the `renderToStream` call and response construction are the same, since both targets use the standard `Response` API.
 
-The only things that change per target are the plugin options (`serverHandler`), whether `@cloudflare/vite-plugin` is in the plugin array, and how the production server is launched (`remix/node-serve`'s `serve()` for Node vs. Workers' `export default { fetch }`).
+The only things that change per target are the plugin options (`serverHandler`), whether `@cloudflare/vite-plugin` is in the plugin array, and how the production server is launched (`node:http` + `remix/node-fetch-server`'s `createRequestListener()` for Node vs. Workers' `export default { fetch }`).
 
 ## How Hydration Works End-to-End
 

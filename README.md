@@ -11,7 +11,7 @@ A contacts CRUD app demo, showcasing [Remix 3](https://remix.run) SSR features. 
 
 ## Tech Stack
 
-- **Framework:** [`remix`](https://npmx.dev/package/remix/v/3.0.0-beta.0)
+- **Framework:** [`remix`](https://npmx.dev/package/remix/v/3.0.0-beta.5)
 - **Toolchain:** [Vite+](https://viteplus.dev)
 - **Formatting:** [Oxfmt](https://oxc.rs/docs/guide/usage/formatter) (via `vp fmt`)
 - **Linting:** [Oxlint](https://oxc.rs/docs/guide/usage/linter) (via `vp lint`)

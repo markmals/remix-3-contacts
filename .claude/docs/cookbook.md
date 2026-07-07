@@ -1,6 +1,6 @@
 # Remix 3, Vite+, & Cloudflare Workers Best Practices Cookbook
 
-A decision-oriented guide for building Remix 3 applications. Each recipe is self-contained: find the decision you're facing, read the heuristic, follow the pattern. This supplements the official API docs in `docs/remix-official/` with practical wisdom that isn't obvious from reading API surfaces alone.
+A decision-oriented guide for building Remix 3 applications. Each recipe is self-contained: find the decision you're facing, read the heuristic, follow the pattern. This supplements the official API docs in `.claude/docs/remix/` with practical wisdom that isn't obvious from reading API surfaces alone.
 
 ## Project Structure
 
@@ -74,24 +74,27 @@ export function UserProfile(handle: Handle<{ user: User }>) {
 **Hydrated component** (ships JS to client):
 
 ```tsx
-export let LikeButton = clientEntry(import.meta.url, (handle: Handle<{ itemId: number; liked: boolean }>) => {
-    let submitting = false;
-    let liked!: boolean;
+export let LikeButton = clientEntry(
+    import.meta.url,
+    (handle: Handle<{ itemId: number; liked: boolean }>) => {
+        let submitting = false;
+        let liked!: boolean;
 
-    return () => {
-        let props = handle.props;
-        if (!submitting) liked = props.liked;
-        return (
-            <form
-                mix={on("submit", async event => {
-                    /* client logic */
-                })}
-            >
-                {/* ... */}
-            </form>
-        );
-    };
-});
+        return () => {
+            let props = handle.props;
+            if (!submitting) liked = props.liked;
+            return (
+                <form
+                    mix={on("submit", async event => {
+                        /* client logic */
+                    })}
+                >
+                    {/* ... */}
+                </form>
+            );
+        };
+    },
+);
 ```
 
 **The pattern:** `clientEntry(import.meta.url, setupFn)` where `setupFn` receives a `Handle` and returns the render function. The setup function runs once on hydration; the render function runs on every update.
@@ -243,52 +246,55 @@ The `methodOverride()` middleware in your server entry reads `_method` from the 
 5. On failure: revert local state, call `handle.update()` again
 
 ```tsx
-export let LikeButton = clientEntry(import.meta.url, (handle: Handle<{ itemId: number; liked: boolean }>) => {
-    let submitting = false;
-    let liked!: boolean;
+export let LikeButton = clientEntry(
+    import.meta.url,
+    (handle: Handle<{ itemId: number; liked: boolean }>) => {
+        let submitting = false;
+        let liked!: boolean;
 
-    return () => {
-        let props = handle.props;
-        // Accept server value only when not mid-submission
-        if (!submitting) liked = props.liked;
+        return () => {
+            let props = handle.props;
+            // Accept server value only when not mid-submission
+            if (!submitting) liked = props.liked;
 
-        return (
-            <form
-                mix={on("submit", async event => {
-                    event.preventDefault();
+            return (
+                <form
+                    mix={on("submit", async event => {
+                        event.preventDefault();
 
-                    // 1. Optimistic update
-                    liked = !liked;
-                    submitting = true;
-                    let signal = await handle.update();
-
-                    try {
-                        // 2. Send to server
-                        let response = await fetch(event.currentTarget.action, {
-                            method: event.currentTarget.method,
-                            body: new FormData(event.currentTarget, event.submitter),
-                            signal,
-                        });
-                        if (!response.ok && !response.redirected) throw response;
-
-                        // 3. Sync with server state
-                        submitting = false;
-                        navigate(window.location.href, { history: "replace" });
-                    } catch {
-                        // 4. Rollback on failure
+                        // 1. Optimistic update
                         liked = !liked;
-                        submitting = false;
-                        handle.update();
-                    }
-                })}
-            >
-                <button name="liked" type="submit" value={String(liked)}>
-                    {liked ? "\u2665" : "\u2661"}
-                </button>
-            </form>
-        );
-    };
-});
+                        submitting = true;
+                        let signal = await handle.update();
+
+                        try {
+                            // 2. Send to server
+                            let response = await fetch(event.currentTarget.action, {
+                                method: event.currentTarget.method,
+                                body: new FormData(event.currentTarget, event.submitter),
+                                signal,
+                            });
+                            if (!response.ok && !response.redirected) throw response;
+
+                            // 3. Sync with server state
+                            submitting = false;
+                            navigate(window.location.href, { history: "replace" });
+                        } catch {
+                            // 4. Rollback on failure
+                            liked = !liked;
+                            submitting = false;
+                            handle.update();
+                        }
+                    })}
+                >
+                    <button name="liked" type="submit" value={String(liked)}>
+                        {liked ? "\u2665" : "\u2661"}
+                    </button>
+                </form>
+            );
+        };
+    },
+);
 ```
 
 **Key details:**
