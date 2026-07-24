@@ -6,7 +6,7 @@ import serverAssets from "#/entry.server.tsx?assets=ssr";
 import styles from "#/index.css?url";
 import { routes } from "#/routes.ts";
 import { Head } from "#/utils/metadata/index.ts";
-import { mergeAssets } from "@hiogawa/vite-plugin-fullstack/runtime";
+import { mergeAssets } from "@pitlane/dev/runtime";
 import * as s from "remix/data-schema";
 import { getContext } from "remix/middleware/async-context";
 import { Frame } from "remix/ui";

@@ -33,7 +33,6 @@ db/
   seed.ts                # Idempotent local seed script
   lib/                   # Shared helpers for the db scripts
 vite.config.ts           # Unified config: build, dev, fmt, lint, typecheck, db tasks
-remix.plugin.ts          # Vite plugin for Remix (build, SSR, client entries)
 remix-test.config.ts     # `remix test` config (glob patterns, playwright projects)
 wrangler.jsonc           # Cloudflare bindings (D1, R2, assets)
 ```
@@ -1599,7 +1598,7 @@ import { cloudflare } from "@cloudflare/vite-plugin";
 import devtoolsJson from "vite-plugin-devtools-json";
 import { defineConfig } from "vite-plus";
 
-import { remix } from "./remix.plugin.ts";
+import { remix } from "@pitlane/dev";
 
 export default defineConfig({
     plugins: [
@@ -1667,7 +1666,7 @@ export default defineConfig({
 
 **Plugin configuration:**
 
-- `remix({ serverHandler: false })` — Disables the Remix plugin's built-in Node.js server handler since Cloudflare Workers provides its own. Without this flag, the plugin creates a Node.js request listener that isn't compatible with Workers.
+- `remix({ serverHandler: false })` — Lets `@cloudflare/vite-plugin` own dev-time request handling inside workerd.
 - `cloudflare({ viteEnvironment: { name: "ssr" } })` — Tells the Cloudflare Vite plugin which build environment contains the server entry. This plugin handles Workers-specific bundling, injects platform bindings (D1, R2, etc.) during dev, and produces a deployable worker bundle.
 
 **Run tasks:** The `run.tasks` config defines orchestrated commands that `vp run <task>` executes. Key patterns:
@@ -1678,7 +1677,7 @@ export default defineConfig({
 - **`db:reset`:** Deletes local D1 state for a clean slate during development.
 - **`test`:** Runs the in-tree `remix test` runner (see Recipe 32) against `remix-test.config.ts`.
 
-**What the `remix()` plugin provides:**
+**What `@pitlane/dev`'s `remix()` plugin provides:**
 
 - **Build orchestration:** Builds SSR then client environments, with separate output directories (`dist/ssr`, `dist/client`)
 - **Preview server:** Loads the built SSR entry and creates a request listener for `vp preview`
@@ -1808,7 +1807,7 @@ import styles from "#/index.css?url";
 **Merging assets in the document shell:**
 
 ```tsx
-import { mergeAssets } from "@hiogawa/vite-plugin-fullstack/runtime";
+import { mergeAssets } from "@pitlane/dev/runtime";
 import clientAssets from "#/entry.browser.ts?assets=client";
 import serverAssets from "#/entry.server.tsx?assets=ssr";
 import styles from "#/index.css?url";
@@ -1847,7 +1846,7 @@ export function Document() {
 - Use `?assets=ssr` for server-rendered modules that contribute CSS or JS to the document. Only use this for module assets (`.tsx`, `.ts`), not plain `.css` files
 - Use `?url` for standalone stylesheets — this gives you a plain URL string for a `<link>` tag
 - Render `clientAssets.entry` as the `<script>` src — never hardcode `/remix/assets/...` paths
-- The Remix Vite plugin transforms `import.meta.url` in `clientEntry()` calls into the correct `?assets=client` imports automatically, so you don't need to think about this in component files
+- Pitlane transforms `import.meta.url` in strict, top-level `export const Name = clientEntry(import.meta.url, …)` calls into the correct `?assets=client` imports automatically, so component files remain source-oriented
 
 ---
 
