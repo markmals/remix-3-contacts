@@ -1,0 +1,7 @@
+{
+    "$schema": "https://remix.run/schemas/remix.json",
+    "test": {
+        "files": ["app/**/*.test{,.browser,.e2e}.{ts,tsx}"],
+        "browserFiles": ["app/**/*.test.browser.{ts,tsx}"]
+    }
+}

@@ -46,7 +46,10 @@ export let SidebarItem = clientEntry(import.meta.url, (handle: Handle<SidebarIte
             <li>
                 <a
                     class={isActive ? "active" : isPending ? "pending" : undefined}
-                    href={routes.contacts.show.href({ id: contact.id }, { q: query })}
+                    href={routes.contacts.show.href(
+                        { id: contact.id },
+                        { searchParams: { q: query } },
+                    )}
                     mix={link({ target: "detail" })}
                 >
                     {contact.first || contact.last ? (

@@ -1,26 +1,22 @@
 import type {
-    AdapterCapabilities,
     DataManipulationOperation,
     DataManipulationRequest,
     DataManipulationResult,
-    DatabaseAdapter,
-    SqlStatement,
+    DatabaseCapabilities,
+    DatabaseDriver,
     TableRef,
     TransactionOptions,
     TransactionToken,
 } from "remix/data-table";
 
 import { getTablePrimaryKey } from "remix/data-table";
-import { SqliteDatabaseAdapter } from "remix/data-table/sqlite";
 
-// The SQLite adapter's compileSql method is pure SQL generation —
-// it never touches the database instance, so null is safe here.
-let compiler = new SqliteDatabaseAdapter(null as never);
+import { compileSqliteOperation } from "./sqlite-compiler.ts";
 
 // D1 forbids SQL-level BEGIN/COMMIT/ROLLBACK/SAVEPOINT statements.
 // It provides d1.batch() for atomic multi-statement execution instead,
 // but that API is incompatible with the adapter's streaming transaction model.
-const CAPABILITIES: AdapterCapabilities = {
+const CAPABILITIES: DatabaseCapabilities = {
     returning: true,
     savepoints: false,
     upsert: true,
@@ -29,21 +25,17 @@ const CAPABILITIES: AdapterCapabilities = {
 };
 
 /**
- * DatabaseAdapter implementation for Cloudflare D1.
- * Uses the built-in SQLite adapter for SQL compilation and D1's
- * async prepared-statement API for execution.
+ * DatabaseDriver implementation for Cloudflare D1.
+ * Compiles operations to SQLite SQL and executes them over D1's async
+ * prepared-statement API.
  */
-export class D1DatabaseAdapter implements DatabaseAdapter {
-    dialect = "sqlite";
-    capabilities: AdapterCapabilities = { ...CAPABILITIES };
+export class D1DatabaseAdapter implements DatabaseDriver<"sqlite"> {
+    readonly dialect = "sqlite";
+    readonly capabilities: DatabaseCapabilities = { ...CAPABILITIES };
     #d1: D1Database;
 
     constructor(d1: D1Database) {
         this.#d1 = d1;
-    }
-
-    compileSql(operation: DataManipulationOperation): SqlStatement[] {
-        return compiler.compileSql(operation);
     }
 
     async execute(request: DataManipulationRequest): Promise<DataManipulationResult> {
@@ -56,7 +48,7 @@ export class D1DatabaseAdapter implements DatabaseAdapter {
             };
         }
 
-        let statement = this.compileSql(request.operation)[0];
+        let statement = compileSqliteOperation(request.operation);
         let prepared = this.#d1.prepare(statement.text).bind(...statement.values);
 
         // Reader operations (SELECT, COUNT, EXISTS) and writes with RETURNING
@@ -133,6 +125,16 @@ export class D1DatabaseAdapter implements DatabaseAdapter {
 
     async releaseSavepoint(_token: TransactionToken, _name: string): Promise<void> {
         throw new Error("D1 does not support savepoints — use d1.batch() for atomicity");
+    }
+
+    async wipe(): Promise<void> {
+        throw new Error(
+            "D1 schema is managed by Wrangler migrations — run `wrangler d1 migrations apply` instead of wiping through the driver",
+        );
+    }
+
+    close(): void {
+        // D1 bindings are owned by the Workers runtime; there are no handles to release.
     }
 }
 

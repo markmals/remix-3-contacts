@@ -22,7 +22,7 @@ describe("frame metadata helpers", () => {
         let resolve = withMetadataFrames(
             async () => "<html><head></head><body><p>Frame</p></body></html>",
         );
-        let result = await resolve("/frame", new AbortController().signal, "detail");
+        let result = await resolve("/frame", { target: "detail" });
 
         assert.equal(result, "<p>Frame</p>");
     });
@@ -31,7 +31,7 @@ describe("frame metadata helpers", () => {
         let resolve = withMetadataFrames(async () =>
             createStream("<html><head></head><body><p>Frame</p></body></html>"),
         );
-        let result = await resolve("/frame", new AbortController().signal, "detail");
+        let result = await resolve("/frame", { target: "detail" });
 
         assert.ok(result instanceof ReadableStream);
         assert.equal(await bufferStream(result), "<p>Frame</p>");
@@ -40,7 +40,7 @@ describe("frame metadata helpers", () => {
     it("passes top-frame responses through untouched", async () => {
         let body = "<html><body><p>Frame</p></body></html><!-- rmx:flush document -->";
         let resolve = withMetadataFrames(async () => body);
-        let result = await resolve("/frame", new AbortController().signal);
+        let result = await resolve("/frame");
 
         assert.equal(result, body);
     });

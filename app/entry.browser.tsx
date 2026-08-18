@@ -63,10 +63,10 @@ let app = run({
 
         return exported;
     },
-    resolveFrame: withMetadataFrames(async (src, signal, target) => {
+    resolveFrame: withMetadataFrames(async (src, options) => {
         let headers = new Headers({ accept: "text/html", "x-remix-frame": "true" });
-        if (target) headers.set("x-remix-target", target);
-        let response = await fetch(src, { headers, signal });
+        if (options?.target) headers.set("x-remix-target", options.target);
+        let response = await fetch(src, { headers, signal: options?.signal });
         return response.body ?? (await response.text());
     }),
 });

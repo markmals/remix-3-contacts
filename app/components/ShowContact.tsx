@@ -73,7 +73,7 @@ export function ShowContact(handle: Handle<{ contact: Contact; query?: string }>
                             <RestfulForm
                                 action={routes.contacts.edit.href(
                                     { id: props.contact.id },
-                                    { q: props.query },
+                                    { searchParams: { q: props.query } },
                                 )}
                                 method={routes.contacts.edit.method}
                             >
