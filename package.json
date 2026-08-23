@@ -6,6 +6,7 @@
         "#/*": "./app/*"
     },
     "dependencies": {
+        "@pitlane/data-table-d1": "https://pkg.pr.new/pitlane-tools/pitlane/@pitlane/data-table-d1@10210ec",
         "@std/jsonc": "jsr:^1.0.2",
         "es-toolkit": "^1.45.1",
         "match-sorter": "^8.2.0",

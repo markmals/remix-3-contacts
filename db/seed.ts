@@ -1,6 +1,5 @@
-import { D1DatabaseAdapter } from "#/data/adapters/d1-data-table.ts";
+import { createD1Database } from "@pitlane/data-table-d1";
 import { Contacts } from "#/data/contacts.ts";
-import { Database } from "remix/data-table";
 import { getPlatformProxy } from "wrangler";
 
 // Seeds the local D1 with demo contacts. Idempotent: skips when the
@@ -46,7 +45,7 @@ let proxy = await getPlatformProxy<Env>({
 });
 
 try {
-    let db = new Database(new D1DatabaseAdapter(proxy.env.DB));
+    let db = createD1Database(proxy.env.DB);
 
     let count = await db.count(Contacts);
     if (count > 0) {
