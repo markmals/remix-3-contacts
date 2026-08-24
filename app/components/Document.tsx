@@ -7,6 +7,7 @@ import styles from "#/index.css?url";
 import { routes } from "#/routes.ts";
 import { Head } from "#/utils/metadata/index.ts";
 import { mergeAssets } from "@pitlane/dev/runtime";
+import { HMR } from "pitlane:dev";
 import * as s from "remix/data-schema";
 import { getContext } from "remix/middleware/async-context";
 import { Frame } from "remix/ui";
@@ -39,6 +40,7 @@ export function Document() {
                 ))}
             </head>
             <body>
+                <HMR />
                 <Head>
                     <title>{SITE.title}</title>
                 </Head>
