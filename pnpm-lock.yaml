@@ -11,6 +11,9 @@ importers:
 
   .:
     dependencies:
+      '@pitlane/data-table-d1':
+        specifier: ^0.2.0
+        version: 0.2.0(remix@3.0.0-rc.1(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(playwright@1.61.1))
       '@std/jsonc':
         specifier: jsr:^1.0.2
         version: '@jsr/std__jsonc@1.0.2'
@@ -28,8 +31,8 @@ importers:
         specifier: ^1.31.0
         version: 1.35.0(@voidzero-dev/vite-plus-core@0.1.20(@types/node@25.6.0)(esbuild@0.27.7)(tsx@4.21.0)(typescript@7.0.1-rc))(workerd@1.20260430.1)(wrangler@4.87.0)
       '@pitlane/dev':
-        specifier: ^0.3.0
-        version: 0.3.0(@voidzero-dev/vite-plus-core@0.1.20(@types/node@25.6.0)(esbuild@0.27.7)(tsx@4.21.0)(typescript@7.0.1-rc))(remix@3.0.0-rc.1(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(playwright@1.61.1))
+        specifier: ^0.6.0
+        version: 0.6.0(@voidzero-dev/vite-plus-core@0.1.20(@types/node@25.6.0)(esbuild@0.27.7)(tsx@4.21.0)(typescript@7.0.1-rc))(remix@3.0.0-rc.1(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(playwright@1.61.1))
       '@types/node':
         specifier: ^25.5.0
         version: 25.6.0
@@ -1620,11 +1623,23 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@pitlane/dev@0.3.0':
-    resolution: {integrity: sha512-wm0IXLWI3IdW7jd7HYc1rsvvHJJGfjf7bScRbjZ9YBfrK76ETc7YmB+W409LGnBXmOHaW7r/vW3/+62PF2QIfQ==}
+  '@pitlane/crawler@0.2.0':
+    resolution: {integrity: sha512-eu8GKfAxiBvXFO6Dp+BnputbBx3AsCzMz7qjdhmTHWyS+fZn6e8dCPRdIPA+Ejur0Yvu7wohT4pmnIr/T874xw==}
     engines: {node: ^20.19.0 || >=22.12.0}
     peerDependencies:
-      remix: ^3.0.0-beta.10
+      remix: ^3.0.0-rc.1
+
+  '@pitlane/data-table-d1@0.2.0':
+    resolution: {integrity: sha512-3bqfo3cYE9HdLEQJWMj6cyM/5K7iBS0CwjVX3LP7/03LQVkOb6wF9ePyPcPwQVhNSRcWhpxR14DmfXGDvXqwhA==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    peerDependencies:
+      remix: ^3.0.0-rc.1
+
+  '@pitlane/dev@0.6.0':
+    resolution: {integrity: sha512-dwwj2pvYoezF00Kr6vrTfECPqEK/5DFl8+EriKomQ/MEa46gnRL548b3+Nv0lbDnlNob1J4fUhVVQpPUX8MMWg==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    peerDependencies:
+      remix: ^3.0.0-rc.1
       vite: '>=7.0.0'
 
   '@polka/url@1.0.0-next.29':
@@ -3719,9 +3734,18 @@ snapshots:
   '@oxlint/binding-win32-x64-msvc@1.61.0':
     optional: true
 
-  '@pitlane/dev@0.3.0(@voidzero-dev/vite-plus-core@0.1.20(@types/node@25.6.0)(esbuild@0.27.7)(tsx@4.21.0)(typescript@7.0.1-rc))(remix@3.0.0-rc.1(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(playwright@1.61.1))':
+  '@pitlane/crawler@0.2.0(remix@3.0.0-rc.1(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(playwright@1.61.1))':
+    dependencies:
+      remix: 3.0.0-rc.1(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(playwright@1.61.1)
+
+  '@pitlane/data-table-d1@0.2.0(remix@3.0.0-rc.1(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(playwright@1.61.1))':
+    dependencies:
+      remix: 3.0.0-rc.1(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(playwright@1.61.1)
+
+  '@pitlane/dev@0.6.0(@voidzero-dev/vite-plus-core@0.1.20(@types/node@25.6.0)(esbuild@0.27.7)(tsx@4.21.0)(typescript@7.0.1-rc))(remix@3.0.0-rc.1(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(playwright@1.61.1))':
     dependencies:
       '@hiogawa/vite-plugin-fullstack': 0.0.11(@voidzero-dev/vite-plus-core@0.1.20(@types/node@25.6.0)(esbuild@0.27.7)(tsx@4.21.0)(typescript@7.0.1-rc))
+      '@pitlane/crawler': 0.2.0(remix@3.0.0-rc.1(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(playwright@1.61.1))
       magic-string: 0.30.21
       oxc-parser: 0.141.0
       remix: 3.0.0-rc.1(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(playwright@1.61.1)
