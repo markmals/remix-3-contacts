@@ -106,27 +106,39 @@ export const books = table({
 
 ## Database Setup
 
-Create a database with an adapter and expose it via middleware:
+Create a database with the concrete factory for your dialect and expose it via middleware. There
+are no adapters in `3.0.0-rc.1` — `createDatabase()` and the `*DatabaseAdapter` classes were
+removed in favor of `createSqliteDatabase()`, `createPostgresDatabase()`, and
+`createMysqlDatabase()`:
 
 ```typescript
-import BetterSqlite3 from "better-sqlite3";
-import { createDatabase, Database } from "remix/data-table";
-import { createSqliteDatabaseAdapter } from "remix/data-table-sqlite";
+import { createSqliteDatabase } from "remix/data-table/sqlite";
 
-let sqlite = new BetterSqlite3("./db/app.db");
-sqlite.pragma("foreign_keys = ON");
-let adapter = createSqliteDatabaseAdapter(sqlite);
-export let db = createDatabase(adapter);
+export let db = createSqliteDatabase({
+    filename: "./db/app.db",
+    foreignKeys: true,
+});
 ```
 
-`createSqliteDatabaseAdapter` accepts synchronous SQLite clients with a shared `prepare`/`exec`
-surface, including Node's `node:sqlite`, Bun's `bun:sqlite`, and compatible clients. Use whichever
-client fits the runtime instead of assuming `better-sqlite3` is required.
+The config-backed form uses `node:sqlite` in Node and `bun:sqlite` in Bun, and it supports the
+destructive lifecycle methods `db.wipe()` and `db.reset()` because it owns the connection. You can
+also pass an existing synchronous client when the application owns its lifecycle, but then the
+destructive methods are unavailable:
+
+```typescript
+import { Database } from "bun:sqlite";
+import { createSqliteDatabase } from "remix/data-table/sqlite";
+
+let sqlite = new Database("app.db");
+export let db = createSqliteDatabase(sqlite);
+```
+
+Call `await db.close()` during shutdown to release the connection.
 
 ### Database middleware
 
 ```typescript
-import type { Middleware } from "remix/fetch-router";
+import type { Middleware } from "remix/router";
 import { Database } from "remix/data-table";
 
 export function loadDatabase(): Middleware {
@@ -181,59 +193,65 @@ let featured = await db.findMany(books, {
 
 ### Writing migrations
 
-```typescript
-import { column as c, createMigration } from "remix/data-table/migrations";
-import { table } from "remix/data-table";
+TypeScript migrations were removed in `3.0.0-rc.1`. A migration is a directory holding plain SQL:
 
-export default createMigration({
-    async up({ schema }) {
-        let users = table({
-            name: "users",
-            columns: {
-                id: c.integer().primaryKey().autoIncrement(),
-                email: c.text().notNull().unique(),
-                name: c.text().notNull(),
-            },
-        });
-        await schema.createTable(users);
-        await schema.createIndex(users, "email", { name: "users_email_idx", unique: true });
-    },
-
-    async down({ schema }) {
-        await schema.dropTable("users");
-    },
-});
+```
+db/migrations/20260228090000_create_users/up.sql      (required)
+db/migrations/20260228090000_create_users/down.sql    (optional)
 ```
 
-Migrations can also import table definitions from the app schema to avoid duplication:
+`up.sql`:
 
-```typescript
-import { createMigration } from "remix/data-table/migrations";
-import { users, authAccounts } from "../../app/data/schema.ts";
+```sql
+create table users (
+    id integer primary key autoincrement,
+    email text not null unique,
+    name text not null
+);
+create unique index users_email_idx on users (email);
+```
 
-export default createMigration({
-    async up({ schema }) {
-        await schema.createTable(users);
-        await schema.createTable(authAccounts);
-    },
-});
+`down.sql`:
+
+```sql
+drop table users;
+```
+
+`column` / `ColumnBuilder` and `table()` still come from `remix/data-table` — they define tables
+for **queries**. Only migrations moved to SQL.
+
+By default each migration runs in a transaction where the database supports transactional DDL.
+Override it with a directive on the first non-blank line of `up.sql` (`auto`, `required`, `none`):
+
+```sql
+-- data-table/transaction: none
+create index concurrently users_email_active_idx on users (email) where status = 'active';
 ```
 
 ### Running migrations
 
+Migration running lives on the database instance:
+
 ```typescript
-import { createMigrationRunner } from "remix/data-table/migrations";
 import { loadMigrations } from "remix/data-table/migrations/node";
 
 let migrations = await loadMigrations("./db/migrations");
-let runner = createMigrationRunner(adapter, migrations);
-await runner.up();
+await db.migrate(migrations);
 ```
 
-### Migration file naming
+`db.migrate()` takes `direction`, mutually exclusive `to`/`step`, `dryRun`, and `journalTable`.
+Companion lifecycle methods are `db.migrationStatus()`, `db.reset()`, `db.wipe()`, and
+`db.close()`. For non-filesystem runtimes, build the set with `createMigrationRegistry()` from
+`remix/data-table/migrations` and pass it to `db.migrate()`.
 
-Name migration files with a timestamp prefix: `20260228090000_create_users.ts`. Place them in
-`db/migrations/`.
+The CLI drives the same lifecycle: `remix db status`, `remix db migrate`, `remix db rollback`
+(`--step`, `--to`, `--dry-run`), `remix db seed`, `remix db reset --force`, `remix db wipe --force`.
+
+### Migration naming
+
+Name each migration directory with a timestamp prefix: `20260228090000_create_users/`. Place them
+in `db/migrations/`. Checksums are always `sha256(up)`, so editing an applied migration's `up.sql`
+changes its checksum.
 
 ## Input Validation (`remix/data-schema`)
 
@@ -284,7 +302,7 @@ The recommended way: register `formData()` middleware in the root stack and read
 the context system. This also lets `methodOverride()` and CSRF middleware work uniformly.
 
 ```typescript
-import { formData } from "remix/form-data-middleware";
+import { formData } from "remix/middleware/form-data";
 
 let router = createRouter({
     middleware: [, /* ... */ formData() /* ... */],

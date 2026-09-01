@@ -68,18 +68,18 @@ fail fast when the secret is missing.
 
 ```typescript
 // Filesystem storage
-import { createFsSessionStorage } from "remix/session/fs-storage";
+import { createFsSessionStorage } from "remix/session-storage/fs";
 export let sessionStorage = createFsSessionStorage("./tmp/sessions");
 
 // Memory storage (for tests)
-import { createMemorySessionStorage } from "remix/session/memory-storage";
+import { createMemorySessionStorage } from "remix/session-storage/memory";
 export let sessionStorage = createMemorySessionStorage();
 ```
 
 ### Add session middleware
 
 ```typescript
-import { session } from "remix/session-middleware";
+import { session } from "remix/middleware/session";
 
 let router = createRouter({
     middleware: [
@@ -151,7 +151,7 @@ bypassable by clearing cookies; if the guarantee needs to survive that, you also
 ### Basic setup
 
 ```typescript
-import { auth, createSessionAuthScheme } from "remix/auth-middleware";
+import { auth, createSessionAuthScheme } from "remix/middleware/auth";
 import { Session } from "remix/session";
 import { Database } from "remix/data-table";
 
@@ -179,7 +179,7 @@ export function loadAuth() {
 ### Reading auth state
 
 ```typescript
-import { Auth } from "remix/auth-middleware";
+import { Auth } from "remix/middleware/auth";
 
 function handler({ get }) {
     let auth = get(Auth);
@@ -263,7 +263,6 @@ function logout(context) {
 
 ```typescript
 import {
-    createAtmosphereAuthProvider,
     createGoogleAuthProvider,
     createGitHubAuthProvider,
     startExternalAuth,
@@ -283,22 +282,28 @@ let githubProvider = createGitHubAuthProvider({
     clientSecret: process.env.GITHUB_CLIENT_SECRET,
     redirectUri: new URL(routes.auth.github.callback.href(), origin),
 });
+```
 
-let atmosphereSessionSecret = process.env.ATMOSPHERE_SESSION_SECRET;
-if (!atmosphereSessionSecret && process.env.NODE_ENV !== "test") {
-    throw new Error("ATMOSPHERE_SESSION_SECRET is required");
-}
+`createAtmosphereAuthProvider()`, every `Atmosphere*` type, all `OAuthDpop*` types, and
+`OAuthStandardTokens` were removed in `3.0.0-rc.1`. `OAuthStandardTokens` is now `OAuthTokens`.
 
-let atmosphereProvider = createAtmosphereAuthProvider({
-    clientId: "https://app.example.com/oauth/client-metadata.json",
-    redirectUri: new URL(routes.auth.atmosphere.callback.href(), origin),
-    sessionSecret: atmosphereSessionSecret ?? "test-only-secret",
+For a protocol Remix does not ship — atproto/Atmosphere included — build the provider yourself
+with `createOAuthProvider()` and the `OAuthProviderRuntime` contract, then feed it to the same
+`startExternalAuth()` / `finishExternalAuth()` / `refreshExternalAuth()` helpers:
+
+```typescript
+import { createOAuthProvider } from "remix/auth";
+import type { OAuthTokens } from "remix/auth";
+
+let acmeProvider = createOAuthProvider<AcmeProfile, "acme", AcmeTokens>("acme", {
+    // createAuthorizationURL(), handleCallback(), and an optional refresh hook
 });
 ```
 
-For Atmosphere-compatible atproto OAuth, create the provider once, call
-`atmosphereProvider.prepare(handleOrDid)` before `startExternalAuth(...)`, then pass the same
-module-scope provider to `finishExternalAuth(...)` and `refreshExternalAuth(...)`.
+The runtime may write a serialized value to `transaction.providerState` during
+`createAuthorizationURL()`; Remix persists it with the OAuth transaction and hands it back to
+`handleCallback()`. Treat it as provider-owned opaque data and encrypt anything sensitive, since
+session storage is not guaranteed to be confidential.
 
 ### OAuth controller
 
@@ -359,7 +364,7 @@ async function refreshGoogleTokens({ get }) {
 Apply `requireAuth()` to an entire controller subtree:
 
 ```typescript
-import { requireAuth } from "remix/auth-middleware";
+import { requireAuth } from "remix/middleware/auth";
 
 export default {
     middleware: [requireAuth()],
@@ -392,7 +397,7 @@ export default {
 Apply middleware to a single route:
 
 ```typescript
-import { Auth, requireAuth } from 'remix/auth-middleware'
+import { Auth, requireAuth } from 'remix/middleware/auth'
 
 router.get(routes.account, {
   middleware: [requireAuth()],
@@ -406,7 +411,7 @@ router.get(routes.account, {
 ### Redirect on auth failure
 
 ```typescript
-import { requireAuth } from "remix/auth-middleware";
+import { requireAuth } from "remix/middleware/auth";
 import { redirect } from "remix/response/redirect";
 
 export function requireAuthRedirect() {

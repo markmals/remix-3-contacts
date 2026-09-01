@@ -4,12 +4,12 @@
 
 How to serve browser scripts and styles from source. Read this when the task involves:
 
-- Configuring `createAssetServer` (`basePath`, `fileMap`, `allow`, `deny`, fingerprinting,
-  compiler options)
+- Configuring `createAssetServer` (`basePath`, `mounts`, `allowFiles`, `allowPackages`,
+  `denyFiles`, fingerprinting, compiler options)
 - Choosing between `staticFiles()` for already-built files and `createAssetServer()` for source
   assets that need import rewriting, preloads, or fingerprinted URLs
 - Generating script URLs or `<link rel="modulepreload">` tags for a client entry
-- Keeping server-only files out of the browser via `deny` rules
+- Keeping server-only files out of the browser via `denyFiles` rules
 
 For routing the URL namespace itself, see `routing-and-controllers.md`. For client entry
 hydration, see `hydration-frames-navigation.md`.
@@ -28,19 +28,16 @@ preloads, sourcemaps, or fingerprinted URLs.
 
 ```typescript
 import { createAssetServer } from "remix/assets";
-import type { Controller } from "remix/fetch-router";
+import type { Controller } from "remix/router";
 
 import type { routes } from "../routes.ts";
 
 let assetServer = createAssetServer({
     basePath: "/assets",
     rootDir: process.cwd(),
-    fileMap: {
-        "app/*path": "app/*path",
-        "node_modules/*path": "node_modules/*path",
-    },
-    allow: ["app/assets/**", "node_modules/**"],
-    deny: ["app/**/*.server.*"],
+    allowFiles: ["app/assets/**"],
+    allowPackages: ["remix"],
+    denyFiles: ["app/**/*.server.*"],
     target: { es: "2020", chrome: "109", safari: "16.4" },
     sourceMaps: process.env.NODE_ENV === "development" ? "external" : undefined,
     minify: process.env.NODE_ENV === "production",
@@ -66,15 +63,18 @@ export const assets = {
 
 ## Rules
 
-- Treat `allow` and `deny` as the security boundary for browser-reachable source files.
-- Add a `deny` list for server-only modules such as `*.server.*`, private config, or other files
-  that should never be exposed.
+- Treat `allowFiles`, `allowPackages`, and `denyFiles` as the security boundary for
+  browser-reachable source files. `allowFiles` is required; `denyFiles` takes precedence over both
+  allow lists.
+- Add a `denyFiles` list for server-only modules such as `*.server.*`, private config, or other
+  files that should never be exposed.
+- Prefer `allowPackages: ["remix"]` over a `node_modules/**` glob. It whitelists the package and
+  its dependencies without enumerating files.
 - Set `rootDir` explicitly in monorepos so relative paths resolve from the intended project root.
 - `basePath` is the public URL namespace handled by the asset server.
-- `fileMap` keys are URL patterns relative to `basePath`, and values are root-relative file path
-  patterns. They use `route-pattern` syntax on both sides.
-- Keep the same wildcard params on both sides of a `fileMap` entry so import rewriting can map
-  source files back to public URLs.
+- `mounts` maps a public URL path segment to a directory relative to `rootDir`, preserving the
+  path beneath it. It defaults to `{ app: "app", npm: "node_modules" }`, so most apps can omit it.
+- Package files must still fall inside a configured mount to be served.
 - CSS files are compiled and served alongside scripts. Local CSS `@import` rules are rewritten and
   fingerprinted with the same asset server routing rules.
 

@@ -5,7 +5,7 @@ createMetadataManager().hydrate(document);
 
 // Must be registered before `run` so `event.preventDefault` works properly
 //
-// - Form submissions: GET via soft-navigate, utilizing the button[rmx-target] attribute
+// - Form submissions: GET via soft-navigate, utilizing the button[data-rmx-target] attribute
 // - Form submissions: POST via fetch, then soft-navigate to the redirect URL
 navigation.addEventListener("navigate", async event => {
     if (!event.canIntercept) return;
@@ -16,9 +16,9 @@ navigation.addEventListener("navigate", async event => {
     if (event.sourceElement.closest("a, area")) return;
 
     // sourceElement is <button type="submit"> inside of form submissions
-    let target = event.sourceElement.getAttribute("rmx-target") ?? undefined;
-    let src = event.sourceElement.getAttribute("rmx-src") ?? undefined;
-    let resetScroll = event.sourceElement.hasAttribute("rmx-reset-scroll") ?? undefined;
+    let target = event.sourceElement.getAttribute("data-rmx-target") ?? undefined;
+    let src = event.sourceElement.getAttribute("data-rmx-src") ?? undefined;
+    let resetScroll = event.sourceElement.hasAttribute("data-rmx-reset-scroll") ?? undefined;
 
     // Form POST submission — handle out-of-band so the URL only changes on success.
     if (event.formData) {

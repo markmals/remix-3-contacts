@@ -7,9 +7,9 @@ export type LinkProps = { target?: string; src?: URL; resetScroll?: boolean };
 export let link = createMixin<HTMLAnchorElement | HTMLButtonElement, [LinkProps]>(handle => {
     return props => (
         <handle.element
-            rmx-reset-scroll={props.resetScroll != null ? `${props.resetScroll}` : undefined}
-            rmx-src={props.src?.toString()}
-            rmx-target={props.target}
+            data-rmx-reset-scroll={props.resetScroll != null ? `${props.resetScroll}` : undefined}
+            data-rmx-src={props.src?.toString()}
+            data-rmx-target={props.target}
         />
     );
 });

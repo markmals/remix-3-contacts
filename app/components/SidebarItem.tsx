@@ -2,7 +2,7 @@ import { routes } from "#/routes.ts";
 import { link } from "#/utils/link.tsx";
 import { isServer, navigating } from "#/utils/navigating.ts";
 import { createMultiMatcher } from "remix/route-pattern/match";
-import { addEventListeners, clientEntry, type Handle, type SerializableProps } from "remix/ui";
+import { clientEntry, type Handle, type SerializableProps } from "remix/ui";
 
 let matcher = createMultiMatcher<true>();
 matcher.add(routes.contacts.show.pattern, true);
@@ -23,10 +23,8 @@ export namespace SidebarItem {
 }
 
 export let SidebarItem = clientEntry(import.meta.url, (handle: Handle<SidebarItem.Props>) => {
-    addEventListeners(navigating, handle.signal, {
-        destinationchange() {
-            handle.update();
-        },
+    navigating.addEventListener("destinationchange", () => handle.update(), {
+        signal: handle.signal,
     });
 
     return () => {

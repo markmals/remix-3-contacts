@@ -95,7 +95,7 @@ redirect(routes.account.orders.show.href({ orderId: "42" }));
 An action is a handler for a single leaf route. Type it with `BuildAction`:
 
 ```typescript
-import type { BuildAction } from 'remix/fetch-router'
+import type { BuildAction } from 'remix/router'
 
 export const search: BuildAction<'GET', typeof routes.search> = {
   async handler({ url }) {
@@ -116,7 +116,7 @@ The handler receives a context object with:
 Actions with inline middleware:
 
 ```typescript
-import { requireAuth } from "remix/auth-middleware";
+import { requireAuth } from "remix/middleware/auth";
 
 router.get(routes.account, {
     middleware: [requireAuth()],
@@ -221,7 +221,7 @@ Pass `AppContext` as the second generic to `Controller` so `get(Database)`, `get
 `get(Auth)`, etc. are typed against your middleware stack.
 
 ```typescript
-import type { Controller } from 'remix/fetch-router'
+import type { Controller } from 'remix/router'
 import type { AppContext } from '../router.ts'
 
 export default {
@@ -306,7 +306,7 @@ router.post(routes.logout, logoutAction);
 Define an `AppContext` type from your middleware stack for use in actions and controllers:
 
 ```typescript
-import type { MiddlewareContext, WithParams, AnyParams } from "remix/fetch-router";
+import type { MiddlewareContext, WithParams, AnyParams } from "remix/router";
 
 type RootMiddleware = [
     ReturnType<typeof formData>,

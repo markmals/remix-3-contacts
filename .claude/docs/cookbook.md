@@ -33,7 +33,7 @@ db/
   seed.ts                # Idempotent local seed script
   lib/                   # Shared helpers for the db scripts
 vite.config.ts           # Unified config: build, dev, fmt, lint, typecheck, db tasks
-remix-test.config.ts     # `remix test` config (glob patterns, playwright projects)
+remix.json               # `remix test` config (glob patterns, browser test files)
 wrangler.jsonc           # Cloudflare bindings (D1, R2, assets)
 ```
 
@@ -100,7 +100,7 @@ export let LikeButton = clientEntry(
 
 **What goes in setup vs. render:**
 
-- **Setup:** Event listener registration (`addEventListeners`), one-time initialization, state variable declarations, anything that should survive re-renders
+- **Setup:** Event listener registration (`target.addEventListener(type, fn, { signal: handle.signal })`), one-time initialization, state variable declarations, anything that should survive re-renders
 - **Render:** JSX, derived values, conditional logic based on current props/state
 
 **Important:** All props passed to a `clientEntry` component must be serializable (strings, numbers, booleans, plain objects, arrays). The server serializes them as JSON for the client to hydrate. You cannot pass functions, class instances, or DOM nodes as props to hydrated components.
@@ -315,10 +315,8 @@ export let LikeButton = clientEntry(
 ```tsx
 export let SearchBar = clientEntry(import.meta.url, (handle: Handle<{ query?: string }>) => {
     // Re-render when navigation state changes (for loading indicator)
-    addEventListeners(navigating, handle.signal, {
-        destinationchange() {
-            handle.update();
-        },
+    navigating.addEventListener("destinationchange", () => handle.update(), {
+        signal: handle.signal,
     });
 
     return () => {
@@ -768,10 +766,8 @@ It exposes:
 
 ```tsx
 export let MyComponent = clientEntry(import.meta.url, (handle: Handle) => {
-    addEventListeners(navigating, handle.signal, {
-        destinationchange() {
-            handle.update();
-        },
+    navigating.addEventListener("destinationchange", () => handle.update(), {
+        signal: handle.signal,
     });
 
     return () => {
@@ -824,10 +820,10 @@ navigation.addEventListener("navigate", async event => {
     if (event.sourceElement.closest("a, area")) return;
 
     // sourceElement is <button type="submit"> inside form submissions.
-    // Read rmx-* attributes from the button for frame targeting.
-    let target = event.sourceElement.getAttribute("rmx-target") ?? undefined;
-    let src = event.sourceElement.getAttribute("rmx-src") ?? undefined;
-    let resetScroll = event.sourceElement.hasAttribute("rmx-reset-scroll") ?? undefined;
+    // Read data-rmx-* attributes from the button for frame targeting.
+    let target = event.sourceElement.getAttribute("data-rmx-target") ?? undefined;
+    let src = event.sourceElement.getAttribute("data-rmx-src") ?? undefined;
+    let resetScroll = event.sourceElement.hasAttribute("data-rmx-reset-scroll") ?? undefined;
 
     // Form POST submission — out-of-band so the URL only changes on success
     if (event.formData) {
@@ -920,13 +916,13 @@ navigation.addEventListener("navigate", event => {
 
 **Why three phases:**
 
-1. **Phase 1 (before `run`):** Handles form submissions. Must register before `run()` so that `event.preventDefault()` on GET forms works before the Remix listener sees the event. Reads `rmx-target`, `rmx-src`, and `rmx-reset-scroll` from the submit button's attributes.
+1. **Phase 1 (before `run`):** Handles form submissions. Must register before `run()` so that `event.preventDefault()` on GET forms works before the Remix listener sees the event. Reads `data-rmx-target`, `data-rmx-src`, and `data-rmx-reset-scroll` from the submit button's attributes.
 2. **Phase 2 (`run`):** Initializes the Remix runtime — module loading for hydrated components and frame resolution for fetching frame content. The returned `app` event target is the runtime's error bus.
 3. **Phase 3 (after `run`):** Sets `focusReset: "manual"` for all non-traverse navigations. Registered last so its `intercept()` call wins, preventing the browser from resetting focus to the top of the page during frame updates.
 
 **Why out-of-band POST fetch:** Driving POSTs through `event.intercept({ handler })` ties the navigation URL to the request lifecycle — the URL bar can flip to the action URL even when the server returns an error. Doing the fetch outside `intercept` lets the URL stay put on failure; only the `navigate(response.url, ...)` call (after a successful response) commits the new URL. Errors are dispatched to `app` and rendered as a dismissible banner.
 
-**Why `event.sourceElement`:** For form submissions triggered by a submit button, `event.sourceElement` is that `<button>`. This is how `rmx-*` attributes on form buttons work — the listener reads them directly from the submitting element and passes them to `navigate()`.
+**Why `event.sourceElement`:** For form submissions triggered by a submit button, `event.sourceElement` is that `<button>`. This is how `data-rmx-*` attributes on form buttons work — the listener reads them directly from the submitting element and passes them to `navigate()`.
 
 **Why traverse navigations are left alone:** Back/forward navigations are handled by the built-in Remix listener. Intercepting them again would conflict.
 
@@ -1039,10 +1035,8 @@ For server-only components, the setup phase is minimal -- there's no persistent 
 ```tsx
 export let SearchInput = clientEntry(import.meta.url, (handle: Handle<{ query?: string }>) => {
     // Setup: runs once on hydration
-    addEventListeners(navigating, handle.signal, {
-        destinationchange() {
-            handle.update();
-        },
+    navigating.addEventListener("destinationchange", () => handle.update(), {
+        signal: handle.signal,
     });
 
     return () => {
@@ -1102,7 +1096,7 @@ import { link } from "#/utils/link.tsx";
 </RestfulForm>
 ```
 
-For form submissions, the client entry's navigate listener reads the resulting `rmx-*` attributes from `event.sourceElement` — the submit button, not the `<form>`. This means a server-only form can target a specific frame without hydration.
+For form submissions, the client entry's navigate listener reads the resulting `data-rmx-*` attributes from `event.sourceElement` — the submit button, not the `<form>`. This means a server-only form can target a specific frame without hydration.
 
 **The `link` mixin definition:**
 
@@ -1116,15 +1110,15 @@ export type LinkProps = { target?: string; src?: URL; resetScroll?: boolean };
 export let link = createMixin<HTMLAnchorElement | HTMLButtonElement, [LinkProps]>(handle => {
     return props => (
         <handle.element
-            rmx-reset-scroll={props.resetScroll != null ? `${props.resetScroll}` : undefined}
-            rmx-src={props.src?.toString()}
-            rmx-target={props.target}
+            data-rmx-reset-scroll={props.resetScroll != null ? `${props.resetScroll}` : undefined}
+            data-rmx-src={props.src?.toString()}
+            data-rmx-target={props.target}
         />
     );
 });
 ```
 
-The mixin renders `rmx-*` attributes onto the host element.
+The mixin renders `data-rmx-*` attributes onto the host element.
 
 **Tightening the `target` type:** If you want compile-time validation of frame names, narrow `LinkProps["target"]` to a union literal (e.g. `"sidebar" | "detail"`). The server reads `ctx.headers.get("x-remix-target")` as a plain string (Recipe 5), so the typing is purely a client-side ergonomic choice.
 
@@ -1142,7 +1136,7 @@ These are the declarative equivalents of the options you can pass to `navigate()
 navigate(url, { target: "detail", src: someUrl, resetScroll: true });
 ```
 
-**Use the `link()` mixin for links and form buttons. Use `navigate()` with options for programmatic navigation.** They produce the same `rmx-*` attributes under the hood, but the mixin gives you type safety for frame names.
+**Use the `link()` mixin for links and form buttons. Use `navigate()` with options for programmatic navigation.** They produce the same `data-rmx-*` attributes under the hood, but the mixin gives you type safety for frame names.
 
 ---
 
@@ -1236,27 +1230,29 @@ export type Post = TableRow<typeof Posts>;
 let post = await db.create(Posts, { title: "Hello", body: "World" }, { returnRow: true });
 ```
 
-**Migrations:** When deploying to Cloudflare D1, author migrations as TypeScript under `db/migrations/` using `remix/data-table/migrations`, then compile them to deterministic `.sql` files in `db/d1-migrations/` (committed to git). Cloudflare's own `wrangler d1 migrations apply` consumes the generated SQL — both `--local` and `--remote` use the same files, so there is no TypeScript-only path against the dev database.
+**Migrations:** When deploying to Cloudflare D1, author migrations as plain SQL under `db/migrations/` — one directory per migration holding a required `up.sql` and an optional `down.sql` — then compile them to deterministic `.sql` files in `db/d1-migrations/` (committed to git). Cloudflare's own `wrangler d1 migrations apply` consumes the generated SQL — both `--local` and `--remote` use the same files.
 
-```tsx
-// db/migrations/20260213161402_create_posts.ts
-import { Posts } from "#/data/posts.ts";
-import { createMigration } from "remix/data-table/migrations";
-
-export default createMigration({
-    async up({ schema }) {
-        await schema.createTable(Posts, { ifNotExists: true });
-        await schema.createIndex(Posts, ["title", "createdAt"], { ifNotExists: true });
-    },
-    async down({ schema }) {
-        await schema.dropTable(Posts, { ifExists: true });
-    },
-});
+```
+db/migrations/20260213161402_create_posts/up.sql
+db/migrations/20260213161402_create_posts/down.sql
 ```
 
-> **D1 constraint:** Migrations MUST use only `schema.*` (DDL) operations. Anything that calls `db.*` data operations cannot be dry-run to SQL — put that logic in a standalone seed script (see "Seed data" below).
+```sql
+-- up.sql
+create table if not exists "posts" ("id" integer, "title" text not null, "body" text not null, "createdAt" text default current_timestamp, constraint "posts_pk" primary key ("id"));
+create index if not exists "posts_title_createdat_idx" on "posts" ("title", "createdAt");
+```
 
-**Compiling to SQL** — a helper script reads each TS migration via `loadMigrations` and writes one `.sql` file per migration:
+```sql
+-- down.sql
+drop table if exists "posts";
+```
+
+> **D1 constraint:** Migrations MUST contain only DDL. Data manipulation belongs in a standalone seed script (see "Seed data" below).
+>
+> Per-migration transaction behavior is set with a directive on the first non-blank line of `up.sql`: `-- data-table/transaction: none` (modes: `auto` default, `required`, `none`).
+
+**Compiling to SQL** — a helper script reads each migration's `up.sql` via `loadMigrations` and writes one `.sql` file per migration:
 
 ```tsx
 // db/generate-d1-migrations.ts (simplified)
@@ -1339,97 +1335,63 @@ export async function getPosts(): Promise<Post[]> {
 
 ```
 db/
-  migrations/                                # Source TS migrations
-    20260228090000_create_posts.ts
-    20260315140000_add_published_at.ts
-    20260320100000_add_tags.ts
+  migrations/                                # Source SQL migrations
+    20260228090000_create_posts/{up,down}.sql
+    20260315140000_add_published_at/{up,down}.sql
+    20260320100000_add_tags/{up,down}.sql
   d1-migrations/                             # Generated .sql (committed)
     20260228090000_create_posts.sql
     20260315140000_add_published_at.sql
     20260320100000_add_tags.sql
-  generate-d1-migrations.ts                  # TS → SQL compiler
+  generate-d1-migrations.ts                  # up.sql → Wrangler-format .sql
   apply-d1-migrations.ts                     # Shells out to `wrangler d1 migrations apply`
   seed.ts                                    # Standalone seed script
   lib/                                       # Shared helpers
 ```
 
-Name each TS file as `YYYYMMDDHHmmss_name.ts`. The `id` and `name` are inferred from the filename. Each file default-exports a `createMigration(...)`.
+Name each migration directory as `YYYYMMDDHHmmss_name/`. The `id` and `name` are inferred from the directory name. `up.sql` is required; `down.sql` is optional and powers `remix db rollback`.
 
 **Writing a migration that adds a column:**
 
-```tsx
-import { column as c } from "remix/data-table";
-import { createMigration } from "remix/data-table/migrations";
-import { Posts } from "../tables.ts";
-
-export default createMigration({
-    async up({ schema }) {
-        await schema.alterTable(Posts, table => {
-            table.addColumn("publishedAt", c.timestamp({ withTimezone: true }));
-        });
-    },
-    async down({ schema }) {
-        await schema.alterTable(Posts, table => {
-            table.dropColumn("publishedAt");
-        });
-    },
-});
+```sql
+-- 20260315140000_add_published_at/up.sql
+alter table "posts" add column "publishedAt" timestamptz;
 ```
 
-**Other common `alterTable` operations:**
-
-```tsx
-await schema.alterTable(Posts, table => {
-    // Add columns
-    table.addColumn("subtitle", c.text());
-
-    // Drop columns
-    table.dropColumn("subtitle");
-
-    // Add keys and constraints
-    table.addPrimaryKey("id");
-    table.addForeignKey("author_id", "authors", "id");
-    table.addForeignKey(["tenant_id", "author_id"], "authors", ["tenant_id", "id"]);
-});
+```sql
+-- 20260315140000_add_published_at/down.sql
+alter table "posts" drop column "publishedAt";
 ```
 
-You can also run data migrations alongside schema changes using the `db` handle:
+**Other common schema changes** — write them as ordinary SQL for your dialect:
 
-```tsx
-import { sql } from "remix/data-table";
-
-export default createMigration({
-    async up({ db, schema }) {
-        await schema.alterTable(Posts, table => {
-            table.addColumn("status", c.text().notNull().default("draft"));
-        });
-
-        // Backfill: set existing published posts to "published"
-        await db.exec(sql`update posts set status = 'published' where published = true`);
-    },
-    async down({ schema }) {
-        await schema.alterTable(Posts, table => {
-            table.dropColumn("status");
-        });
-    },
-});
+```sql
+alter table "posts" add column "subtitle" text;
+alter table "posts" drop column "subtitle";
+alter table "posts" add constraint "posts_pk" primary key ("id");
+alter table "posts" add constraint "posts_author_fk" foreign key ("author_id") references "authors" ("id");
 ```
 
-**Defensive checks:** Use `schema.hasTable()` and `schema.hasColumn()` when you need conditional behavior:
+Data backfills run as plain statements alongside the schema change in the same `up.sql`:
 
-```tsx
-async up({ schema }) {
-    if (await schema.hasColumn(Posts, "legacy_field")) {
-        await schema.alterTable(Posts, table => {
-            table.dropColumn("legacy_field");
-        });
-    }
-}
+```sql
+-- 20260320100000_add_status/up.sql
+alter table "posts" add column "status" text not null default 'draft';
+update "posts" set "status" = 'published' where "published" = true;
 ```
+
+**Defensive checks:** SQLite and Postgres both support `if not exists` / `if exists` guards, which replace the old `schema.hasTable()` / `schema.hasColumn()` helpers:
+
+```sql
+create table if not exists "posts" ("id" integer primary key);
+drop index if exists "posts_legacy_idx";
+```
+
+> **Checksums:** a migration's checksum is `sha256(up)`. Editing an `up.sql` that has already been applied changes its checksum, so keep ids stable and add a new migration instead of rewriting an applied one.
 
 **The two-step Cloudflare D1 workflow:**
 
-1. **Generate** — `vp run db:migrations:generate` runs each TS migration through the data-table runner in `dryRun: true` mode and writes one deterministic `.sql` file per source migration into `db/d1-migrations/`. These files are committed to git.
+1. **Generate** — `vp run db:migrations:generate` reads each migration's `up.sql` through `loadMigrations()` and writes one deterministic `.sql` file per source migration into `db/d1-migrations/`. These files are committed to git.
 2. **Apply** — `vp run db:migrations:apply:local` (or `:remote`) shells out to `wrangler d1 migrations apply DB --local` (or `--remote`), which reads `db/d1-migrations/` and uses Wrangler's own `d1_migrations` journal table on the target database.
 
 The apply helper is a thin wrapper around `wrangler`:
@@ -1675,7 +1637,7 @@ export default defineConfig({
 - **`input`:** File-based cache invalidation. `typegen` only reruns when `wrangler.jsonc` changes.
 - **`cache: false`:** Disables caching for tasks that should always run (typecheck, deploy, migrations).
 - **`db:reset`:** Deletes local D1 state for a clean slate during development.
-- **`test`:** Runs the in-tree `remix test` runner (see Recipe 32) against `remix-test.config.ts`.
+- **`test`:** Runs the in-tree `remix test` runner (see Recipe 32) against the `test` key of `remix.json`.
 
 **What `@pitlane/dev`'s `remix()` plugin provides:**
 
@@ -2257,7 +2219,7 @@ on("pointerdown", event => {
 | ------------------------------ | ---------------------------------------------------- | --------------------------------------------------- |
 | Always needed while mounted    | `mix={[on(...)]}`                                    | Click handlers, submit handlers, keyboard shortcuts |
 | Only needed during interaction | Imperative `addEventListener` with `AbortController` | Drag tracking, resize handles, pointer capture      |
-| Global, for component lifetime | `addEventListeners(target, handle.signal, {...})`    | Window resize, navigation state changes             |
+| Global, for component lifetime | `addEventListener(..., { signal: handle.signal })`   | Window resize, navigation state changes             |
 
 ---
 
@@ -2394,21 +2356,19 @@ function Icon(props: { name: string; size?: number }) {
 
 **Heuristic:** Use the built-in `remix test` runner from `remix/test`. It provides `describe`/`it`, hooks, and runs both server-side unit tests and in-browser component tests via Playwright. For component DOM tests, import `render` from `remix/ui/test` (or assert directly against `document` for tests written against the browser pool).
 
-**Configuration** — `remix-test.config.ts`:
+**Configuration** — the `test` key of `remix.json` (`remix-test.config.ts` is no longer discovered, and the standalone `remix-test` binary is gone):
 
-```ts
-import type { RemixTestConfig } from "remix/test";
-
-export default {
-    glob: {
-        test: "app/**/*.test.{ts,tsx}",
-        browser: "app/**/*.test.{ts,tsx}",
+```jsonc
+{
+    "$schema": "./node_modules/remix/schema/remix.json",
+    "test": {
+        "files": ["app/**/*.test{,.browser,.e2e}.{ts,tsx}"],
+        "browserFiles": ["app/**/*.test.browser.{ts,tsx}"],
     },
-    playwrightConfig: {
-        projects: [{ name: "chromium", use: { browserName: "chromium" } }],
-    },
-} satisfies RemixTestConfig;
+}
 ```
+
+Point `playwright.configFile` at a `playwright.config.ts` when you need custom Playwright projects.
 
 Wire it into a Vite+ task so `vp run test` invokes the runner:
 
@@ -2498,7 +2458,7 @@ describe("MetadataManager", () => {
 import { createCookie } from "remix/cookie";
 import { Session } from "remix/session";
 import { session } from "remix/middleware/session";
-import { createCookieSessionStorage } from "remix/session/cookie-storage";
+import { createCookieSessionStorage } from "remix/session-storage/cookie";
 
 // 1. Create a signed cookie (secrets are required)
 let sessionCookie = createCookie("__session", {
@@ -2579,9 +2539,9 @@ Flash values are available on the next request after they're set, then automatic
 
 | Strategy           | Import                         | Best for                                             |
 | ------------------ | ------------------------------ | ---------------------------------------------------- |
-| Cookie storage     | `remix/session/cookie-storage` | Small session data (< 4KB), no server storage needed |
-| Filesystem storage | `remix/session/fs-storage`     | Production servers with persistent disk              |
-| Memory storage     | `remix/session/memory-storage` | Development and testing only                         |
+| Cookie storage     | `remix/session-storage/cookie` | Small session data (< 4KB), no server storage needed |
+| Filesystem storage | `remix/session-storage/fs`     | Production servers with persistent disk              |
+| Memory storage     | `remix/session-storage/memory` | Development and testing only                         |
 
 **Cookie security:**
 

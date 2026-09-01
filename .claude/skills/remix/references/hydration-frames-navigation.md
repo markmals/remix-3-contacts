@@ -270,7 +270,7 @@ navigate("/dashboard", { history: "replace" });
 
 Options: `src`, `target`, `history` (`'push' | 'replace'`), `resetScroll`.
 
-Attributes understood by the runtime: `rmx-target`, `rmx-src`, `rmx-document`.
+Attributes understood by the runtime: `data-rmx-target`, `data-rmx-src`, `data-rmx-document`.
 
 ## Head Management
 

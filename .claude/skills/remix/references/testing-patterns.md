@@ -54,7 +54,7 @@ a known session, swap in `createMemorySessionStorage()` and a test cookie when c
 router.
 
 ```ts
-import { createMemorySessionStorage } from "remix/session/memory-storage";
+import { createMemorySessionStorage } from "remix/session-storage/memory";
 import { createCookie } from "remix/cookie";
 
 let router = createBookstoreRouter({
@@ -65,30 +65,38 @@ let router = createBookstoreRouter({
 
 ## Test Runner Config
 
-Configure discovery and coverage in `remix-test.config.ts` or with CLI flags:
+`remix-test.config.ts` / `.js` are no longer discovered, and the standalone `remix-test` binary is
+gone — run tests with `remix test`. Configure discovery and coverage under the `test` key of
+`remix.json`, or with CLI flags:
 
-```ts
-export default {
-    glob: {
-        test: "**/*.test{,.e2e}.{ts,tsx}",
-        e2e: "**/*.test.e2e.{ts,tsx}",
-        exclude: "node_modules/**",
+```jsonc
+{
+    "$schema": "./node_modules/remix/schema/remix.json",
+    "test": {
+        "files": ["app/**/*.test{,.browser,.e2e}.{ts,tsx}"],
+        "browserFiles": ["app/**/*.test.browser.{ts,tsx}"],
+        "e2eFiles": ["app/**/*.test.e2e.{ts,tsx}"],
+        "exclude": ["node_modules/**", "dist/**"],
+        "coverage": {
+            "dir": ".coverage",
+            "include": ["app/**/*.{ts,tsx}"],
+            "exclude": ["app/**/*.test.{ts,tsx}"],
+            "statements": 80,
+            "lines": 80,
+            "branches": 70,
+            "functions": 80,
+        },
     },
-    coverage: {
-        dir: ".coverage",
-        include: ["app/**/*.{ts,tsx}"],
-        exclude: ["app/**/*.test.{ts,tsx}"],
-        statements: 80,
-        lines: 80,
-        branches: 70,
-        functions: 80,
-    },
-};
+}
 ```
 
-Use `remix test --coverage` to enable coverage with defaults. Use `glob.exclude` when discovery
-would otherwise enter generated output, symlinked workspaces, or other paths that should not
-produce tests.
+Relative paths and globs resolve from the directory holding the config. Explicit CLI flags and
+positional globs take precedence over configured values. Move inline Playwright configuration into
+`playwright.config.ts` and point `playwright.configFile` at it.
+
+Use `remix test --coverage` to enable coverage with defaults. Use `exclude` when discovery would
+otherwise enter generated output, symlinked workspaces, or other paths that should not produce
+tests.
 
 ## Component Tests
 
