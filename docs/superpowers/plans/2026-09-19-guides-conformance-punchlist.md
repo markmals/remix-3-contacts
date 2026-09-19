@@ -218,11 +218,18 @@ Integration tests now drive the deployed entry through `exports.default.fetch()`
 
 One wart: every worker-project run prints `[collectCss] Failed to transform 'cloudflare:workers'`. It is Vite's Node-side CSS scan walking a module graph containing workerd-only imports. Harmless, and not suppressible via `server.deps.external` or `css: false` — both were tried and removed rather than left in as dead config.
 
-### M4 — Three client components are testable right now and have no tests · ch13 · **PARTLY DONE**
+### M4 — Three client components are testable right now and have no tests · ch13 · **DONE**
 
-`favorite-button.tsx`, `sidebar-item.tsx` and `delete-button.tsx` have no Workers coupling and can be driven through `remix/ui/test`. H4 proved it by adding `favorite-button.test.browser.tsx`, which now runs in the `dom` project; `render()` from `remix/ui/test` works unchanged under jsdom.
+`favorite-button.tsx`, `sidebar-item.tsx` and `delete-button.tsx` have no Workers coupling and can be driven through `remix/ui/test`. All three now have tests in the `dom` project; `render()` works unchanged under jsdom.
 
-Still untested: `sidebar-item.tsx` (active/pending derivation) and `delete-button.tsx` (the confirm gate).
+- **`delete-button.test.browser.tsx`** pins the confirm gate in both directions — declining prevents the submission, confirming leaves it alone for the runtime to drive — plus the `_method` override that lets an HTML form DELETE.
+- **`sidebar-item.test.browser.tsx`** pins the active/pending derivation: active from the current URL, falling back to the server's `selected` prop on a URL the matcher does not recognise, pending for the navigation destination, and the search query carried into the href.
+
+`pending-navigation.ts` subscribes to the Navigation API at module scope, which jsdom does not implement, so the sidebar tests mock that one app-owned seam. That is deliberate: the module is trivial, and mocking it is what lets the tests drive the two inputs the component actually derives from.
+
+**Both suites were mutation-checked.** Inverting the confirm gate fails two tests. Two sidebar mutations, however, _survived individually_: dropping the `!isActive &&` guard from `isPending`, and swapping the `isActive ? … : isPending ? …` ternary order. Neither is a test gap — they are equivalent mutants, because the guard and the ternary precedence both independently express "active beats pending". Removing **both** does fail the test that covers the only case where a contact is simultaneously active and the pending destination: navigating from `/contacts/2` to `/contacts/2/edit`.
+
+So the behaviour is pinned, but the component carries a redundant guard. Left as-is — it is the more explicit of the two expressions and removing it would be churn with no observable effect.
 
 ### M5 — `UpdateSchema` constrains nothing · ch08 · **DONE**
 
@@ -310,11 +317,10 @@ Unlike H1/H2 this **is** covered by tests: `app/data/schemas.ts` imports only `r
 | H3 — SVG stored XSS               | **done** (Orion)  |
 | M1 — missing records 404          | **done**          |
 | M3 — router-level tests           | **done**          |
-| M4 — client component tests       | partly done       |
+| M4 — client component tests       | **done**          |
 | L1–L15                            | open              |
 
 ## 6. Suggested order for what's left
 
-1. **M4's remainder** — `sidebar-item.tsx` and `delete-button.tsx`, now that the `dom` project exists.
-2. **L12** — e2e is newly plausible: with the worker project running the real entry, most of what e2e would have covered is already covered more cheaply.
-3. **L1–L15** otherwise; none are load-bearing.
+1. **L12** — e2e is newly cheap to judge: with the worker project driving the real entry, most of what e2e would have covered is already covered faster.
+2. **L1–L15** otherwise; none are load-bearing.
