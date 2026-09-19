@@ -115,8 +115,22 @@ export default createController(routes.contacts, {
                 return new Response("Invalid favorite value", { status: 400 });
             }
 
-            let update = await updateContact(id, { favorite: parsed.value.favorite });
-            return Response.json(update);
+            let contact = await getContact(id);
+            if (!contact) {
+                return redirect(routes.home.href());
+            }
+
+            await updateContact(id, { favorite: parsed.value.favorite });
+
+            // The enhanced submission reloads the frames itself, so it only
+            // needs to know the write landed. Sending no body keeps `fetch`
+            // from following a redirect and downloading the page to discard it.
+            if (frameTarget(ctx.headers) === "detail") {
+                return new Response(null, { status: 204 });
+            }
+
+            // Unenhanced submission: POST/Redirect/GET back to the contact.
+            return redirect(routes.contacts.show.href({ id }));
         },
         async update(ctx) {
             let id = contactId(ctx.params);

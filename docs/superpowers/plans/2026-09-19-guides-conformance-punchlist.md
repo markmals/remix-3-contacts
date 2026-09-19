@@ -102,13 +102,27 @@ An SVG containing `<script>` does **not** execute when rendered through the `<im
 
 **Fix options:** drop `image/svg+xml` from the allowlist (cheapest, loses nothing for avatars); or serve uploads with `Content-Disposition: attachment` / from a separate origin; or sanitize SVG on upload.
 
-### H4 — The favorite toggle is broken without JavaScript · ch09
+### H4 — The favorite toggle is broken without JavaScript · ch09 · **DONE**
 
-`FavoriteButton` is a `clientEntry`, so the server renders a real `RestfulForm`. Submit it with JS disabled (or before hydration) and the `favorite` action returns `Response.json(update)` — the browser navigates to a page of raw JSON and the user loses the app.
+`FavoriteButton` is a `clientEntry`, so the server renders a real `RestfulForm`. Submitted with JS disabled (or before hydration) the `favorite` action returned `Response.json(update)` — the browser navigated to a page of raw JSON and the user lost the app.
 
-Chapter 9's whole framing is HTML-first: _"Build the mutation as an HTML form and controller action first. Once the non-JavaScript request returns the right response, the same form can gain pending state…"_ This is the inverse — the enhanced path works and the baseline doesn't.
+Chapter 9's whole framing is HTML-first: _"Build the mutation as an HTML form and controller action first. Once the non-JavaScript request returns the right response, the same form can gain pending state…"_ This was the inverse — the enhanced path worked and the baseline didn't.
 
-**Fix:** branch on the frame headers. Return JSON for the `fetch` path, redirect back to the contact for a native submission.
+**A second defect surfaced while fixing it.** The response type was only half the problem. The button submitted `value={favorite ? "true" : "false"}` — the state it _had_ — and `updateContact` writes an absolute value rather than toggling. So an unenhanced submission wrote back the value already stored: **a silent no-op**, independent of the response.
+
+It worked under JavaScript only by accident of render ordering: the handler flipped `favorite`, awaited `handle.update()`, and _then_ built `FormData` from the re-rendered DOM, which by that point held the flipped value. That also meant the payload depended on the reconciler patching the submitter node in place — had it replaced the node, `event.submitter` would have been detached and contributed nothing.
+
+**Fixed** in three parts:
+
+1. **The payload is now the desired next state.** `value={favorite ? "false" : "true"}`, and `FormData` is captured from `event.currentTarget` _before_ the optimistic re-render. Both paths now send the same thing, and correctness no longer depends on a render having committed. Capturing the form first also fixes a latent issue: `currentTarget` is only valid during dispatch, yet `.action`/`.method` were being read after an `await`.
+2. **The action content-negotiates**, per ch06:270 — _"The action should return HTML for the targeted frame when it receives a frame request, while keeping its normal document response or redirect for unenhanced submissions."_ A frame request gets `204 No Content`; anything else gets a POST/Redirect/GET back to the contact.
+3. **The client identifies itself.** Its bare `fetch` sent no frame headers, so the action could not tell the paths apart; it now sends `x-remix-frame` and `x-remix-target`.
+
+`204` rather than always redirecting because `fetch` follows redirects by default, so the enhanced path would otherwise download the whole contact page on every star click and discard it — the client never reads the body.
+
+The action also gained the missing `getContact` existence check. `updateContact` throws `Error("Contact with id N not found")` for a missing id, which since H1 is a clean 500 but should be a redirect.
+
+Covered by `app/actions/contacts/public/favorite-button.test.browser.tsx` — the first component test in the repo, and proof that **M4** is actionable today: these `clientEntry` components have no `cloudflare:workers` coupling and render fine under `remix/ui/test`. The test was checked against the pre-fix expression and fails on it.
 
 ### H5 — Both `staticFiles()` middlewares are dead weight on Workers · ch03:165 · **DONE**
 
@@ -269,10 +283,12 @@ Unlike H1/H2 this **is** covered by tests: `app/data/schemas.ts` imports only `r
 | M2 — upload limits and MIME trust | **done**          |
 | M6 — double-submit protection     | **done** (Orion)  |
 | `IdSchema` numeric checks         | **done** (Orion)  |
-| H3, H4, M1, M3, M4, L1–L15        | open              |
+| H4 — no-JS favorite toggle        | **done**          |
+| H3, M1, M3, M4, L1–L15            | open              |
 
 ## 6. Suggested order for what's left
 
 1. **H3** — smallest real security win available (drop one MIME type).
-2. **H4, M1** — both are "return the right response for the unenhanced request"; natural pair.
-3. **M3** decides whether server testing is on the table at all. Answer it before M4 or L12 — and it is what currently blocks regression tests for H1 and H2.
+2. **M1** — the other half of "return the right response": missing records should 404 rather than redirect home.
+3. **M4** is now cheap and proven viable — H4's test showed `clientEntry` components render fine under `remix/ui/test`. `sidebar-item.tsx` and `delete-button.tsx` are the two left.
+4. **M3** decides whether _server_ testing is on the table at all. It still blocks regression tests for H1 and H2.

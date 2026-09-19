@@ -23,18 +23,31 @@ export let FavoriteButton = clientEntry(
                     mix={on("submit", async (event, signal) => {
                         event.preventDefault();
 
+                        // Read the form and payload before the optimistic
+                        // re-render: `currentTarget` is only valid during
+                        // dispatch, and the button submits the state it wants,
+                        // so once `favorite` flips the DOM carries the opposite.
+                        let form = event.currentTarget;
+                        let body = new FormData(form, event.submitter);
+
                         favorite = !favorite;
                         submitting = true;
                         await handle.update();
 
                         try {
-                            let response = await fetch(event.currentTarget.action, {
-                                method: event.currentTarget.method,
-                                body: new FormData(event.currentTarget, event.submitter),
+                            let response = await fetch(form.action, {
+                                body,
+                                // Identifies this as the enhanced path, so the
+                                // action answers 204 instead of redirecting.
+                                headers: {
+                                    "x-remix-frame": "true",
+                                    "x-remix-target": "detail",
+                                },
+                                method: form.method,
                                 signal,
                             });
 
-                            if (!response.ok && !response.redirected) {
+                            if (!response.ok) {
                                 throw response;
                             }
 
@@ -59,7 +72,7 @@ export let FavoriteButton = clientEntry(
                         disabled={submitting}
                         name="favorite"
                         type="submit"
-                        value={favorite ? "true" : "false"}
+                        value={favorite ? "false" : "true"}
                     >
                         {favorite ? "★" : "☆"}
                     </button>
