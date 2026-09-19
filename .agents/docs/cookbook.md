@@ -1558,32 +1558,27 @@ drop table if exists "posts";
 >
 > Per-migration transaction behavior is set with a directive on the first non-blank line of `up.sql`: `-- data-table/transaction: none` (modes: `auto` default, `required`, `none`).
 
-**Compiling to SQL** — a helper script reads each migration's `up.sql` via `loadMigrations` and writes one `.sql` file per migration:
+**Compiling to SQL** — `generateD1Migrations` from `@pitlane/data-table-d1/migrations` reads each migration's `up.sql` and writes one Wrangler-shaped `.sql` file per migration, then deletes generated files with no migration behind them so the output directory is a pure function of the input one:
 
 ```tsx
-// db/generate-d1-migrations.ts (simplified)
+// db/generate-d1-migrations.ts
+import { generateD1Migrations } from "@pitlane/data-table-d1/migrations";
 import path from "node:path";
-import { loadMigrations } from "remix/data-table/migrations/node";
-import {
-    buildSqlFileContents,
-    d1MigrationFilename,
-    normalizeSqlStatements,
-} from "./lib/sql-generation.ts";
 
-let migrations = await loadMigrations(path.resolve("db/migrations"));
-for (let migration of migrations) {
-    let statements = normalizeSqlStatements(migration.up);
-    let contents = buildSqlFileContents({
-        sourceFilename: `${migration.id}_${migration.name}/up.sql`,
-        statements,
-    });
-    let outFile = path.join(
-        "db/d1-migrations",
-        d1MigrationFilename({ id: migration.id, name: migration.name }),
-    );
-    writeFileSync(outFile, contents, "utf-8");
-}
+import { parseWranglerConfig } from "./lib/wrangler-config.ts";
+
+let { d1 } = parseWranglerConfig();
+
+let generated = await generateD1Migrations({ to: d1.migrationsDir });
+
+console.log(
+    `Generated ${generated.length} migration(s) into ${path.relative(".", d1.migrationsDir)}`,
+);
 ```
+
+Read the output directory from `wrangler.jsonc`'s `migrations_dir` rather than hardcoding it, so the generator and D1's own migration runner can never disagree about where the files live. `from` defaults to `db/migrations`.
+
+The helper copies each `up.sql` **verbatim** rather than splitting it into statements. Splitting is the job of whatever executes the file, and a splitter naive enough to live in a generator would corrupt any migration with a semicolon inside a string literal or a `begin ... end` trigger body. It throws when the source directory holds no migrations, or when a migration's `up` is empty — a migration runner is the worst place to discover either.
 
 `schema.createTable()` reads column definitions directly from the `table()` call, so you never write raw SQL for table creation. `schema.createIndex()` takes the table and an array of column names. Use `{ ifNotExists: true }` / `{ ifExists: true }` for idempotent migrations.
 
@@ -1591,15 +1586,14 @@ for (let migration of migrations) {
 
 ```tsx
 // db/seed.ts
-import { D1DatabaseAdapter } from "#/data/adapters/d1-data-table.ts";
 import { Posts } from "#/data/posts.ts";
-import { Database } from "remix/data-table";
+import { createD1Database } from "@pitlane/data-table-d1";
 import { getPlatformProxy } from "wrangler";
 
 let proxy = await getPlatformProxy<Env>({ configPath: "./wrangler.jsonc", persist: true });
 
 try {
-    let db = new Database(new D1DatabaseAdapter(proxy.env.DB));
+    let db = createD1Database(proxy.env.DB);
 
     let count = await db.count(Posts);
     if (count > 0) {
@@ -3633,14 +3627,17 @@ let db = env.DB;
 let bucket = env.FILES;
 
 // In middleware (preferred — inject into request context)
+import { createD1Database } from "@pitlane/data-table-d1";
+import { env } from "cloudflare:workers";
 import { Database } from "remix/data-table";
 import { type Middleware } from "remix/router";
 
 type DatabaseEntry = { key: typeof Database; value: Database };
 
 export function database(): Middleware<DatabaseEntry> {
-    let adapter = new D1DatabaseAdapter(env.DB);
-    let db = new Database(adapter);
+    // Built once per isolate: the binding is stable, so there is nothing to
+    // rebuild per request.
+    let db = createD1Database(env.DB);
 
     return (ctx, next) => {
         ctx.set(Database, db);
@@ -3656,40 +3653,35 @@ export function database(): Middleware<DatabaseEntry> {
 | `import { env } from "cloudflare:workers"`         | Module-scope initialization, code that runs before middleware (e.g., upload handlers) |
 | `ctx.get(Database)` / `getContext().get(Database)` | Controllers and data access functions — testable, swappable                           |
 
-**Writing a D1 database adapter:**
+**Connecting `remix/data-table` to D1:**
 
-The `remix/data-table` package expects a `DatabaseAdapter`. For D1, you need an adapter that uses D1's prepared-statement API for execution while delegating SQL generation to the built-in SQLite adapter from `remix/data-table/sqlite`:
+Don't hand-write an adapter. `@pitlane/data-table-d1` supplies `createD1Database(binding, options?)`, which returns a `D1Database extends Database<"sqlite">` — every query, persistence, and migration method comes from `remix/data-table` unchanged:
 
 ```tsx
-import { SqliteDatabaseAdapter } from "remix/data-table/sqlite";
+import { createD1Database } from "@pitlane/data-table-d1";
+import { env } from "cloudflare:workers";
 
-// Reuse the SQLite adapter purely for SQL compilation (never touches the database)
-let compiler = new SqliteDatabaseAdapter(null as never);
-
-export class D1DatabaseAdapter implements DatabaseAdapter {
-    dialect = "sqlite";
-    #d1: D1Database;
-
-    constructor(d1: D1Database) {
-        this.#d1 = d1;
-    }
-
-    compileSql(operation) {
-        return compiler.compileSql(operation);
-    }
-
-    async execute(request) {
-        let statement = this.compileSql(request.operation)[0];
-        let prepared = this.#d1.prepare(statement.text).bind(...statement.values);
-        // ... execute and return results
-    }
-}
+let db = createD1Database(env.DB);
+let contacts = await db.findMany(Contacts);
 ```
+
+Its Node-only migration half lives behind a separate `@pitlane/data-table-d1/migrations` entry point so nothing from it can reach a Worker bundle — see Recipe 18.
 
 **D1 limitations to know:**
 
-- **No SQL transactions** — D1 forbids `BEGIN`/`COMMIT`/`ROLLBACK`/`SAVEPOINT`. Use `d1.batch()` for atomic multi-statement execution if needed, but note this is incompatible with the adapter's streaming transaction model. Set `capabilities.savepoints = false` and `capabilities.transactionalDdl = false` in your adapter.
-- **No migration locking** — Set `capabilities.migrationLock = false`. Migrations run at deploy time, so concurrent migration is unlikely, but be aware.
+- **No transactions.** D1 has none, so `transaction()` refuses by default (`transactions: "throw"`). Passing `transactions: "unsafe-nonatomic"` accepts the call and gives up atomicity. Prefer `db.batch([...])`, which runs `sql` statements together atomically:
+
+    ```tsx
+    import { sql } from "remix/data-table";
+
+    await db.batch([
+        sql`insert into contacts (first, last) values (${first}, ${last})`,
+        sql`update counters set contacts = contacts + 1`,
+    ]);
+    ```
+
+- **Migrations run through Wrangler,** not `remix db`. Generate flat `.sql` files and apply them with `wrangler d1 migrations apply` (Recipe 18).
+- **Per-statement cost is observable.** Pass `onStatement` to see the rows read, rows written, and duration D1 reported for each statement — the usual way to find an unindexed query before it shows up on a bill.
 
 **Writing an R2 file storage adapter:**
 
