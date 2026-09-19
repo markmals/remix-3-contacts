@@ -1,11 +1,11 @@
-# Remix 3 Contacts Demo
+# Contacts Demo
 
-A contacts CRUD app demo, showcasing [Remix 3](https://remix.run) SSR features. It adapts the [React Router address book tutorial](https://reactrouter.com/tutorials/address-book) to reuse the same patterns in Remix.
+A contacts CRUD app demo, showcasing [Remix](https://remix.run) SSR features. It adapts the [React Router address book tutorial](https://reactrouter.com/tutorials/address-book) to reuse the same patterns in Remix.
 
 ## Highlights
 
 - **CRUD server routing** – handlers for listing, creating, updating, and deleting contacts
-- [**Frame Navigation primitives**](https://github.com/remix-run/remix/pull/11147) - built-in Remix 3 client-side routing utilizing the [Navigation API](https://developer.mozilla.org/en-US/docs/Web/API/Navigation_API)
+- [**Frame Navigation primitives**](https://github.com/remix-run/remix/pull/11147) - built-in Remix client-side routing utilizing the [Navigation API](https://developer.mozilla.org/en-US/docs/Web/API/Navigation_API)
 - **RESTful forms** – POST/PUT/PATCH/DELETE via hidden-field method override
 - **URL-driven search** – filters contacts through query parameters
 
