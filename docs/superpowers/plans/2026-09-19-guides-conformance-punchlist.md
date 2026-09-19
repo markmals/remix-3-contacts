@@ -94,13 +94,13 @@ searchQuery     (none) -> undefined   ?q=ada -> "ada"   ?q=a&q=b -> "a"
 
 No permanent test was added. The real contract is "`GET /contacts/abc` returns 400", which needs a router-level test that **M3** currently blocks; and a test for `searchQuery`'s fallback would be a tautology, since `QuerySchema` cannot actually fail. Revisit when M3 is resolved.
 
-### H3 — Uploaded SVGs are a stored-XSS vector · ch11
+### H3 — Uploaded SVGs are a stored-XSS vector · ch11 · **DONE (by Orion, `b4c4dd8`)**
 
-`image/svg+xml` is in the `ALLOWED_TYPE` allowlist (`app/utils/uploads.ts`), and the `uploads` action streams the file back inline from the app's own origin with the stored, client-declared content type and no `Content-Disposition`.
+`image/svg+xml` was allowlisted, and the `uploads` action streams files back inline from the app's own origin with no `Content-Disposition`. An SVG containing `<script>` does **not** execute through the `<img>` tag on the contact page, but it _does_ if anyone opens `/uploads/avatar/…​.svg` directly — same-origin, so it can reach anything the origin can.
 
-An SVG containing `<script>` does **not** execute when rendered through the `<img>` tag on the contact page. It _does_ execute if anyone opens `/uploads/avatar/…​.svg` directly — same-origin, so it can reach anything the origin can. Predates this session.
+**Fixed** by dropping `image/svg+xml` from the allowlist, which costs nothing for avatars. The other options — `Content-Disposition: attachment`, a separate origin, or sanitising on upload — remain available if SVG avatars are ever wanted.
 
-**Fix options:** drop `image/svg+xml` from the allowlist (cheapest, loses nothing for avatars); or serve uploads with `Content-Disposition: attachment` / from a separate origin; or sanitize SVG on upload.
+Two loose ends in adjacent code were cleaned up afterwards: `uploadErrors()`'s 415 message still listed SVG among the accepted formats, and `image-types.test.ts` carried a now-dead SVG fixture. The allowlist test now pins the rejection explicitly, so re-adding SVG fails a test rather than silently reopening the hole.
 
 ### H4 — The favorite toggle is broken without JavaScript · ch09 · **DONE**
 
@@ -284,11 +284,11 @@ Unlike H1/H2 this **is** covered by tests: `app/data/schemas.ts` imports only `r
 | M6 — double-submit protection     | **done** (Orion)  |
 | `IdSchema` numeric checks         | **done** (Orion)  |
 | H4 — no-JS favorite toggle        | **done**          |
-| H3, M1, M3, M4, L1–L15            | open              |
+| H3 — SVG stored XSS               | **done** (Orion)  |
+| M1, M3, M4, L1–L15                | open              |
 
 ## 6. Suggested order for what's left
 
-1. **H3** — smallest real security win available (drop one MIME type).
-2. **M1** — the other half of "return the right response": missing records should 404 rather than redirect home.
-3. **M4** is now cheap and proven viable — H4's test showed `clientEntry` components render fine under `remix/ui/test`. `sidebar-item.tsx` and `delete-button.tsx` are the two left.
-4. **M3** decides whether _server_ testing is on the table at all. It still blocks regression tests for H1 and H2.
+1. **M1** — the other half of "return the right response": missing records should 404 rather than redirect home.
+2. **M4** is now cheap and proven viable — H4's test showed `clientEntry` components render fine under `remix/ui/test`. `sidebar-item.tsx` and `delete-button.tsx` are the two left.
+3. **M3** decides whether _server_ testing is on the table at all. It still blocks regression tests for H1 and H2.

@@ -7,7 +7,6 @@ const SAMPLES: Record<string, string> = {
     "image/gif": "photo.gif",
     "image/jpeg": "photo.jpg",
     "image/png": "photo.png",
-    "image/svg+xml": "photo.svg",
     "image/webp": "photo.webp",
 };
 
@@ -31,6 +30,9 @@ describe("imageExtension", () => {
     });
 
     it("rejects types outside the allowlist even when they agree", () => {
+        // SVG is excluded deliberately: it is script-bearing, and uploads are
+        // served inline from this origin.
+        assert.equal(imageExtension("evil.svg", "image/svg+xml"), undefined);
         assert.equal(imageExtension("doc.pdf", "application/pdf"), undefined);
         assert.equal(imageExtension("page.html", "text/html"), undefined);
     });

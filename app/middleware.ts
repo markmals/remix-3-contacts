@@ -38,7 +38,7 @@ export function uploadErrors(): Middleware {
         } catch (error) {
             if (error instanceof UnsupportedMediaTypeError) {
                 return new Response(
-                    "Unsupported image format. Please upload a JPEG, PNG, GIF, SVG, AVIF, or WebP file.",
+                    "Unsupported image format. Please upload a JPEG, PNG, GIF, AVIF, or WebP file.",
                     { status: 415 },
                 );
             }
