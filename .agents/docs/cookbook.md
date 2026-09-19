@@ -9,22 +9,40 @@ A typical Remix 3 & Vite project:
 ```
 app/
   entry.server.tsx       # Server entry: router, middleware stack, route mapping
-  entry.browser.tsx      # Client entry: run(), navigation interception, error banner
+  entry.browser.tsx      # Client entry: run(), resolveFrame, error banner, focus preservation
   routes.ts              # Route definitions (single source of truth for URLs)
-  middleware.ts          # App-defined middleware (e.g. database injection)
+  middleware.ts          # App-defined middleware (database injection, upload errors)
   index.css              # Global styles
-  actions/               # Route handlers (one file per resource/domain) — created with `createController`
-  components/            # UI components (server-only and hydrated)
+  actions/               # Route handlers — created with `createController`
+    controller.tsx       # Root controller: `home`, `uploads`
+    sidebar.tsx          # Renders the `sidebar` frame; shared by both controllers
+    zero-state.tsx       # Empty-state content for the `detail` frame
+    contacts/
+      controller.tsx     # `show`, `edit`, `create`, `destroy`, `favorite`, `update`
+      show-page.tsx      # Read-only detail view (server-only)
+      form.tsx           # Create/edit form (server-only)
+      public/            # This feature's `clientEntry()` components — the ones that hydrate
+        delete-button.tsx
+        favorite-button.tsx
+        sidebar-item.tsx
+  ui/                    # Components used by more than one route
+    document.tsx         # Document shell: real <head>, sidebar chrome, both <Frame>s
+    restful-form.tsx     # <form> that emits the `_method` override field
+    search-bar.tsx       # Search-as-you-type input (hydrated)
+    cancel-button.tsx    # history.back() button (hydrated)
   data/
-    contacts.ts          # Table definition, typed queries, business logic
+    contacts.ts          # Table definition, typed queries, `contactName()`
     schemas.ts           # Data validation schemas (form + search params)
     meta.ts              # Site-wide metadata constants
-    adapters/            # Platform-specific database/storage adapters
+    adapters/            # Platform-specific storage adapters (R2)
   utils/
-    link.tsx             # `link()` mixin for type-safe frame targeting
-    render.tsx           # Server rendering helpers (frame/document responses)
-    navigating.ts        # Client navigation state tracking
-    metadata/            # `<Head>` component + streaming metadata manager
+    frames.ts            # `frameTarget(headers)` — guarded frame-target detection
+    frames.test.ts
+    link.tsx             # `link()` mixin: frame targeting for submit buttons
+    page-metadata.ts     # Per-page title/description carried across frame swaps
+    page-metadata.test.browser.ts
+    pending-navigation.ts  # The single app-level navigation subscription
+    uploads.ts           # Allowed MIME types, R2 storage, `uploadHandler`
 db/
   migrations/            # Authored migrations — one directory per migration with up.sql / down.sql
   d1-migrations/         # Generated Wrangler-format .sql files (committed)
@@ -37,9 +55,19 @@ remix.json               # `remix test` config (glob patterns, browser test file
 wrangler.jsonc           # Cloudflare bindings (D1, R2, assets)
 ```
 
+**Naming:** every file is kebab-case, including the ones exporting a PascalCase component. `app/ui/search-bar.tsx` exports `SearchBar`. The file name describes the file; the export describes the value.
+
+**Colocation:** a component lives next to the controller that renders it until a second controller needs it, at which point it moves to `app/ui/`. `ShowContact` and `EditContact` are only ever rendered by `app/actions/contacts/controller.tsx`, so they sit beside it as `show-page.tsx` and `form.tsx`. `RestfulForm` is used by the document shell, the contacts form, and the delete button, so it lives in `app/ui/`. `app/actions/sidebar.tsx` stays at the top level of `actions/` for the same reason: both the root and contacts controllers call it.
+
+`app/actions/contacts/public/` collects that feature's `clientEntry()` components — the subset of its UI that ships to the browser and hydrates. The directory name is an app convention, not a build convention; nothing in `vite.config.ts` treats it specially. It exists so you can tell at a glance which components cross the network boundary.
+
+**Why `entry.server.tsx` and not `router.ts`:** upstream names the server module `router.ts`. This app can't, for two reasons. It is the value of `main` in `wrangler.jsonc` (`"./app/entry.server.tsx"`), so it is the Cloudflare Workers module entry, and `app/ui/document.tsx` imports `#/entry.server.tsx?assets=ssr` to collect the SSR asset graph. The name is load-bearing in both places.
+
+**Imports:** `#/` (from `package.json#imports`) for anything outside the current directory; plain relative imports only for same-directory siblings — `app/actions/controller.tsx` imports `./sidebar.tsx`, and `app/ui/document.tsx` imports `./restful-form.tsx`. See Recipe 36.
+
 **Key principle:** Everything runs through `vite.config.ts`. There are no separate config files for linting, formatting, or building. The CLI is `vp` (Vite+).
 
-For small apps with one or two resources, an action file can live at the top level of `app/` (e.g. `app/posts.tsx`). Once you have several, move them into `app/actions/` to keep things organized.
+A resource starts as a single file (`app/actions/posts.tsx`). Once its controller grows page components, promote it to a directory with `controller.tsx` at the root, which is what `app/actions/contacts/` is.
 
 ---
 
@@ -109,90 +137,148 @@ export let LikeButton = clientEntry(
 
 ### 2. How should I handle form submissions?
 
-**Decision:** Should this form use standard HTML submission, fetch-based submission, or client-side navigation?
+**Decision:** Does this form need any JavaScript, or can the runtime drive it?
 
-**Heuristic:** Start with a plain HTML `<form>` that works without JavaScript. Then layer on client-side enhancement only if you need one of:
+**Heuristic:** Write the plain form first and stop there. `run()` from `remix/ui` already intercepts form submissions — GET _and_ POST — and routes them through frame reloads, so an ordinary `<form>` is already a client-side, frame-targeted submission with zero application code. Add a handler only when you need one of:
 
-- Optimistic updates (show result before server responds)
-- Preventing full-page navigation (update only a specific frame)
-- Confirmation dialogs before submission
-- Custom redirect behavior
+- A pre-submission guard (confirmation dialog) — an `on("submit")` listener that may `preventDefault()`.
+- Optimistic UI (show the result before the server responds) — a hand-driven `fetch()`.
 
-**Level 1 - Plain HTML form (no JS required):**
+There is no app-level form interceptor. `app/entry.browser.tsx` registers exactly one `navigate` listener, and it only sets `focusReset` (see Recipe 11). Anything that reads `data-rmx-*` off a submit button and POSTs by hand is duplicating the runtime.
+
+**What `run()` does for form navigations:**
+
+- Intercepts both anchors (`a`, `area`) and forms. A form navigation's `event.sourceElement` is the form or its submitter, so the runtime resolves the owning `<form>` from either.
+- Reads the frame-navigation attributes, **preferring the submitter's value over the form's**: `data-rmx-target`, `data-rmx-src`, `data-rmx-history`, `data-rmx-reset-scroll`. `data-rmx-document` on either opts out entirely and lets the browser do a real document navigation (Recipe 15).
+- Honors submitter overrides for `formmethod` and `formenctype`, and bails out of interception for `method="dialog"` or `target="_blank"`.
+- For non-GET submissions, collects the browser-generated `FormData` and hands it to `resolveFrame` as `{ formData, method, encType, signal }`. This includes the Chromium case where a submitter overrides a non-POST form to POST and `formdata` fires _after_ `navigate` — the runtime captures it from the `formdata` event and waits a macrotask for it.
+- Encodes the body according to `encType` (`application/x-www-form-urlencoded` → `URLSearchParams`, `text/plain` → a CRLF-normalized `Blob`, otherwise the `FormData` itself) in its default frame resolver. A custom `resolveFrame` owns that choice; ours passes the `FormData` straight to `fetch`, which sends `multipart/form-data`, and the `formData()` middleware parses either.
+- Swaps the response HTML into the targeted frame, following redirects on the way (`fetch` does that). When the resolver hands back the `Response` itself, the runtime reads `redirected`/`url` off it and starts a replacing navigation to the final URL, so a POST-then-redirect ends with the address bar matching the content it just painted (Recipe 11).
+- Replaces rather than pushes the history entry when a submission posts back to the URL you're already on: via `NavigationPrecommitController.redirect()` where it exists, and on Safari (no precommit support as of Aug 2026) by `preventDefault()`ing and replaying the submission as a replacing `navigation.navigate()` call.
+- Falls back to a real document navigation when the named target frame isn't mounted or the source is cross-origin.
+
+**Pattern A — plain form, no JavaScript (the default).** The "New" button in `app/ui/document.tsx`:
 
 ```tsx
-export function CreateButton() {
-    return () => (
-        <form action={routes.items.create.href()} method="POST">
-            <button type="submit">New</button>
-        </form>
-    );
-}
+<RestfulForm action={routes.contacts.create.href()} method={routes.contacts.create.method}>
+    <button type="submit">New</button>
+</RestfulForm>
 ```
 
-This works with JavaScript disabled. The browser POSTs, the server handles the action, returns a redirect, and the browser follows it.
-
-**Level 2 - Enhanced with `navigate()` (frame-targeted):**
+And the "Edit" form in `app/actions/contacts/show-page.tsx`, which additionally targets a frame:
 
 ```tsx
-export let EditButton = clientEntry(import.meta.url, (handle: Handle<{ itemId: number }>) => {
-    let props = handle.props;
+<RestfulForm
+    action={routes.contacts.edit.href(
+        { id: props.contact.id },
+        { searchParams: { q: props.query } },
+    )}
+    method={routes.contacts.edit.method}
+>
+    <button mix={link({ target: "detail" })} type="submit">
+        Edit
+    </button>
+</RestfulForm>
+```
+
+Neither form has a submit handler. With JavaScript disabled both work as browser form submissions; with it enabled, `run()` turns them into frame swaps. `ShowContact` is not even a client entry — a server-only component can drive a frame-targeted submission.
+
+**Pattern B — guard only.** `app/actions/contacts/public/delete-button.tsx`:
+
+```tsx
+export let DeleteButton = clientEntry(import.meta.url, (handle: Handle<{ contactId: number }>) => {
     return () => (
-        <form
-            action={routes.items.edit.href({ id: props.itemId })}
-            method="GET"
-            mix={on("submit", event => {
-                event.preventDefault();
-                navigate(event.currentTarget.action, { target: "content" });
+        <RestfulForm
+            action={routes.contacts.destroy.href({ id: handle.props.contactId })}
+            method={routes.contacts.destroy.method}
+            mix={on("submit", async event => {
+                if (!confirm("Please confirm you want to delete this record.")) {
+                    event.preventDefault();
+                }
             })}
         >
-            <button type="submit">Edit</button>
-        </form>
+            <button type="submit">Delete</button>
+        </RestfulForm>
     );
 });
 ```
 
-The `target: "content"` tells the navigation system to only update the named frame, leaving the rest of the page untouched.
+The handler's entire job is to cancel. It never calls `fetch` or `navigate` — if the submission is not prevented, the runtime picks it up exactly as in Pattern A. This is the only reason this component is a `clientEntry` at all.
 
-**Level 3 - Pre-submission guard (confirmation dialog):**
-
-```tsx
-mix={on("submit", event => {
-    if (!confirm("Delete this record?")) {
-        event.preventDefault();
-    }
-})}
-```
-
-Call `event.preventDefault()` to cancel the submission. If not cancelled, the form submits normally -- the client entry's navigate listener handles POSTing via `fetch` and following the redirect. You don't need to manage `fetch` yourself here.
-
-**Level 4 - Fetch-based submission (optimistic UI, custom response handling):**
+**Pattern C — hand-driven submit, for optimistic UI only.** `app/actions/contacts/public/favorite-button.tsx`:
 
 ```tsx
-mix={on("submit", async event => {
-    event.preventDefault();
+export let FavoriteButton = clientEntry(
+    import.meta.url,
+    (handle: Handle<{ contactId: number; favorite: boolean }>) => {
+        let submitting = false;
+        let favorite = handle.props.favorite;
 
-    let response = await fetch(event.currentTarget.action, {
-        method: "POST",
-        body: new FormData(event.currentTarget, event.submitter),
-    });
-    navigate(response.url);
-})}
+        return () => {
+            let props = handle.props;
+            if (!submitting) {
+                favorite = props.favorite;
+            }
+
+            return (
+                <RestfulForm
+                    action={routes.contacts.favorite.href({ id: props.contactId })}
+                    method={routes.contacts.favorite.method}
+                    mix={on("submit", async event => {
+                        event.preventDefault();
+
+                        favorite = !favorite;
+                        submitting = true;
+                        let signal = await handle.update();
+
+                        try {
+                            let response = await fetch(event.currentTarget.action, {
+                                method: event.currentTarget.method,
+                                body: new FormData(event.currentTarget, event.submitter),
+                                signal,
+                            });
+
+                            if (!response.ok && !response.redirected) {
+                                throw response;
+                            }
+
+                            submitting = false;
+                            navigate(location.href, { history: "replace" });
+                        } catch {
+                            favorite = !favorite;
+                            submitting = false;
+                            handle.update();
+                        }
+                    })}
+                >
+                    <button
+                        aria-label={favorite ? "Remove from favorites" : "Add to favorites"}
+                        name="favorite"
+                        type="submit"
+                        value={favorite ? "true" : "false"}
+                    >
+                        {favorite ? "★" : "☆"}
+                    </button>
+                </RestfulForm>
+            );
+        };
+    },
+);
 ```
 
-Use this when you need full control over the response (e.g., optimistic UI, reading response data, conditional redirects).
+This is **not** how ordinary POSTs work anymore — it is the optimism escape hatch. The trade is explicit: because you `preventDefault()`, you own the request, the abort signal, the failure path, the revert, and the follow-up `navigate()` that re-syncs the rest of the page. Reach for it only when the UI must change before the server answers (Recipe 3). The `favorite` action returns JSON rather than HTML precisely because nothing swaps a frame here.
 
-**Method override for PUT/PATCH/DELETE:** HTML forms only support GET and POST. For other HTTP methods, use a hidden `_method` field with the `methodOverride()` middleware. Wrap this pattern in a `RestfulForm` component to avoid repeating the boilerplate:
+**Method override for PUT/PATCH/DELETE:** HTML forms only support GET and POST. For other HTTP methods, use a hidden `_method` field with the `methodOverride()` middleware. `app/ui/restful-form.tsx` wraps the pattern so no form repeats the boilerplate:
 
 ```tsx
 import type { RequestMethod } from "remix/router";
+import type { Handle } from "remix/ui";
 
-export function RestfulForm() {
-    return ({
-        children,
-        method,
-        ...props
-    }: JSX.IntrinsicHTMLElements["form"] & { method?: RequestMethod | "ANY" }) => {
+export function RestfulForm(
+    handle: Handle<JSX.IntrinsicHTMLElements["form"] & { method?: RequestMethod | "ANY" }>,
+) {
+    return () => {
+        let { children, method, ...props } = handle.props;
         let isGET = method === "GET" || typeof method === "undefined";
         return (
             <form method={isGET ? "GET" : "POST"} {...props}>
@@ -208,21 +294,16 @@ Now any form can use the route's actual HTTP method without manually managing hi
 
 ```tsx
 <RestfulForm
-    action={routes.contacts.update.href({ id })}
+    action={routes.contacts.update.href({ id: props.contact.id })}
+    enctype="multipart/form-data"
+    id="contact-form"
     method={routes.contacts.update.method}
 >
     <button type="submit">Save</button>
 </RestfulForm>
-
-<RestfulForm
-    action={routes.contacts.destroy.href({ id })}
-    method={routes.contacts.destroy.method}
->
-    <button type="submit">Delete</button>
-</RestfulForm>
 ```
 
-The `methodOverride()` middleware in your server entry reads `_method` from the form data and rewrites the request method before it reaches your controller. Using `routes.*.method` ensures the form always matches the route definition — if you change a route from `PATCH` to `PUT`, the forms update automatically.
+The `methodOverride()` middleware in your server entry reads `_method` from the form data and rewrites the request method before it reaches your controller — so it must be installed after `formData()` (Recipe 7). Using `routes.*.method` ensures the form always matches the route definition — if you change a route from `PATCH` to `PUT`, the forms update automatically.
 
 ---
 
@@ -236,60 +317,91 @@ The `methodOverride()` middleware in your server entry reads `_method` from the 
 - The action is unlikely to fail
 - Instant feedback significantly improves perceived performance
 
+**First check whether you need one at all.** An ordinary submission needs no JavaScript and no manual `fetch()`. Once `run()` starts, the runtime intercepts eligible same-origin forms itself and submits them through `resolveFrame` — honoring `data-rmx-target`, `data-rmx-src`, submitter `formmethod`/`formenctype` overrides, POST redirects, and history defaults. A client entry only has to exist when you want to add behavior _around_ that submission. `app/actions/contacts/public/delete-button.tsx` is the whole non-optimistic shape — it adds a confirmation dialog and otherwise lets the runtime drive the POST:
+
+```tsx
+export let DeleteButton = clientEntry(import.meta.url, (handle: Handle<{ contactId: number }>) => {
+    return () => (
+        <RestfulForm
+            action={routes.contacts.destroy.href({ id: handle.props.contactId })}
+            method={routes.contacts.destroy.method}
+            mix={on("submit", async event => {
+                if (!confirm("Please confirm you want to delete this record.")) {
+                    event.preventDefault();
+                }
+            })}
+        >
+            <button type="submit">Delete</button>
+        </RestfulForm>
+    );
+});
+```
+
+A hand-written `fetch()` is for the case the runtime deliberately does not cover: you want to hold the UI at a _predicted_ value, and the action answers with data rather than with frame HTML (`favorite` ends in `return Response.json(update)`).
+
 **The pattern:**
 
 1. Keep local state in the setup scope (survives re-renders)
-2. On submit: update local state immediately, call `handle.update()` to re-render
+2. On submit: update local state immediately, `await handle.update()` to re-render and receive an `AbortSignal`
 3. Fire the fetch request
 4. On success: trigger a soft navigation to sync server state
 5. On failure: revert local state, call `handle.update()` again
 
+`app/actions/contacts/public/favorite-button.tsx`:
+
 ```tsx
-export let LikeButton = clientEntry(
+export let FavoriteButton = clientEntry(
     import.meta.url,
-    (handle: Handle<{ itemId: number; liked: boolean }>) => {
+    (handle: Handle<{ contactId: number; favorite: boolean }>) => {
         let submitting = false;
-        let liked!: boolean;
+        let favorite = handle.props.favorite;
 
         return () => {
             let props = handle.props;
-            // Accept server value only when not mid-submission
-            if (!submitting) liked = props.liked;
+            if (!submitting) {
+                favorite = props.favorite;
+            }
 
             return (
-                <form
+                <RestfulForm
+                    action={routes.contacts.favorite.href({ id: props.contactId })}
+                    method={routes.contacts.favorite.method}
                     mix={on("submit", async event => {
                         event.preventDefault();
 
-                        // 1. Optimistic update
-                        liked = !liked;
+                        favorite = !favorite;
                         submitting = true;
                         let signal = await handle.update();
 
                         try {
-                            // 2. Send to server
                             let response = await fetch(event.currentTarget.action, {
                                 method: event.currentTarget.method,
                                 body: new FormData(event.currentTarget, event.submitter),
                                 signal,
                             });
-                            if (!response.ok && !response.redirected) throw response;
 
-                            // 3. Sync with server state
+                            if (!response.ok && !response.redirected) {
+                                throw response;
+                            }
+
                             submitting = false;
-                            navigate(window.location.href, { history: "replace" });
+                            navigate(location.href, { history: "replace" });
                         } catch {
-                            // 4. Rollback on failure
-                            liked = !liked;
+                            favorite = !favorite;
                             submitting = false;
                             handle.update();
                         }
                     })}
                 >
-                    <button name="liked" type="submit" value={String(liked)}>
-                        {liked ? "\u2665" : "\u2661"}
+                    <button
+                        aria-label={favorite ? "Remove from favorites" : "Add to favorites"}
+                        name="favorite"
+                        type="submit"
+                        value={favorite ? "true" : "false"}
+                    >
+                        {favorite ? "★" : "☆"}
                     </button>
-                </form>
+                </RestfulForm>
             );
         };
     },
@@ -298,9 +410,11 @@ export let LikeButton = clientEntry(
 
 **Key details:**
 
-- `handle.update()` returns an `AbortSignal` you can pass to `fetch` -- if the component unmounts or re-renders before the fetch completes, it's automatically cancelled
-- The `submitting` flag prevents the server-provided prop from overwriting the optimistic value during re-renders
-- `navigate(window.location.href, { history: "replace" })` triggers a soft reload that syncs all frames with the latest server state without adding a history entry
+- `let favorite = handle.props.favorite` seeds the setup-scope state from the first server-rendered props, so no definite-assignment assertion is needed — the value exists before the first render runs
+- `if (!submitting) favorite = props.favorite` lets later server renders win, but only while no submission is in flight; that guard is what stops a stale prop from snapping the toggle back mid-request
+- `handle.update()` returns an `AbortSignal` you can pass to `fetch` — if the component disconnects or re-renders before the fetch completes, the request is cancelled
+- `navigate(location.href, { history: "replace" })` triggers a soft reload that re-syncs the frames with server state without adding a history entry
+- `RestfulForm` renders `method="POST"` plus a hidden `_method` input, and `methodOverride()` in the middleware stack turns that into the `PATCH` the `favorite` route declares. `new FormData(event.currentTarget, event.submitter)` carries both `_method` and the submitter's `favorite` value, so the manual fetch hits exactly the same action as the unenhanced submission would
 
 ---
 
@@ -308,66 +422,87 @@ export let LikeButton = clientEntry(
 
 **Decision:** How should search interact with the URL, history, and frame system?
 
-**Heuristic:** Search should always be URL-driven (the query lives in a search param like `?q=`). This makes search results linkable, back-button friendly, and server-renderable.
+**Heuristic:** Search should always be URL-driven (the query lives in a search param like `?q=`). This makes search results linkable, back-button friendly, and server-renderable. The component that starts the navigation owns its own pending state — there is no app-wide navigation bus to read.
 
-**The pattern:**
+**The pattern** (`app/ui/search-bar.tsx`, in full):
 
 ```tsx
+import { clientEntry, type Handle, navigate, on } from "remix/ui";
+
 export let SearchBar = clientEntry(import.meta.url, (handle: Handle<{ query?: string }>) => {
-    // Re-render when navigation state changes (for loading indicator)
-    navigating.addEventListener("destinationchange", () => handle.update(), {
-        signal: handle.signal,
-    });
+    // `navigate()` settles when the targeted frame has finished swapping, so
+    // this component can own its own pending state instead of reading a global
+    // navigation bus. Counted, because each keystroke starts another one.
+    let pendingSearches = 0;
+
+    async function search(value: string) {
+        let url = new URL(location.href);
+
+        if (!value.trim()) {
+            url.searchParams.delete("q");
+            try {
+                await navigate(url.toString(), { target: "sidebar" });
+            } catch {
+                // superseded by a later keystroke
+            }
+            return;
+        }
+
+        let isFirstSearch = url.searchParams.get("q") === null;
+        url.searchParams.set("q", value);
+
+        pendingSearches++;
+        handle.update();
+
+        try {
+            await navigate(url.toString(), {
+                history: isFirstSearch ? "replace" : "push",
+                target: "sidebar",
+            });
+        } catch {
+            // superseded by a later keystroke
+        } finally {
+            pendingSearches--;
+            handle.update();
+        }
+    }
 
     return () => {
-        let props = handle.props;
-        let searching = Boolean(navigating.to.url?.searchParams.has("q"));
+        let searching = pendingSearches > 0;
 
         return (
-            <form method="GET">
+            <form id="search-form" method="GET">
                 <input
-                    defaultValue={props.query ?? undefined}
-                    mix={on("input", async event => {
-                        try {
-                            let url = new URL(location.href);
-
-                            // Clear the param when the input is empty
-                            if (!event.currentTarget.value.trim()) {
-                                url.searchParams.delete("q");
-                                await navigate(url.toString(), { target: "sidebar" });
-                                return;
-                            }
-
-                            let isFirstSearch = url.searchParams.get("q") === null;
-
-                            url.searchParams.set("q", event.currentTarget.value);
-                            await navigate(url.toString(), {
-                                target: "sidebar",
-                                history: isFirstSearch ? "replace" : "push",
-                            });
-                        } catch {
-                            // Ignore navigation errors caused by abortions during typing
-                        }
-                    })}
+                    aria-label="Search contacts"
+                    class={searching ? "loading" : ""}
+                    defaultValue={handle.props.query ?? undefined}
+                    id="q"
+                    mix={on("input", event => search(event.currentTarget.value))}
                     name="q"
+                    placeholder="Search"
                     type="search"
                 />
-                <div aria-hidden hidden={!searching} class="spinner" />
+                <div aria-hidden hidden={!searching} id="search-spinner" />
+                <div aria-live="polite" class="sr-only" />
             </form>
         );
     };
 });
 ```
 
-**Why `replace` for the first search, `push` after:** When the user starts typing, the first keystroke replaces the current history entry (so pressing back doesn't step through "s", "sa", "sam" one character at a time). Subsequent keystrokes push new entries so the user can still navigate between meaningful search states.
+**Why the component owns its pending state:** `navigate()` awaits the Navigation API transition, and the runtime's interception keeps that transition open until the targeted frame has actually swapped its content. The caller that started the navigation therefore already knows precisely when it begins and ends — no subscription required. See Recipe 10 for the full decision order.
 
-**Why use a `target`:** If your search results live in a specific frame, targeting that frame keeps the rest of the page stable during search. If your app doesn't use frames, omit the `target` option.
+**Why a counter instead of a boolean:** every keystroke starts another `navigate()`, and a superseded one rejects. With a boolean, the _earlier_ navigation's `finally` would clear the flag while the _later_ one is still in flight, dropping the spinner mid-search. `pendingSearches++` / `pendingSearches--` makes the indicator reflect "at least one search outstanding", which is the thing the user cares about. `handle.update()` after each mutation re-renders the input's `class` and the spinner's `hidden`.
 
-**Why `try/catch` around `navigate`:** When the user types rapidly, each keystroke triggers a new `navigate()` call that aborts the previous one. The aborted navigation rejects with an `AbortError`. Wrapping in `try/catch` prevents these expected errors from surfacing as unhandled rejections.
+**Why `replace` for the first search, `push` after:** the first keystroke overwrites the pre-search entry instead of stacking a one-character query on top of it, so Back doesn't step through "s", "sa", "sam". Later keystrokes push, so the user can still walk between meaningful search states.
 
-**Why clear the param separately:** When the search input is emptied, the `q` param is deleted from the URL and the navigation fires immediately without checking `isFirstSearch`. This ensures the sidebar returns to the full contact list without creating unnecessary history entries.
+**The empty-value branch:** when the input is cleared, `search()` deletes `q`, navigates immediately, and returns _before_ touching the counter. It skips the `isFirstSearch` logic (there is no new query to record) and skips the spinner (there is no query to report progress on) — the sidebar just goes back to the unfiltered list.
 
-**Loading state:** The `navigating` singleton tracks pending navigation state. When a navigation is in flight with a `q` param, show a spinner. The `destinationchange` event fires when navigation starts and completes, triggering re-renders.
+**Why `target: "sidebar"`:** the results live in the `sidebar` frame. Targeting it leaves the detail pane and the search input itself untouched while results stream in. Without frames, omit `target` and the top frame navigates.
+
+**Why `try/catch` around every `navigate`:** rapid typing means each call aborts the previous one, and the aborted transition rejects. Catching keeps those expected rejections from surfacing as unhandled rejections — and, in this app, from reaching the global `error` banner wired up in `app/entry.browser.tsx`.
+
+**Why focus survives:** `app/entry.browser.tsx` registers a `navigate` listener _after_ `run()` that calls `event.intercept({ focusReset: "manual" })`. `remix/ui` never sets `focusReset`, so without that the input would lose focus on each swap.
 
 ---
 
@@ -383,111 +518,99 @@ export let SearchBar = clientEntry(import.meta.url, (handle: Handle<{ query?: st
 
 Not every app needs frames. A simple single-column page that always renders as a whole doesn't benefit from them. Frames shine in layouts with two or more regions that change at different times.
 
-**Defining frames in your document:**
+**Defining frames in your document** (`app/ui/document.tsx`):
 
 ```tsx
-export function Document() {
-    return () => (
-        <html>
-            <body>
-                <nav>
-                    <Frame name="nav" src={url.toString()} />
-                </nav>
-                <main>
-                    <Frame name="content" src={url.toString()} />
-                </main>
-            </body>
-        </html>
-    );
+<body>
+    <HMR />
+    <div id="root">
+        <div id="sidebar">
+            <h1>{SITE.title}</h1>
+            <div>
+                <SearchBar query={q} />
+                <RestfulForm
+                    action={routes.contacts.create.href()}
+                    method={routes.contacts.create.method}
+                >
+                    <button type="submit">New</button>
+                </RestfulForm>
+            </div>
+            <Frame name="sidebar" src={url.toString()} />
+        </div>
+        <Frame name="detail" src={url.toString()} />
+    </div>
+</body>
+```
+
+Each `<Frame>` is a named region whose `src` tells the renderer where its content comes from. Both frames point at the current URL here, so one request produces the whole page: the controller's `ctx.render(<Document />)` walks the tree, hits each `<Frame>`, and re-enters the router to fill it in. On the client, frames are refetched through the `resolveFrame` callback passed to `run()` (Recipe 11).
+
+**The server half is the `render()` middleware.** `render()` from `remix/middleware/render` is installed last in the middleware array (Recipe 7) and adds `ctx.render(node, init?)`, which returns an HTML `Response`. There is no app-level render helper — frame resolution is the framework's job now. For every nested `<Frame>` it encounters, the middleware:
+
+- Resolves the frame's `src` against the _current_ frame source, not just the document URL, so nested frames compose.
+- Re-enters the app through `context.router.fetch()` — an in-process sub-request, no network hop.
+- Forwards the outer request's headers, so `Cookie`, `Authorization`, and session state reach the frame's action. Sessions and auth work inside frames for free.
+- Strips headers that only describe the outer request's body or connection (`Content-Type`, `Content-Length`, `Host`, `Connection`, `Range`, the `If-*` conditionals, `Transfer-Encoding`, …) and every `sec-fetch-*` header, which would otherwise mislabel the sub-request's context.
+- Sets `Accept: text/html`, `Accept-Encoding: identity`, `X-Remix-Frame: true`, `X-Remix-Top-Frame-Src`, and `X-Remix-Target` (deleting a stale target when the frame is unnamed).
+- Coerces the sub-request to `GET`, so a frame can never replay the outer request's mutation.
+- Follows `301/302/303/307/308` responses itself, up to 20 redirects, then throws.
+- Trims the header set down to `Accept`, `Accept-Encoding`, `X-Remix-Frame`, and `X-Remix-Target` if a frame's `src` is cross-origin — credentials and the top-frame URL never leak off-origin.
+- Cancels frame rendering when the original request aborts (the sub-request inherits `context.request.signal`, and the body is piped under the same signal).
+- Requires an HTML response, and suppresses the `onError` hook for frame sub-requests so a failing fragment doesn't double-report.
+
+**Server-side frame detection:** use `frameTarget()` from `app/utils/frames.ts` rather than reading the header directly:
+
+```ts
+/**
+ * Name of the frame a request is targeting, or `null` for a normal navigation.
+ *
+ * Both headers are required. `X-Remix-Target` alone is not enough: a stray
+ * target header on a top-level navigation would otherwise be served fragment
+ * content in place of a whole document.
+ */
+export function frameTarget(headers: Headers): string | null {
+    if (headers.get("x-remix-frame") !== "true") return null;
+    return headers.get("x-remix-target");
 }
 ```
 
-Each `<Frame>` is a named region. The `src` tells the server where to fetch the initial content. On the server, `resolveFrame` is called during `renderToStream` to load frame content inline. On the client, frames are fetched via the `resolveFrame` callback in `run()`.
+The pairing is a safety property, not a formality. `X-Remix-Frame: true` is what identifies a request as a frame sub-request — the render middleware sets it on every in-process frame fetch, and `app/entry.browser.tsx` sets it on every browser frame fetch. `X-Remix-Target` only names _which_ frame. Requiring both means a top-level navigation that happens to carry a target header still gets a whole document instead of a bare fragment.
 
-**Targeting frames from navigation:**
-
-```tsx
-// From JavaScript:
-navigate(url, { target: "detail" });
-
-// From HTML (type-safe via the link mixin — see Recipe 15):
-<a href={url} mix={link({ target: "detail" })}>
-    Click me
-</a>;
-```
-
-**Server-side frame detection:** The server knows which frame is being requested via the `x-remix-target` header. Read it directly from `ctx.headers` in each action — there's no need for a custom middleware or wrapper class:
+Controllers then branch on the name (`app/actions/controller.tsx`):
 
 ```tsx
-import { getContext } from "remix/middleware/async-context";
+async home(ctx) {
+    let target = frameTarget(ctx.headers);
 
-async function contactPage(detail: (contact: Contact) => RemixNode) {
-    let ctx = getContext();
-    let target = ctx.headers.get("x-remix-target");
+    if (target === "sidebar") return sidebar(ctx);
+    if (target === "detail") return ctx.render(<ZeroState />);
 
-    if (target === "sidebar") return sidebar(ctx.params.id);
-
-    let contact = await getContact(ctx.params.id);
-    if (!contact) throw contact;
-
-    if (target === "detail") return frame(render(detail(contact)));
-    return html(await renderDocument(<Document />));
-}
+    return ctx.render(<Document />);
+},
 ```
 
-If you want a typed union of valid frame names, declare it once and use it on the client side (the `link()` mixin in Recipe 15) — the server can stay loose since `x-remix-target` is just a string.
+**One `ctx.render()`, two output shapes.** There is no document response helper and no fragment response helper: the same call serves both. The renderer decides structurally — it flips to document mode when it walks an `<html>` tag in the tree. So the action doesn't pick a _response type_, it picks _what to build_: a tree rooted at `<Document />` (which renders `<html>`) yields a full page; a tree rooted at a `<nav>` or a `<div id="detail">` yields a fragment for one frame. Recipe 16 shows the three-way branch.
 
-**The two fundamental response types:**
+If you want a typed union of valid frame names, declare it once and use it on the client side (the `link()` mixin in Recipe 15) — the server can stay loose, since `frameTarget()` returns a plain `string | null`.
 
-- A **document** response — full HTML page with `<html>`, `<head>`, `<body>`. Used for initial page loads and no-JS fallback. Built with `renderDocument(<Document />)` (returns a stream) and wrapped in `createHtmlResponse as html` from `remix/response/html`.
-- A **frame** response — an HTML fragment for a specific frame region. Used when a named frame is targeted. Built with `render(node)` and wrapped in a thin `frame()` helper.
-
-You'll typically build helper functions on top of these for your app's specific layout patterns. For example, a `sidebar()` helper that fetches contacts, parses the current search query, and returns a rendered nav frame — eliminating duplication across every route that needs to update the sidebar.
-
-**Render utilities** (`app/utils/render.tsx`) wire `renderToStream` to the router for in-process frame resolution and provide a small `frame()` constructor:
+**Factor shared frames into a helper.** `app/actions/sidebar.tsx` renders the `sidebar` frame for both the root and contacts controllers, taking only the slice of context it needs:
 
 ```tsx
-import type { RemixNode } from "remix/ui";
+/** The slice of the request context the sidebar frame needs. */
+type SidebarContext = {
+    render: RenderFunction;
+    url: URL;
+};
 
-import { router } from "#/entry.server.tsx";
-import { renderWithMetadata } from "#/utils/metadata/index.ts";
-import { isSafeHtml, type SafeHtml } from "remix/html-template";
-import { getContext } from "remix/middleware/async-context";
-import { renderToStream } from "remix/ui/server";
+/** Renders the `sidebar` frame. Shared by the root and contacts controllers. */
+export async function sidebar(ctx: SidebarContext, selected?: number): Promise<Response> {
+    let { q } = s.parse(QuerySchema, ctx.url.searchParams);
+    let contacts = await getContacts(q);
 
-export function render(node: RemixNode): ReadableStream<Uint8Array> {
-    let context = getContext();
-    return renderToStream(node, {
-        frameSrc: context.url,
-        async resolveFrame(src, target, ctx) {
-            let url = new URL(src, ctx?.currentFrameSrc ?? context.url);
-            let headers = new Headers({ accept: "text/html" });
-            if (target) headers.set("x-remix-target", target);
-            let response = await router.fetch(new Request(url, { headers }));
-            if (!response.ok) throw new Error(`Failed to resolve frame ${url.pathname}`);
-            return response.body ?? (await response.text());
-        },
-    });
+    return ctx.render(<nav>{/* … */}</nav>);
 }
-
-export function renderDocument(node: RemixNode): Promise<ReadableStream<Uint8Array>> {
-    return renderWithMetadata(render(node));
-}
-
-type HtmlBody = string | SafeHtml | Blob | BufferSource | ReadableStream<Uint8Array>;
-
-export function createFrameResponse(body: HtmlBody, init?: ResponseInit): Response {
-    if (isSafeHtml(body)) body = String(body);
-    return new Response(body, {
-        ...(init ? init : {}),
-        headers: { "Content-Type": "text/html; charset=utf-8" },
-    });
-}
-
-export { createFrameResponse as frame };
 ```
 
-`renderDocument` pipes the rendered stream through `renderWithMetadata` so `<Head>` entries collected from any component (see Recipe 22) get inlined into the document `<head>` before it's flushed.
+Typing the parameter as a structural slice (`{ render, url }`) rather than the full `RequestContext` keeps the helper callable from any controller whose context satisfies it, with no `getContext()` lookup and nothing to mock in a test. `RenderFunction` is a type-only import from `remix/middleware/render`.
 
 ---
 
@@ -553,40 +676,32 @@ router.map(routes.posts, postsController); // Maps all sub-routes to a controlle
 
 **Decision:** What middleware do I need and in what order?
 
-**Heuristic:** Middleware runs in order for every request. Put cheap/broad middleware first, expensive/specific middleware last. Declare the middleware tuple `as const` and feed its type into `RouterTypes` via module augmentation so action handlers see precisely-typed `ctx` properties (e.g. `ctx.formData`, `ctx.get(Database)`).
+**Heuristic:** Middleware runs in order for every request. Put cheap/broad middleware first, expensive/specific middleware last, and the renderer last of all. Declare the middleware tuple `as const` and feed its type into `RouterTypes` via module augmentation so action handlers see precisely-typed `ctx` properties (e.g. `ctx.formData`, `ctx.render`, `ctx.get(Database)`).
 
-**Recommended middleware stack:**
+**Recommended middleware stack** (`app/entry.server.tsx`):
 
 ```tsx
-import contacts from "#/actions/contacts.tsx";
-import controller, { uploadHandler } from "#/actions/controller.tsx";
-import { database } from "#/middleware.ts";
+import contacts from "#/actions/contacts/controller.tsx";
+import controller from "#/actions/controller.tsx";
+import { database, uploadErrors } from "#/middleware.ts";
 import { routes } from "#/routes.ts";
+import { uploadHandler } from "#/utils/uploads.ts";
 import { asyncContext } from "remix/middleware/async-context";
 import { formData } from "remix/middleware/form-data";
 import { methodOverride } from "remix/middleware/method-override";
+import { render } from "remix/middleware/render";
 import { staticFiles } from "remix/middleware/static";
-import { createRouter, type Middleware, type MiddlewareContext } from "remix/router";
-
-function rescueResponses(): Middleware {
-    return async (ctx, next) => {
-        try {
-            return await next();
-        } catch (error) {
-            if (error instanceof Response) return error;
-            throw error;
-        }
-    };
-}
+import { createRouter, type MiddlewareContext } from "remix/router";
 
 let middleware = [
-    rescueResponses(), // 1. Convert thrown Responses into return values
-    staticFiles("./public"), // 2. Serve static files (short-circuits)
-    staticFiles("./dist/client"), // 3. Serve built client assets
-    formData({ uploadHandler }), // 4. Parse form data + file uploads
-    methodOverride(), // 5. Rewrite _method field to real HTTP method
-    asyncContext(), // 6. Enable request-scoped context (getContext())
-    database(), // 7. Initialize database, inject into context
+    uploadErrors(),
+    staticFiles("./public"),
+    staticFiles("./dist/client"),
+    formData({ uploadHandler }),
+    methodOverride(),
+    asyncContext(),
+    database(),
+    render(),
 ] as const;
 
 declare module "remix/router" {
@@ -609,12 +724,32 @@ if (import.meta.hot) {
 
 **Why this order matters:**
 
-1. **Rescue first:** `rescueResponses()` wraps the whole pipeline so `throw new Response(...)` from any later middleware or action becomes the outgoing response. This lets `uploadHandler` (and other deep code) signal HTTP failures by throwing a `Response`.
-2. **Static files next:** Most requests for CSS/JS/images should return immediately without touching form parsing or database setup.
-3. **Form data before method override:** `methodOverride()` reads from the parsed form data, so `formData()` must run first. Pass an `uploadHandler` to `formData()` if your app handles file uploads (see Recipe 35).
-4. **Async context before database:** The database middleware uses `context.set()` which requires async context to be active.
+1. **`uploadErrors()` first.** It is the only middleware that needs to see errors from everything below it. It catches exactly one type — `UnsupportedMediaTypeError`, raised by `uploadHandler` while the multipart body is still streaming — and returns a 415. See Recipe 35.
+2. **`staticFiles()` next, before anything expensive.** Most requests for CSS/JS/images should short-circuit here without parsing a body or constructing a database handle. `./public` holds authored static files; `./dist/client` holds the built client bundle.
+3. **`formData()` before `methodOverride()`.** `methodOverride()` rewrites the request method from a `_method` form field, which means it has to read the _parsed_ form data. Invert these two and the override silently never fires. Pass `uploadHandler` to `formData()` if your app handles file uploads.
+4. **`asyncContext()` before `database()`.** `database()` calls `ctx.set(Database, db)`, and that store has to exist before anything writes to it. `asyncContext()` also makes the request context reachable from helpers that never received `ctx` — see Recipe 13.
+5. **`render()` last.** It installs `ctx.render` and, when a frame in the tree needs filling, issues the sub-request back through `context.router.fetch()`. That re-entrant request must traverse the _whole_ stack — static files, form parsing, database — so the renderer has to be the innermost middleware. Anything installed after it would be skipped on frame sub-requests.
 
-**The `RouterTypes` augmentation:** Declaring `interface RouterTypes { context: MiddlewareContext<typeof middleware> }` teaches `remix/router` about everything your stack contributes to the context. Inside actions, `ctx.formData` (from `formData()`), `ctx.params` (typed by the matched route pattern), and `ctx.get(Database)` (from `database()`) all become statically known — no manual typing required.
+**What `render()` gives you:** a single `ctx.render(node, init?)` that returns an HTML `Response`. There is no separate "document response" helper and "frame response" helper; the renderer decides the output shape structurally, flipping to document mode when it walks an `<html>` tag in the tree. Your action doesn't pick a response _type_ — it picks what to build:
+
+```tsx
+async home(ctx) {
+    let target = frameTarget(ctx.headers);
+
+    if (target === "sidebar") return sidebar(ctx);
+    if (target === "detail") return ctx.render(<ZeroState />);
+
+    return ctx.render(<Document />);
+},
+```
+
+It also owns everything awkward about resolving a frame's `src` on the server: it forwards the incoming request's credentials and cookies, strips hop-by-hop headers and every `sec-fetch-*` header, forces the sub-request to `GET`, follows redirects up to a limit of 20, trims headers down to a safe subset when a frame points at another origin, and cancels in-flight frame work when the client disconnects. None of that is code you write.
+
+**No `assets` option.** `render()` accepts `{ assets?, onError? }`, and this app passes neither. The `assets` server exists only to turn a `file:`-prefixed client-entry ID into a browser module URL. `@pitlane/dev`'s `clientEntryTransform` already does that at transform time: in server environments it rewrites the `import.meta.url` argument of `clientEntry(import.meta.url, …)` into `___clientEntryAssets.entry + "#ExportName"`, a public chunk URL. The entry ID the renderer sees is therefore never a `file:` URL, so it takes the pass-through branch and no asset server is consulted. Do not add `remix/assets`, `createAssetServer`, or `<ImportMap>` to a `@pitlane/dev` build — they solve a problem the transform has already solved.
+
+**Don't catch thrown `Response`s.** A generic rescue middleware that does `catch (error) { if (error instanceof Response) return error }` has no upstream precedent. `fetch-router` never catches thrown Responses — its middleware runner has no `try`/`catch` at all, and its only `instanceof Response` check is on a middleware's _return_ value. Canonical code returns a `Response`; throwing one just means the framework sees an unhandled exception. `uploadErrors()` is the shape upstream actually demonstrates: catch one real error type you own, convert it to a response.
+
+**The `RouterTypes` augmentation:** Declaring `interface RouterTypes { context: MiddlewareContext<typeof middleware> }` teaches `remix/router` about everything your stack contributes to the context. Inside actions, `ctx.formData` (from `formData()`), `ctx.render` (from `render()`), `ctx.params` (typed by the matched route pattern), and `ctx.get(Database)` (from `database()`) all become statically known — no manual typing required.
 
 **HMR support:** The `if (import.meta.hot) ...` block at the bottom lets the dev server pick up server changes without restarting.
 
@@ -626,17 +761,27 @@ if (import.meta.hot) {
 
 **Heuristic:**
 
-| Logic type                                     | Where it goes                  | Why                                  |
-| ---------------------------------------------- | ------------------------------ | ------------------------------------ |
-| Request handling for a specific route          | **Actions** (`actions/`)       | Tied to a route's URL/method         |
-| Cross-cutting concern (auth, logging, parsing) | **`middleware.ts`**            | Runs across many routes              |
-| UI rendering                                   | **Components** (`components/`) | Presentation layer                   |
-| Data access / business rules                   | **Data layer** (`data/`)       | Reusable, testable                   |
-| Validation schemas                             | **`data/schemas.ts`**          | Shared between actions               |
-| Rendering helpers (document, frame)            | **`utils/render.tsx`**         | Shared rendering logic               |
-| Link mixin for type-safe frame targeting       | **`utils/link.tsx`**           | Reused on `<a>` and `<button>`       |
-| Streaming `<Head>` metadata                    | **`utils/metadata/`**          | SSR + client metadata reconciliation |
-| Platform adapters (D1, R2)                     | **`data/adapters/`**           | Swappable implementations            |
+| Logic type                                     | Where it goes                     | Why                                                |
+| ---------------------------------------------- | --------------------------------- | -------------------------------------------------- |
+| Request handling for a specific route          | **Actions** (`actions/`)          | Tied to a route's URL/method                       |
+| Cross-cutting concern (auth, logging, parsing) | **`middleware.ts`**               | Runs across many routes                            |
+| UI used by more than one route                 | **`app/ui/`**                     | Genuinely shared presentation                      |
+| UI used by exactly one route                   | **`actions/<feature>/`**          | Colocated with the controller that renders it      |
+| Data access / business rules                   | **Data layer** (`data/`)          | Reusable, testable                                 |
+| Validation schemas                             | **`data/schemas.ts`**             | Shared between actions                             |
+| Frame-target detection                         | **`utils/frames.ts`**             | One guarded rule, read by every controller         |
+| Per-page title/description                     | **`utils/page-metadata.ts`**      | Server headers + browser applier, kept in one pair |
+| In-flight navigation destination               | **`utils/pending-navigation.ts`** | The one thing frame events can't express           |
+| Upload validation + storage                    | **`utils/uploads.ts`**            | Shared by middleware, controller, and the form     |
+| Frame targeting for submit buttons             | **`utils/link.tsx`**              | `ButtonHTMLProps` can't express `data-rmx-*`       |
+| Platform adapters (D1, R2)                     | **`data/adapters/`**              | Swappable implementations                          |
+
+A few of those rows deserve their reasoning spelled out, because the obvious alternative is wrong:
+
+- **`utils/frames.ts`** exists so no controller reads `x-remix-target` by hand. `frameTarget()` returns the target only when `x-remix-frame: true` is _also_ present — a stray target header on a top-level navigation must get a whole document, not a fragment.
+- **`utils/page-metadata.ts`** pairs a server function and a browser function that have to agree on an encoding. Splitting them across layers is how they drift.
+- **`utils/pending-navigation.ts`** is the only app-level navigation subscription, and it is deliberately narrow. Per-region pending UI belongs in the region: `app/ui/search-bar.tsx` just `await`s `navigate()` and counts its own in-flight searches. See Recipe 21 for the one case that needs more.
+- **`utils/link.tsx`** is a mixin for `<button type="submit">` and nothing else. Anchors and forms take `data-rmx-target` / `data-rmx-src` as plain typed JSX props, because `AnchorHTMLProps` and `FormHTMLProps` declare them. `ButtonHTMLProps` does not, even though the runtime reads those attributes off a submitter — hence the mixin. See Recipe 15.
 
 **Actions** are grouped per resource and constructed with `createController(route, definition)`. The route argument anchors the type system so each action receives a `ctx` with `ctx.params` matched to the route's pattern and `ctx.formData` typed from the form-data middleware:
 
@@ -670,11 +815,11 @@ export default createController(routes.posts, {
 **Middleware** is a function that receives `(ctx, next)` and returns a `Response`:
 
 ```tsx
-import { type Middleware } from "remix/router";
+export function database(): Middleware<DatabaseEntry> {
+    // Built once per isolate: the binding is stable, so there is nothing to
+    // rebuild per request.
+    let db = createD1Database(env.DB);
 
-export function database(): Middleware<{ key: typeof Database; value: Database }> {
-    let adapter = new D1DatabaseAdapter(env.DB);
-    let db = new Database(adapter);
     return (ctx, next) => {
         ctx.set(Database, db);
         return next();
@@ -683,6 +828,29 @@ export function database(): Middleware<{ key: typeof Database; value: Database }
 ```
 
 Call `next()` to pass through to the next middleware or the matched route handler. The `Middleware<...>` generic declares what the middleware adds to the context — when combined with the `RouterTypes` augmentation (Recipe 7), this makes `ctx.get(Database)` statically typed in every action.
+
+Middleware is also where you turn an error into a response, when the code that raised it was too deep in the stack to answer for itself:
+
+```tsx
+export function uploadErrors(): Middleware {
+    return async (_ctx, next) => {
+        try {
+            return await next();
+        } catch (error) {
+            if (error instanceof UnsupportedMediaTypeError) {
+                return new Response(
+                    "Unsupported image format. Please upload a JPEG, PNG, GIF, or WebP file.",
+                    { status: 415 },
+                );
+            }
+
+            throw error;
+        }
+    };
+}
+```
+
+Catch a specific error type you own and return a response for it. Re-throw everything else — a middleware that swallows unknown errors turns bugs into blank pages.
 
 ---
 
@@ -744,51 +912,57 @@ let profile = s.parse(ProfileSchema, ctx.formData);
 
 **Decision:** How do I indicate that something is loading or in-progress?
 
-**Heuristic:** Use the `Navigating` class to track navigation state. Derive loading/pending states from the destination URL rather than managing boolean flags.
+**Heuristic:** `remix/ui` has **no app-wide navigation bus**, by design. Derive pending state as locally as possible: first from the navigation you yourself started, then from the frame that is actually reloading, and only as a last resort from an app-owned subscription.
 
-**Setting up the navigation tracker:**
+**Decision order:**
 
-The `Navigating` class wraps the browser's Navigation API and emits `destinationchange` events:
+**1. Your component triggers the navigation → `await navigate()` and track locally.**
+
+`navigate(href, options)` resolves when the Navigation API transition finishes, which — for an intercepted, frame-aware navigation — is after the targeted frame has swapped. So the call site is already the best-informed place in the app. Increment a counter or set a flag around the `await`, call `handle.update()`, and you are done. `app/ui/search-bar.tsx` is the worked example; see Recipe 4 for why it counts instead of using a boolean.
+
+The same trick applies to a reload you trigger yourself: `await handle.frame.reload()` (or `await handle.frames.get(name)?.reload()`) settles once that region has finished updating.
+
+**2. Per-region pending UI → the frame's own events.**
+
+A frame handle is an `EventTarget` that emits `reloadStart` and `reloadComplete`. You can reach one three ways:
+
+| Accessor                  | Frame                                                        |
+| ------------------------- | ------------------------------------------------------------ |
+| `handle.frame`            | The nearest enclosing frame; always present, even during SSR |
+| `handle.frames.get(name)` | A mounted named frame; `undefined` when it isn't mounted     |
+| `handle.frames.top`       | The root frame for the current runtime tree (the document)   |
 
 ```tsx
-// utils/navigating.ts - a singleton
-export let navigating = new Navigating();
-```
+export let ReloadIndicator = clientEntry(import.meta.url, (handle: Handle) => {
+    let reloading = false;
 
-It exposes:
+    function setReloading(next: boolean) {
+        reloading = next;
+        handle.update();
+    }
 
-- `navigating.to.state` - `"idle"`, `"loading"`, or `"submitting"`
-- `navigating.to.url` - the destination URL (or `null` when idle)
-- `navigating.to.formData` - form data if submitting (or `null`)
-- `navigating.from.url` - the URL that was active when the navigation started (or `null`)
-
-**Listening for navigation changes in a component:**
-
-```tsx
-export let MyComponent = clientEntry(import.meta.url, (handle: Handle) => {
-    navigating.addEventListener("destinationchange", () => handle.update(), {
+    handle.frame.addEventListener("reloadStart", () => setReloading(true), {
+        signal: handle.signal,
+    });
+    handle.frame.addEventListener("reloadComplete", () => setReloading(false), {
         signal: handle.signal,
     });
 
-    return () => {
-        let isLoading = navigating.to.state === "loading";
-        return <div class={isLoading ? "loading" : ""}>...</div>;
-    };
+    return () => <div aria-hidden class="spinner" hidden={!reloading} />;
 });
 ```
 
-**Deriving pending state for specific items** (e.g., which list item is about to become active):
+This app doesn't currently need that shape — search owns its own state and the sidebar uses the subscription below — but it is the canonical pattern for "this region is refreshing" when something _else_ triggered the reload. Registering in setup is safe during SSR: the server supplies a real frame handle, but nothing ever reloads server-side so the listener never fires, and `handle.signal` is an inert stub that discards the registration. Note that `handle.update()` **throws** during SSR, so it must only ever be reached from an event handler, never from setup itself.
 
-```tsx
-let destination = navigating.to.url ? matcher.match(navigating.to.url.href) : null;
-let isPending = Number(destination?.params.id) === item.id;
-```
+`reloadStart` and `reloadComplete` are **bare `Event`s with no payload** — no destination, no form data, no previous URL. When you need the destination, read `frame.src`, which is the source the frame loads (and reloads) from. When you need the submitted values, you already have them at the call site that submitted them.
 
-This avoids managing per-item loading state. The navigation destination tells you which item is being navigated to.
+**3. Only if you need a broadcast frame events cannot give you → the app-owned subscription.**
 
-**Idle values are `null`, not `undefined`:** When no navigation is in progress, `navigating.to.url` and `navigating.to.formData` are `null`. Use optional chaining (`navigating.to.url?.searchParams`) to safely access properties.
+`app/utils/pending-navigation.ts` exports `isServer`, `pendingDestination()`, and `onDestinationChange(listener, { signal })`. It is the single remaining app-level navigation subscription, and it exists for exactly one problem: a component that must re-render because of a navigation _it never participated in_. Recipe 21 covers that case in full. Reach for it only after ruling out (1) and (2).
 
-**Server safety:** `Navigating` is safe to instantiate on the server -- it skips event listener registration when `typeof window === "undefined"`. Components can reference `navigating` without conditional imports, but should guard client-only logic with `isServer` checks.
+**There is no framework-level "loading" vs. "submitting" distinction.** The runtime does not model a global navigation state machine at all: a frame is either reloading or it isn't. If your UI needs to distinguish a read from a write, that distinction lives where the request originates — the handler that called `fetch()` or submitted the form knows which it was.
+
+**Server safety:** `onDestinationChange` returns immediately when `isServer`, so no listener is ever registered during SSR, and the module never touches `navigation` on the server. Components can import it unconditionally; guard anything that reads `location` or `document` with `isServer`.
 
 ---
 
@@ -796,135 +970,118 @@ This avoids managing per-item loading state. The navigation destination tells yo
 
 **Decision:** How do I set up client-side navigation that works with the frame system?
 
-**Heuristic:** The client entry (`entry.browser.ts`) sets up three things in a specific order: a form submission listener, the Remix runtime via `run()`, and a focus-reset listener. The ordering matters because the Navigation API uses "last `intercept()` call wins" semantics for options like `focusReset`.
+**Heuristic:** The client entry (`app/entry.browser.tsx`) has exactly three pieces: `run()` with a `loadModule` and a `resolveFrame`, a global `error` listener that renders a banner, and one `navigate` listener that sets `focusReset: "manual"` — registered _after_ `run()`. Nothing else. No form interceptor (Recipe 2), no navigation bus (Recipe 21), no metadata manager.
 
-**The three-phase client entry:**
+**The whole client entry:**
 
 ```tsx
-import { createMetadataManager, withMetadataFrames } from "#/utils/metadata/index.ts";
-import { createRoot, navigate, on, run } from "remix/ui";
+import type { Handle } from "remix/ui";
 
-// Hydrate the streaming-metadata manager. It reads <template
-// data-pitlane-metadata> nodes flushed during SSR and applies them
-// to document.head, then keeps the head reconciled with future
-// frame updates (see Recipe 22).
-createMetadataManager().hydrate(document);
+import { applyPageMetadata } from "#/utils/page-metadata.ts";
+import { createRoot, on, run } from "remix/ui";
 
-// Phase 1: Form submission handler (before `run`)
-navigation.addEventListener("navigate", async event => {
-    if (!event.canIntercept) return;
-
-    // Programmatic navigations: handled by built-in listener
-    if (!event.sourceElement) return;
-    // Anchors: handled by built-in listener
-    if (event.sourceElement.closest("a, area")) return;
-
-    // sourceElement is <button type="submit"> inside form submissions.
-    // Read data-rmx-* attributes from the button for frame targeting.
-    let target = event.sourceElement.getAttribute("data-rmx-target") ?? undefined;
-    let src = event.sourceElement.getAttribute("data-rmx-src") ?? undefined;
-    let resetScroll = event.sourceElement.hasAttribute("data-rmx-reset-scroll") ?? undefined;
-
-    // Form POST submission — out-of-band so the URL only changes on success
-    if (event.formData) {
-        event.preventDefault();
-
-        let { destination, formData } = event;
-
-        void (async () => {
-            let response = await fetch(destination.url, {
-                method: "POST",
-                body: formData,
-            });
-
-            if (!response.ok) {
-                let body = (await response.text()).trim();
-                let message = body || `${response.status} ${response.statusText}`;
-                let error = Object.assign(new Error(message), { status: response.status });
-                app.dispatchEvent(new ErrorEvent("error", { error, message }));
-                return;
-            }
-
-            navigate(response.url, { target, src, resetScroll });
-        })();
-        return;
-    }
-
-    // Form GET submission
-    event.preventDefault();
-    navigate(event.destination.url, { target, src, resetScroll });
-});
-
-// Phase 2: Remix runtime
 let app = run({
     async loadModule(moduleUrl, exportName) {
+        // Runtime-selected by design: the runtime hands us a client-entry URL
+        // resolved from the server-rendered hydration marker.
         let mod = await import(/* @vite-ignore */ moduleUrl);
         let exported = mod[exportName];
+
         if (typeof exported !== "function") {
             throw new TypeError(
                 `Expected export '${exportName}' from '${moduleUrl}' to be a function`,
             );
         }
+
         return exported;
     },
-    // withMetadataFrames wraps resolveFrame so any <template data-pitlane-metadata>
-    // payload arriving with a frame response gets handed to the metadata manager
-    // before the frame's body is committed.
-    resolveFrame: withMetadataFrames(async (src, signal, target) => {
+    async resolveFrame(src, options) {
         let headers = new Headers({ accept: "text/html", "x-remix-frame": "true" });
-        if (target) headers.set("x-remix-target", target);
-        let response = await fetch(src, { headers, signal });
-        return response.body ?? (await response.text());
-    }),
+        if (options?.target) headers.set("x-remix-target", options.target);
+
+        let response = await fetch(src, {
+            body: options?.formData,
+            headers,
+            method: options?.method ?? "GET",
+            signal: options?.signal,
+        });
+
+        // Rejecting here is what surfaces the failure on the app's `error`
+        // event, which the banner below renders.
+        if (!response.ok) {
+            let body = (await response.text()).trim();
+            throw new Error(body || `${response.status} ${response.statusText}`);
+        }
+
+        applyPageMetadata(response.headers);
+
+        // Return the Response, not its body: the runtime only learns a
+        // submission was redirected from `response.redirected`/`response.url`,
+        // and uses it to re-sync the address bar with the swapped content.
+        return response;
+    },
 });
 
-// Global error boundary — renders a dismissible banner for any error
-// dispatched on the app runtime, including failed POST submissions above.
+// Global error boundary — renders a dismissible banner for any error dispatched
+// on the app runtime, including failed frame navigations and submissions.
 let bannerHost = document.createElement("div");
 document.body.insertBefore(bannerHost, document.body.firstChild);
 let bannerRoot = createRoot(bannerHost);
 
 function ErrorBanner(handle: Handle<{ message: string }>) {
-    let props = handle.props;
     return () => (
-        <div id="app-error-banner" role="alert">
-            <p>{props.message}</p>
+        <div class="error-banner" role="alert">
+            <span>{handle.props.message}</span>
             <button
                 aria-label="Dismiss"
                 mix={on("click", () => bannerRoot.render(null))}
                 type="button"
             >
-                ×
+                {"\u00d7"}
             </button>
         </div>
     );
 }
 
 app.addEventListener("error", event => {
-    let message = event.message || String(event.error) || "Something went wrong.";
+    let error = event.error;
+    let message = error instanceof Error ? error.message : String(error);
     bannerRoot.render(<ErrorBanner message={message} />);
 });
 
-// Phase 3: Focus reset (after `run`, last intercept() call wins)
+// Must be registered after `run` (last intercept() call wins for focusReset).
+// `remix/ui` never sets focusReset, so preserving focus across an enhanced
+// navigation — the search input keeping focus while results stream in — is
+// still the app's job.
 navigation.addEventListener("navigate", event => {
-    if (!event.canIntercept || event.defaultPrevented || event.navigationType === "traverse") {
+    if (
+        !event.canIntercept ||
+        event.defaultPrevented ||
+        // Traversals (back/forward) are handled by the built-in listener.
+        event.navigationType === "traverse"
+    ) {
         return;
     }
+
     event.intercept({ focusReset: "manual" });
 });
 ```
 
-**Why three phases:**
+**`run()`** installs the navigation listener, creates the top frame from `document.location.href`, registers named frames, and returns the app runtime — an event target with `frames.top`, `frames.get(name)`, `ready()`, `flush()`, and `dispose()`. Every anchor click and form submission is handled from here (Recipe 2); the app adds nothing.
 
-1. **Phase 1 (before `run`):** Handles form submissions. Must register before `run()` so that `event.preventDefault()` on GET forms works before the Remix listener sees the event. Reads `data-rmx-target`, `data-rmx-src`, and `data-rmx-reset-scroll` from the submit button's attributes.
-2. **Phase 2 (`run`):** Initializes the Remix runtime — module loading for hydrated components and frame resolution for fetching frame content. The returned `app` event target is the runtime's error bus.
-3. **Phase 3 (after `run`):** Sets `focusReset: "manual"` for all non-traverse navigations. Registered last so its `intercept()` call wins, preventing the browser from resetting focus to the top of the page during frame updates.
+**`loadModule`** resolves a hydrated `clientEntry()` back to its browser module. The runtime hands you a module URL and an export name from the server-rendered hydration marker, and you return the function. The `@vite-ignore` comment is required because the specifier is dynamic by construction.
 
-**Why out-of-band POST fetch:** Driving POSTs through `event.intercept({ handler })` ties the navigation URL to the request lifecycle — the URL bar can flip to the action URL even when the server returns an error. Doing the fetch outside `intercept` lets the URL stay put on failure; only the `navigate(response.url, ...)` call (after a successful response) commits the new URL. Errors are dispatched to `app` and rendered as a dismissible banner.
+**`resolveFrame`** is the one request the app owns. Its contract:
 
-**Why `event.sourceElement`:** For form submissions triggered by a submit button, `event.sourceElement` is that `<button>`. This is how `data-rmx-*` attributes on form buttons work — the listener reads them directly from the submitting element and passes them to `navigate()`.
+- Build the frame headers: `accept: text/html` plus `x-remix-frame: true`, and `x-remix-target` only when a named frame is being reloaded. These are the same two headers `frameTarget()` pairs on the server (Recipe 5), and this is the only place the client sets them — a hand-rolled `fetch()` elsewhere would silently omit them and get a whole document back.
+- Pass through the runtime's `options`: `method` (defaulting to `GET`), `formData`, and `signal`. The signal is the navigation's — a superseded navigation aborts its in-flight frame fetch, which is what lets `SearchBar` fire one per keystroke (Recipe 4).
+- **Throw on a non-ok response.** That rejection is the whole error path: the runtime catches it and dispatches a `ComponentErrorEvent` on the app runtime, which the `error` listener turns into the banner. Nothing in the app constructs or dispatches an `ErrorEvent` by hand anymore. The throw has to come _first_, before the response is handed back: a returned `Response` gets its body rendered as frame content regardless of status, so a 415 would paint the validation error into the detail frame instead of the banner.
+- Call `applyPageMetadata(response.headers)` on the way out, so a `detail`-frame swap updates `document.title` and the description meta tag. See Recipe 22 for why a partial frame swap needs this and a full-document navigation does not.
+- **Return the `Response`, not `response.body`.** The runtime unwraps it: a `Response` resolution is the only shape from which it can read `redirected` and `url`, and that is the signal it uses to start a replacing navigation so the address bar matches the swapped-in content. Return a body or a string and that re-sync is silently lost — a POST that ends in a redirect leaves the submitted action URL in the address bar while the redirect target's HTML renders. (Returning the body is legal, and fine for a resolver that only ever serves GETs, but there is no reason to give up the redirect information.)
 
-**Why traverse navigations are left alone:** Back/forward navigations are handled by the built-in Remix listener. Intercepting them again would conflict.
+**Why the `focusReset` listener must come after `run()`.** Multiple `navigate` listeners may each call `event.intercept()`; for options like `focusReset` and `scroll`, the _last_ call wins. `remix/ui` never sets `focusReset`, so the browser's default (reset focus to the document) would apply and the search input would lose focus on every keystroke-driven frame update. Registering after `run()` makes the app's `{ focusReset: "manual" }` the winning option while leaving the runtime's `handler` — the actual frame reload — intact. There is no native equivalent to opt into; this listener is the reason it stays in the entry.
+
+**Why traverse navigations are skipped.** Back/forward navigations restore frame state from the history entry inside the runtime's own listener, which sets `scroll: 'manual'` and lets the Navigation API perform its deferred scroll restoration. Adding `focusReset: "manual"` there would fight that restoration, so the app returns early for `navigationType === "traverse"`, and for events it can't intercept or that someone already prevented.
 
 ---
 
@@ -934,21 +1091,43 @@ navigation.addEventListener("navigate", event => {
 
 **Heuristic:**
 
-| Scenario                                           | History mode            | Why                                                       |
-| -------------------------------------------------- | ----------------------- | --------------------------------------------------------- |
-| User clicks a link to a new page                   | **push** (default)      | Back button should return to previous page                |
-| Search-as-you-type (after first keystroke)         | **push**                | Back button navigates between search states               |
-| First search keystroke                             | **replace**             | Don't create an entry for the pre-search state with `?q=` |
-| Optimistic update sync (`navigate(location.href)`) | **replace**             | Syncing server state shouldn't create history             |
-| Removing a query param (clearing search)           | **push** or **replace** | Depends on whether "cleared search" is a meaningful state |
+| Scenario                                              | History mode       | Why                                                               |
+| ----------------------------------------------------- | ------------------ | ----------------------------------------------------------------- |
+| User clicks a link to a new page                      | **push** (default) | Back should return to the previous page                           |
+| Search-as-you-type, after the first keystroke         | **push**           | Back navigates between meaningful search states                   |
+| First search keystroke                                | **replace**        | Overwrite the pre-search entry instead of stacking `?q=s` onto it |
+| Clearing the search input                             | **push** (default) | The unfiltered list is its own destination                        |
+| Optimistic-update sync (`navigate(location.href, …)`) | **replace**        | Re-requesting the current URL is not a new destination            |
+| Non-GET form submission back to the current URL       | **replace**        | Runtime default: a mutation that re-renders in place              |
+| GET submission, or any submission to a different URL  | **push**           | Runtime default: a new destination                                |
+
+**From JavaScript** — `navigate()` takes a `history` option (`"push" | "replace"`), alongside `target`, `src`, and `resetScroll`:
 
 ```tsx
-// Push (new history entry)
-navigate(url);
+// Push (new history entry) — the default when `history` is omitted
+await navigate(url.toString(), { target: "sidebar" });
 
-// Replace (overwrite current entry)
-navigate(url, { history: "replace" });
+// Conditional, as in `app/ui/search-bar.tsx`
+await navigate(url.toString(), {
+    history: isFirstSearch ? "replace" : "push",
+    target: "sidebar",
+});
+
+// Replace (overwrite the current entry), as in `favorite-button.tsx`
+navigate(location.href, { history: "replace" });
 ```
+
+When the Navigation API isn't interceptable, `navigate()` degrades to `location.replace(href)` for `"replace"` and `location.assign(href)` otherwise — so the history semantics hold either way.
+
+**From markup** — the runtime reads `data-rmx-history="push|replace"` directly off the anchor or form it intercepts, no client entry needed:
+
+```tsx
+<a data-rmx-history="replace" data-rmx-target="detail" href={href}>
+    Details
+</a>
+```
+
+The attribute is resolved next to `data-rmx-target`, `data-rmx-src`, and `data-rmx-reset-scroll` when the runtime inspects the navigation's source element, and it overrides the per-element default in the table above (including the automatic replacement of a non-GET submission to the current URL). `data-rmx-document` opts the element out of interception entirely, in which case history is whatever the browser does natively. This app doesn't need the attribute today — its one history override is the conditional `navigate()` call in the search bar.
 
 ---
 
@@ -956,7 +1135,7 @@ navigate(url, { history: "replace" });
 
 **Decision:** How do I make data (database connections, user sessions, etc.) available throughout a request?
 
-**Heuristic:** Use context keys and middleware injection. Context keys are type-safe tokens that middleware `set()`s and handlers `get()`.
+**Heuristic:** Use context keys and middleware injection. Context keys are type-safe tokens that middleware `set()`s and handlers `get()`. Prefer passing context explicitly; reach for `getContext()` only where a function genuinely cannot receive it.
 
 **Using built-in context keys:** Some packages export pre-defined context keys. For example, `remix/data-table` exports a `Database` key:
 
@@ -967,7 +1146,7 @@ import { Database } from "remix/data-table";
 **Set it in middleware** (`app/middleware.ts`):
 
 ```tsx
-import { D1DatabaseAdapter } from "#/data/adapters/d1-data-table.ts";
+import { createD1Database } from "@pitlane/data-table-d1";
 import { env } from "cloudflare:workers";
 import { Database } from "remix/data-table";
 import { type Middleware } from "remix/router";
@@ -975,8 +1154,9 @@ import { type Middleware } from "remix/router";
 type DatabaseEntry = { key: typeof Database; value: Database };
 
 export function database(): Middleware<DatabaseEntry> {
-    let adapter = new D1DatabaseAdapter(env.DB);
-    let db = new Database(adapter);
+    // Built once per isolate: the binding is stable, so there is nothing to
+    // rebuild per request.
+    let db = createD1Database(env.DB);
 
     return (ctx, next) => {
         ctx.set(Database, db);
@@ -994,18 +1174,66 @@ import { createContextKey } from "remix/router";
 export let MyService = createContextKey<MyServiceType>();
 ```
 
-**Read it in actions or utilities:**
+**Read it in actions:**
 
 ```tsx
-// In an action:
 let db = ctx.get(Database);
-
-// In a utility function (via async context):
-import { getContext } from "remix/middleware/async-context";
-let db = getContext().get(Database);
 ```
 
-The `asyncContext()` middleware makes the request context available anywhere via `getContext()` without threading it through function arguments. This is especially useful in data access functions that are called from actions but don't directly receive the request context.
+**Why `asyncContext()` is still in the stack.** It exists for exactly one caller shape: a helper that is called _from_ an action but doesn't receive the action's `ctx`. Every query in `app/data/contacts.ts` is one of those:
+
+```tsx
+export async function getContacts(query?: string): Promise<Contact[]> {
+    let db = getContext().get(Database);
+    await fakeNetwork(`getContacts:${query}`);
+
+    let contacts = await db.findMany(Contacts);
+
+    if (query) {
+        contacts = matchSorter(contacts, query, { keys: ["first", "last"] });
+    }
+
+    return sortBy(contacts, ["last", "createdAt"]);
+}
+```
+
+Threading `ctx` through every call site just to reach a `Database` handle would put a request parameter on functions whose signatures are otherwise pure data access. This is the case async context is for.
+
+**`render()` does not use async context.** It's worth being precise about this, because "the renderer needs `getContext()`" is an easy assumption to make. It doesn't. `render()` is built on `renderWith(context => …)`, so the `ctx.render` it installs is a closure that captured that request's context directly. `asyncContext()` could move or disappear and `ctx.render` would keep working — it stays in the stack for `app/data/contacts.ts`, nothing else.
+
+**Prefer explicit context for action-adjacent helpers.** A function that renders part of a page is not a data-access helper; it's an extension of the action, and it should take the context as an argument. Declare the _slice_ it needs rather than the whole `RequestContext`, which keeps it callable from more than one controller and trivially testable (`app/actions/sidebar.tsx`):
+
+```tsx
+import type { RenderFunction } from "remix/middleware/render";
+
+/** The slice of the request context the sidebar frame needs. */
+type SidebarContext = {
+    render: RenderFunction;
+    url: URL;
+};
+
+/** Renders the `sidebar` frame. Shared by the root and contacts controllers. */
+export async function sidebar(ctx: SidebarContext, selected?: number): Promise<Response> {
+    let { q } = s.parse(QuerySchema, ctx.url.searchParams);
+    let contacts = await getContacts(q);
+
+    return ctx.render(/* ... */);
+}
+```
+
+`RenderFunction` is `(node: RemixNode, init?: ResponseInit) => Response`, imported as a type from `remix/middleware/render`. Both controllers can call `sidebar(ctx)` because the real `ctx` structurally satisfies `SidebarContext` — no casting, no adapter. `app/actions/contacts/controller.tsx` declares its own slightly wider slice the same way:
+
+```tsx
+/** The slice of the request context a contact page needs. */
+type ContactContext = {
+    headers: Headers;
+    params: Record<string, string | undefined>;
+    render: RenderFunction;
+    url: URL;
+};
+```
+
+The rule of thumb: **data access reads context implicitly; rendering receives it explicitly.**
 
 ---
 
@@ -1013,53 +1241,75 @@ The `asyncContext()` middleware makes the request context available anywhere via
 
 **Decision:** Why do components return functions, and how does this affect composition?
 
-**Heuristic:** Every Remix 3 component is a factory -- a function that returns a render function. The outer function is the "setup" phase (runs once); the inner function is the "render" phase (runs on every update).
+**Heuristic:** Every Remix 3 component is a factory — a function that returns a render function. The outer function is the "setup" phase (runs once); the inner function is the "render" phase (runs on every update).
 
-**Server-only component:**
+**Server-only component** (`app/ui/restful-form.tsx`, in full):
 
 ```tsx
-export function UserCard(handle: Handle<{ user: User }>) {
-    // Setup: runs once per render on the server
-    let props = handle.props;
-    return () => (
-        // Render: the actual JSX
-        <div>{props.user.name}</div>
-    );
+export function RestfulForm(
+    handle: Handle<JSX.IntrinsicHTMLElements["form"] & { method?: RequestMethod | "ANY" }>,
+) {
+    return () => {
+        let { children, method, ...props } = handle.props;
+        let isGET = method === "GET" || typeof method === "undefined";
+        return (
+            <form method={isGET ? "GET" : "POST"} {...props}>
+                {!isGET && <input name="_method" type="hidden" value={method} />}
+                {children}
+            </form>
+        );
+    };
 }
 ```
 
-For server-only components, the setup phase is minimal -- there's no persistent state. But the factory pattern is still required.
+For server-only components the setup phase is usually empty — there's no persistent state to hold, and every derived value belongs in the render function where it sees current props. The factory shape is still required.
 
-**Hydrated component:**
+**Hydrated component:** setup is where you register listeners once, and where mutable state lives so it survives re-renders. `app/actions/contacts/public/sidebar-item.tsx`, trimmed:
 
 ```tsx
-export let SearchInput = clientEntry(import.meta.url, (handle: Handle<{ query?: string }>) => {
+export let SidebarItem = clientEntry(import.meta.url, (handle: Handle<SidebarItem.Props>) => {
     // Setup: runs once on hydration
-    navigating.addEventListener("destinationchange", () => handle.update(), {
-        signal: handle.signal,
-    });
+    onDestinationChange(() => handle.update(), { signal: handle.signal });
 
     return () => {
-        let props = handle.props;
-        // Render: runs on every update
-        let searching = Boolean(navigating.to.url?.searchParams.has("q"));
-        return <input defaultValue={props.query} />;
+        // Render: runs on every update, always against current props
+        let { selected, query, contact } = handle.props;
+        let currentMatch = isServer ? null : matcher.match(location.href);
+        let isActive = Number(currentMatch?.params?.id ?? selected) === contact.id;
+        // …derive pending state, then return the <li>
     };
 });
 ```
 
-**Composing components:** Use standard JSX composition. Server-only components can contain hydrated components (creating islands of interactivity):
+`handle.signal` aborts when the component disconnects, so a listener registered in setup never outlives its component. Mutable setup-scope variables are the state model: `app/ui/search-bar.tsx` keeps a `pendingSearches` counter in setup, mutates it from an event handler, and calls `handle.update()` to re-render — no store, no hooks, no dependency arrays.
+
+**Composing components:** use standard JSX composition. Server-only components can contain hydrated components, creating islands of interactivity. `app/actions/contacts/show-page.tsx` is server-only; the `FavoriteButton` inside it is a client entry:
 
 ```tsx
-export function ItemDetail(handle: Handle<{ item: Item }>) {
-    let props = handle.props;
-    return () => (
-        <div>
-            <h1>{props.item.title}</h1>
-            {/* LikeButton is hydrated; ItemDetail is not */}
-            <LikeButton itemId={props.item.id} liked={props.item.liked} />
-        </div>
-    );
+export function ShowContact(handle: Handle<{ contact: Contact; query?: string }>) {
+    return () => {
+        let props = handle.props;
+
+        return (
+            <div id="detail">
+                {/* … */}
+                <h1>
+                    {props.contact.first || props.contact.last ? (
+                        <>
+                            {props.contact.first} {props.contact.last}
+                        </>
+                    ) : (
+                        <i>No Name</i>
+                    )}{" "}
+                    <FavoriteButton
+                        contactId={props.contact.id}
+                        favorite={props.contact.favorite ?? false}
+                    />
+                </h1>
+                {/* … */}
+            </div>
+        );
+    };
 }
 ```
 
@@ -1069,25 +1319,62 @@ This is the islands architecture pattern: the server renders the full page, but 
 
 ### 15. How do I target a specific frame from links and forms?
 
-**Decision:** How do I make a link or form button update a specific frame instead of the whole page?
+**Decision:** How do I make a link or a form update a specific frame instead of the whole page?
 
-**Heuristic:** Use the `link()` mixin from `app/utils/link.tsx`. It's a thin wrapper around `createMixin` that accepts a `LinkProps` object and renders `rmx-*` attributes that the client entry (Recipe 11) and the built-in Remix anchor listener pick up. The reason it exists (instead of using the built-in `link()` from `remix/ui`) is to support both `<a>` and `<button type="submit">` elements — the latter is the form-submit pathway that drives frame-targeted POSTs.
+**Heuristic:** Set `data-rmx-target` on the element. On anchors and forms that is a plain typed JSX prop — no mixin, no client entry. Only a `<button type="submit">` needs the `link()` mixin from `app/utils/link.tsx`, and only because its prop type doesn't declare the attributes.
 
-**On links:**
+**On anchors — plain props.** `AnchorHTMLProps` (via `PartialAnchorHTMLProps`) and `FormHTMLProps` both declare the `data-rmx-*` attributes, so they type-check directly. From `app/actions/contacts/public/sidebar-item.tsx`:
 
 ```tsx
-import { link } from "#/utils/link.tsx";
-
-<a href={routes.contacts.show.href({ id: contact.id })} mix={link({ target: "detail" })}>
-    {contact.first} {contact.last}
-</a>;
+<a
+    class={isActive ? "active" : isPending ? "pending" : undefined}
+    data-rmx-target="detail"
+    href={routes.contacts.show.href(
+        { id: contact.id },
+        { searchParams: { q: query } },
+    )}
+>
 ```
 
-**On form buttons:**
+The runtime's anchor path reads the attributes straight off the closest `a`/`area`, so this needs no JavaScript of its own.
+
+**On submit buttons — the `link()` mixin.** `app/utils/link.tsx` in full:
+
+```tsx
+import { createMixin } from "remix/ui";
+
+/**
+ * Frame-targeting attributes for a form's submit button.
+ *
+ * Anchors and forms take `data-rmx-target`/`data-rmx-src` as plain typed props,
+ * so they need no mixin. A submit *button* does need one, for two reasons:
+ *
+ * - `remix/ui`'s own `link()` gives non-anchor hosts link semantics — it forces
+ *   `type="button"` and calls `navigate()` from a `preventDefault`ed click,
+ *   which would stop the enclosing form from submitting at all.
+ * - `ButtonHTMLProps` doesn't declare the `data-rmx-*` attributes even though
+ *   the runtime reads them off a submitter, so they can't be passed directly.
+ *
+ * The runtime prefers the submitter's attributes over the form's, making this
+ * the frame-targeting equivalent of `formaction`.
+ */
+export let link = createMixin<HTMLButtonElement, [{ target?: string; src?: URL }]>(handle => {
+    return props => (
+        <handle.element data-rmx-src={props.src?.toString()} data-rmx-target={props.target} />
+    );
+});
+```
+
+Both reasons are worth internalizing. `remix/ui`'s `link(href, options)` is a _link_ mixin: on a non-anchor host it sets `role="link"`, defaults a button's `type` to `"button"`, and installs click/keydown handlers that `preventDefault()` and call `navigate(href)` — which would cancel the form submission entirely. And `ButtonHTMLProps` simply has no `data-rmx-*` members, even though the runtime reads those attributes off a submitter. So the app mixin is deliberately _not_ a link: it renders two attributes and nothing else.
+
+Used once, in `app/actions/contacts/show-page.tsx`:
 
 ```tsx
 <RestfulForm
-    action={routes.contacts.edit.href({ id: contact.id })}
+    action={routes.contacts.edit.href(
+        { id: props.contact.id },
+        { searchParams: { q: props.query } },
+    )}
     method={routes.contacts.edit.method}
 >
     <button mix={link({ target: "detail" })} type="submit">
@@ -1096,47 +1383,32 @@ import { link } from "#/utils/link.tsx";
 </RestfulForm>
 ```
 
-For form submissions, the client entry's navigate listener reads the resulting `data-rmx-*` attributes from `event.sourceElement` — the submit button, not the `<form>`. This means a server-only form can target a specific frame without hydration.
+**Submitter attributes beat form attributes.** For every attribute in the vocabulary, the runtime checks the submitter first and falls back to the `<form>`. That makes `data-rmx-target` on a button the frame-targeting analogue of `formaction`: one form, several submit buttons, each free to land its response in a different frame. Put the attribute on the `<form>` when every submitter should agree.
 
-**The `link` mixin definition:**
+**The attribute vocabulary the runtime reads:**
+
+| Attribute               | Value                   | Effect                                                                                                            |
+| ----------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `data-rmx-target`       | frame name              | Reload that named frame. Absent → the top frame. Unmounted name → document navigation.                            |
+| `data-rmx-src`          | same-origin URL         | Source to fetch for the frame. Defaults to the destination URL; cross-origin falls back to a document navigation. |
+| `data-rmx-history`      | `"push"` \| `"replace"` | Overrides the default entry handling (a submission back to the current URL replaces).                             |
+| `data-rmx-reset-scroll` | `"false"` to opt out    | Any other value (or absence) resets scroll; `"false"` also implies `scroll: "manual"`.                            |
+| `data-rmx-document`     | present                 | Opt out of interception entirely — let the browser perform a real document navigation.                            |
+
+`data-rmx-document` is also how you escape the SPA for a link that must reload the page (a `download` attribute has the same effect on anchors).
+
+**Programmatic equivalent.** `navigate()` takes the same four knobs (`target`, `src`, `history`, `resetScroll`) as an options object. From `app/ui/search-bar.tsx`:
 
 ```tsx
-import { createMixin } from "remix/ui";
-
-export type LinkProps = { target?: string; src?: URL; resetScroll?: boolean };
-
-// Only created instead of `remix/ui.link()` to support button elements
-// for our custom form submission handling as well as anchor elements
-export let link = createMixin<HTMLAnchorElement | HTMLButtonElement, [LinkProps]>(handle => {
-    return props => (
-        <handle.element
-            data-rmx-reset-scroll={props.resetScroll != null ? `${props.resetScroll}` : undefined}
-            data-rmx-src={props.src?.toString()}
-            data-rmx-target={props.target}
-        />
-    );
+await navigate(url.toString(), {
+    history: isFirstSearch ? "replace" : "push",
+    target: "sidebar",
 });
 ```
 
-The mixin renders `data-rmx-*` attributes onto the host element.
+`navigate()` returns a promise that settles when the Navigation API transition finishes — i.e. once the targeted frame has swapped — which is how `SearchBar` derives its own pending state without a global navigation bus (Recipe 10).
 
-**Tightening the `target` type:** If you want compile-time validation of frame names, narrow `LinkProps["target"]` to a union literal (e.g. `"sidebar" | "detail"`). The server reads `ctx.headers.get("x-remix-target")` as a plain string (Recipe 5), so the typing is purely a client-side ergonomic choice.
-
-**Available props:**
-
-| Prop          | Type      | Purpose                               |
-| ------------- | --------- | ------------------------------------- |
-| `target`      | `string`  | Target a named frame                  |
-| `src`         | `URL`     | Override the frame content source URL |
-| `resetScroll` | `boolean` | Reset scroll position on frame update |
-
-These are the declarative equivalents of the options you can pass to `navigate()`:
-
-```tsx
-navigate(url, { target: "detail", src: someUrl, resetScroll: true });
-```
-
-**Use the `link()` mixin for links and form buttons. Use `navigate()` with options for programmatic navigation.** They produce the same `data-rmx-*` attributes under the hood, but the mixin gives you type safety for frame names.
+**Use plain attributes for markup-driven navigation and `navigate()` for programmatic navigation.** They feed the same runtime state; the attributes are just the declarative form. If you want compile-time validation of frame names, narrow the mixin's `target` to a union literal (`"sidebar" | "detail"`) — the server side stays a plain string, since `frameTarget()` returns `string | null` (Recipe 5).
 
 ---
 
@@ -1144,57 +1416,91 @@ navigate(url, { target: "detail", src: someUrl, resetScroll: true });
 
 **Decision:** My controller handles the same route for initial loads and frame updates. How do I return the right response?
 
-**Heuristic:** Read `ctx.headers.get("x-remix-target")` (see Recipe 5) to determine which frame is being requested. Each action should handle all three cases: sidebar-only updates, detail-only updates, and full-page loads.
+**Heuristic:** Call `frameTarget(ctx.headers)` (Recipe 5) once, then branch on the frame name. Every branch ends in `ctx.render()`; what differs is the tree you hand it. Factor the branch into one helper per layout so the actions stay one-liners.
+
+`app/actions/contacts/controller.tsx`:
 
 ```tsx
-import { getContext } from "remix/middleware/async-context";
-import { createHtmlResponse as html } from "remix/response/html";
-import { redirect } from "remix/response/redirect";
-import { frame, render, renderDocument } from "#/utils/render.tsx";
+/** A contact's detail-frame content plus the page metadata that describes it. */
+type DetailPage = PageMetadata & { node: RemixNode };
 
-async function contactPage(detail: (contact: Contact) => RemixNode) {
-    try {
-        let ctx = getContext();
-        let target = ctx.headers.get("x-remix-target");
-        let { id } = s.parse(IdSchema, ctx.params);
+/** The slice of the request context a contact page needs. */
+type ContactContext = {
+    headers: Headers;
+    params: Record<string, string | undefined>;
+    render: RenderFunction;
+    url: URL;
+};
 
-        if (target === "sidebar") {
-            return sidebar(id);
-        } else {
-            let contact = await getContact(id);
-            if (!contact) throw contact;
+/**
+ * Serves whichever of the three shapes the request asked for: the `sidebar`
+ * frame, the `detail` frame, or the whole document.
+ */
+async function contactPage(
+    ctx: ContactContext,
+    detail: (contact: Contact) => DetailPage,
+): Promise<Response> {
+    let { id } = s.parse(IdSchema, ctx.params);
+    let target = frameTarget(ctx.headers);
 
-            if (target === "detail") {
-                return frame(render(detail(contact)));
-            }
+    if (target === "sidebar") {
+        return sidebar(ctx, id);
+    }
 
-            return html(await renderDocument(<Document />));
-        }
-    } catch {
+    let contact = await getContact(id);
+    if (!contact) {
         return redirect(routes.home.href());
     }
+
+    let page = detail(contact);
+
+    if (target === "detail") {
+        return ctx.render(page.node, { headers: pageMetadataHeaders(page) });
+    }
+
+    return ctx.render(<Document description={page.description} title={page.title} />);
 }
 ```
 
-This helper accepts a render function for the detail frame and handles all three cases. Actions become one-liners:
+The callback returns a `DetailPage` — the frame's node _plus_ its title and optional description — so one description of the page serves both the fragment and the document. Actions supply only that:
 
 ```tsx
 async show(ctx) {
     let { q } = s.parse(QuerySchema, ctx.url.searchParams);
-    return await contactPage(contact => <ShowContact contact={contact} query={q} />);
+
+    return await contactPage(ctx, contact => ({
+        description: contact.notes || (contact.bsky ? `@${contact.bsky}` : undefined),
+        node: <ShowContact contact={contact} query={q} />,
+        title: `${contactName(contact)} · ${SITE.title}`,
+    }));
 },
-async edit() {
-    return await contactPage(contact => <EditContact contact={contact} />);
+async edit(ctx) {
+    return await contactPage(ctx, contact => ({
+        node: <EditContact contact={contact} />,
+        title: `Edit ${contactName(contact)} · ${SITE.title}`,
+    }));
 },
 ```
 
-**Why this pattern matters:** The same URL serves different content depending on context:
+**What each branch produces:**
 
-- **Initial page load:** Returns a full HTML document with all frames resolved inline
-- **Frame navigation:** Returns just the targeted frame's HTML fragment
-- **No JavaScript:** Falls back to full document -- progressive enhancement still works
+- **`sidebar`** — delegates to the shared `sidebar()` helper, which renders a `<nav>`. It receives `id` so the server-rendered items know which one is selected.
+- **`detail`** — renders just the detail node, and attaches `pageMetadataHeaders(page)` to the response. A partial frame swap doesn't reconcile `<head>`, so the title and description ride along as response headers and the browser applies them as the frame resolves. See Recipe 22.
+- **Neither (a normal navigation)** — renders `<Document />` with the same title and description, which land in the document's real `<head>`. This is the no-JavaScript path and the initial load, and it is where the `<Frame>` elements cause the render middleware to fetch both regions in-process.
 
-**Extract this into a reusable helper** when multiple routes share the same layout. The `try/catch` wrapper provides a single place to handle missing records -- redirecting to the home page rather than showing an error.
+Note there is no `try/catch` around this. A missing contact is a `redirect()` — an ordinary returned response, which the render middleware follows when the request is a frame sub-request and `fetch` follows in the browser. Only genuinely exceptional failures belong in a catch, and those are better handled by a middleware that converts one known error type (see `uploadErrors()` in Recipe 35).
+
+**Also `ctx` is passed, not fetched.** `ContactContext` is a structural slice — `headers`, `params`, `render`, `url` — so the helper never calls `getContext()`, has no hidden dependency on the async-context middleware, and can be called with a literal in a test.
+
+**The alternative: give the frame its own route.** Instead of one URL that serves three shapes, point the frame at a dedicated path. This app has no such route — sketched here for contrast:
+
+```tsx
+<Frame name="detail" src={routes.contacts.detail.href({ id })} />
+```
+
+That route's action only ever returns the fragment, so it needs no `frameTarget()` check at all — the branch disappears, and the fragment becomes independently addressable and cacheable. Prefer it when the region's data or cache lifetime genuinely differs from the page's, or when several different pages embed the same region.
+
+Prefer the header check — the shape this app uses — when the frame's content _is_ the page: `/contacts/5` must be bookmarkable, must render a full document for a cold load or a crawler, and must serve the same content as a fragment for a client-side swap. One URL, one action, three renderings, and progressive enhancement falls out for free.
 
 ---
 
@@ -1663,87 +1969,292 @@ export default defineConfig({
 
 **Decision:** How does a list item know if it's currently active or being navigated to?
 
-**Heuristic:** Use route pattern matching against the current URL (for active) and the navigation destination URL (for pending). This is necessary because frame-targeted navigations only update one frame -- components in other frames don't re-render, so server-provided props become stale.
+**Heuristic:** Match route patterns against the current URL (for active) and against the in-flight navigation's destination (for pending). Both have to be derived on the client, because a frame-targeted navigation re-renders only the targeted frame — components in _other_ frames keep their original server-provided props.
+
+`app/actions/contacts/public/sidebar-item.tsx`, in full:
 
 ```tsx
+import { routes } from "#/routes.ts";
+import { isServer, onDestinationChange, pendingDestination } from "#/utils/pending-navigation.ts";
 import { createMultiMatcher } from "remix/route-pattern/match";
+import { clientEntry, type Handle, type SerializableProps } from "remix/ui";
 
-// Set up a matcher for the routes this item could match
 let matcher = createMultiMatcher<true>();
-matcher.add(routes.posts.show.pattern, true);
-matcher.add(routes.posts.edit.pattern, true);
+matcher.add(routes.contacts.show.pattern, true);
+matcher.add(routes.contacts.edit.pattern, true);
 
-// In the render function:
-let currentMatch = !isServer ? matcher.match(location.href) : null;
-let isActive = Number(currentMatch?.params?.id ?? selected) === item.id;
+export namespace SidebarItem {
+    export interface Props extends SerializableProps {
+        selected: string;
+        query?: string;
 
-// Pending: destination matches this item but isn't the current page
-let destination = navigating.to.url ? matcher.match(navigating.to.url.href) : null;
-let isPathChange = !isServer && navigating.to.url?.pathname !== location.pathname;
-let isPending = !isActive && isPathChange && Number(destination?.params.id) === item.id;
+        contact: {
+            id: number;
+            first?: string;
+            last?: string;
+            favorite?: boolean;
+        };
+    }
+}
+
+export let SidebarItem = clientEntry(import.meta.url, (handle: Handle<SidebarItem.Props>) => {
+    onDestinationChange(() => handle.update(), { signal: handle.signal });
+
+    return () => {
+        let { selected, query, contact } = handle.props;
+        // Derive active state from the current URL on the client, since
+        // frame-targeted navigations don't re-render the sidebar and the
+        // server-provided `selected` prop becomes stale.
+        let currentMatch = isServer ? null : matcher.match(location.href);
+        let isActive = Number(currentMatch?.params?.id ?? selected) === contact.id;
+
+        let pending = pendingDestination();
+        let destinationMatch = pending ? matcher.match(pending.href) : null;
+        // Only show pending for contacts that aren't already active
+        let isPathChange = !isServer && pending?.pathname !== location.pathname;
+        let isPending =
+            !isActive && isPathChange && Number(destinationMatch?.params.id) === contact.id;
+
+        return (
+            <li>
+                <a
+                    class={isActive ? "active" : isPending ? "pending" : undefined}
+                    data-rmx-target="detail"
+                    href={routes.contacts.show.href(
+                        { id: contact.id },
+                        { searchParams: { q: query } },
+                    )}
+                >
+                    {contact.first || contact.last ? (
+                        <>
+                            {contact.first} {contact.last}
+                        </>
+                    ) : (
+                        <i>No Name</i>
+                    )}
+                    {contact.favorite ? <span>{"\u2605"}</span> : null}
+                </a>
+            </li>
+        );
+    };
+});
 ```
 
-**Why derive from URL instead of props:** Frame-targeted navigations don't re-render components outside the targeted frame. A server-provided `selected` prop becomes stale after client-side navigation. Reading `window.location.href` directly gives the true current state.
+**The anchor needs no mixin.** `data-rmx-target="detail"` is a plain typed JSX prop — `AnchorHTMLProps` declares the `data-rmx-*` attributes, and the runtime reads them off the source element when it intercepts the click. Only `<button type="submit">` still needs `link()` from `#/utils/link.tsx`, because `ButtonHTMLProps` doesn't declare those attributes (see Recipe 15).
 
-**The `selected` prop serves as a server fallback** for the initial render and non-JS environments. On the client, the URL-derived state takes precedence.
+**Why this is the one place a shared subscription survives.** Recipe 10's decision order rules out both cheaper options here:
+
+- The item can't `await navigate()`, because the runtime performs the navigation from the anchor itself; nothing in the component's own code starts it.
+- Frame `reloadStart`/`reloadComplete` can't drive it either, and this is the crux: when one item becomes active, the item **losing** active state must also re-render — and that component never received the click. It sits in the `sidebar` frame, which isn't the frame reloading (the click targets `detail`), so no frame event it can observe ever fires. `remix/ui` has no broadcast for "sibling components, your active state may have changed".
+
+So the app owns a minimal primitive. `app/utils/pending-navigation.ts` is roughly 55 lines replacing a 111-line navigation state machine, and it exposes exactly three things:
+
+```ts
+export let isServer = typeof window === "undefined";
+
+/** Destination of the in-flight navigation, or `null` when idle. */
+export function pendingDestination(): URL | null {
+    return destination;
+}
+
+/** Subscribes to destination changes for the lifetime of `signal`. */
+export function onDestinationChange(listener: () => void, options: { signal: AbortSignal }): void {
+    // No navigation events fire on the server, so never register there.
+    if (isServer) return;
+
+    listeners.add(listener);
+    options.signal.addEventListener("abort", () => listeners.delete(listener));
+}
+```
+
+It tracks the Navigation API directly, and deliberately waits for the whole transition rather than the URL commit:
+
+```ts
+if (!isServer) {
+    navigation.addEventListener("navigate", event => {
+        setDestination(new URL(event.destination.url));
+    });
+
+    // The runtime's listener commits the URL before frame content arrives, so
+    // wait for the whole transition to keep pending state visible until the
+    // frame has actually swapped.
+    navigation.addEventListener("currententrychange", () => {
+        let transition = navigation.transition;
+
+        if (!transition) {
+            setDestination(null);
+            return;
+        }
+
+        // An aborted transition rejects; the navigation replacing it fires its
+        // own currententrychange.
+        transition.finished.then(
+            () => setDestination(null),
+            () => {},
+        );
+    });
+}
+```
+
+This is a deliberate, justified, narrow addition — not a framework gap being papered over. Before adding anything like it, confirm your case really is "a component must re-render because of a navigation it never participated in". Anything else belongs in Recipe 10's first two tiers.
+
+**Why derive from the URL instead of props:** frame-targeted navigations don't re-render components outside the targeted frame, so a server-provided `selected` prop goes stale as soon as the user clicks. Reading `location.href` gives the true current state.
+
+**The `selected` prop is the server fallback** for the initial render and for no-JS environments; on the client the URL-derived match takes precedence via `currentMatch?.params?.id ?? selected`. The `isServer` guards are what let the same component render in both places.
 
 ---
 
 ### 22. How do I update head metadata during frame navigations?
 
-**Decision:** How do I change `<title>`, `<meta>`, `<link>`, and other head elements when frame content changes without a full page load?
+**Decision:** How do I change `<title>` and `<meta name="description">` when frame content changes without a full page load?
 
-**Heuristic:** Use the `<Head>` component from `app/utils/metadata/`. It lets frame components declare head entries in their JSX; the server inlines them into `document.head` at SSR time, and a hydrated `MetadataManager` reconciles them across subsequent frame navigations. This handles `<title>`, `<meta>`, `<link>`, `<style>`, and `<script>` uniformly — no per-element components required.
+**Heuristic:** Render metadata literally, in the document's real `<head>`, and pass it down as props. For a _partial_ frame swap — where there is no document `<head>` in the response — carry the metadata on response **headers** and apply it in the browser's `resolveFrame`. There is no metadata collection layer, and nothing hoists head elements out of arbitrary component subtrees.
 
-**The pieces:**
-
-```
-app/utils/metadata/
-  index.ts        # public API surface
-  head.tsx        # <Head> component (collects + transports entries)
-  manager.ts      # MetadataManager (client reconciliation)
-  rules.ts        # precedence / dedupe / lifecycle rules
-  html.ts         # HTML rendering of head entries
-  ssr.ts          # injects collected entries into the document
-  stream.ts       # streaming integration (renderWithMetadata)
-  transport.ts    # serializes entries into <template data-pitlane-metadata>
-  frames.ts       # withMetadataFrames wrapper for resolveFrame
-```
-
-**Usage in any component** (server-only or hydrated):
+**Half 1 — the document owns the baseline.** `app/ui/document.tsx` takes the page's metadata as props:
 
 ```tsx
-import { Head } from "#/utils/metadata/index.ts";
-
-export function PostDetail(handle: Handle<{ post: Post }>) {
-    let props = handle.props;
-    return () => (
-        <div>
-            <Head>
-                <title>{`${props.post.title} · ${SITE.title}`}</title>
-                {props.post.summary ? (
-                    <meta content={props.post.summary} name="description" />
-                ) : null}
-            </Head>
-            <h1>{props.post.title}</h1>
-        </div>
-    );
+export namespace Document {
+    export interface Props {
+        description?: string;
+        title?: string;
+    }
 }
 ```
 
-`<Head>` accepts any combination of `<title>`, `<meta>`, `<link>`, `<style>`, and `<script>` children. They never render in place — the component emits a `<template data-pitlane-metadata>` placeholder that the rest of the pipeline reads.
+and renders it inside its own `<head>`, falling back to the site title:
 
-**How the pieces fit together:**
+```tsx
+<head>
+    <meta charSet="utf-8" />
+    <meta content="width=device-width, initial-scale=1" name="viewport" />
 
-1. **Server render:** `<Head>` writes a transport `<template>` into the stream. `renderDocument()` pipes the rendered stream through `renderWithMetadata` (`stream.ts`), which collects all transport templates and injects their entries into `document.head` (via `ssr.ts`) before the response is flushed. So the initial HTML arrives with a fully-populated `<head>` — no flash, no script.
+    <title>{handle.props.title ?? SITE.title}</title>
+    {handle.props.description ? (
+        <meta content={handle.props.description} name="description" />
+    ) : null}
 
-2. **Client hydration:** `entry.browser.tsx` calls `createMetadataManager().hydrate(document)` before `run()`. The manager indexes head entries by precedence and owner so it can later remove or replace them.
+    {/* icons, stylesheets, and client-entry assets follow */}
+</head>
+```
 
-3. **Frame navigation:** The client entry passes its `resolveFrame` through `withMetadataFrames(...)`. When a frame response contains `<template data-pitlane-metadata>` payloads, the wrapper extracts them and hands them to the manager, which reconciles `<head>` against the new entries before committing the frame body.
+Controllers supply the values. `app/actions/contacts/controller.tsx` builds a `DetailPage` (`PageMetadata & { node: RemixNode }`) per action and hands the same object to whichever response shape the request asked for:
 
-**Why a transport layer:** A naive "set `document.title` on render" approach can only update the title. The metadata module handles arbitrary head elements with precedence rules — multiple frames can each contribute `<meta>` tags, and the manager dedupes by key and unloads entries whose owner frame disappears.
+```tsx
+let page = detail(contact);
 
-**Per-page baseline:** The base `<title>` and shared meta tags belong in `Document.tsx` inside `<Head>`. Frame components add or override entries from there. The "owner" of an entry is inferred from where `<Head>` lives (page, frame, leaf component) — see [head.tsx:104](app/utils/metadata/head.tsx#L104).
+if (target === "detail") {
+    return ctx.render(page.node, { headers: pageMetadataHeaders(page) });
+}
+
+return ctx.render(<Document description={page.description} title={page.title} />);
+```
+
+```tsx
+async show(ctx) {
+    let { q } = s.parse(QuerySchema, ctx.url.searchParams);
+
+    return await contactPage(ctx, contact => ({
+        description: contact.notes || (contact.bsky ? `@${contact.bsky}` : undefined),
+        node: <ShowContact contact={contact} query={q} />,
+        title: `${contactName(contact)} · ${SITE.title}`,
+    }));
+},
+```
+
+**Half 2 — partial frame swaps carry metadata on headers.** `app/utils/page-metadata.ts` is the whole mechanism:
+
+```ts
+export type PageMetadata = {
+    description?: string;
+    title: string;
+};
+
+const TITLE_HEADER = "x-page-title";
+const DESCRIPTION_HEADER = "x-page-description";
+
+/**
+ * Response headers carrying page metadata. Values are percent-encoded because
+ * header values are ASCII-only and contact names are not.
+ */
+export function pageMetadataHeaders(metadata: PageMetadata): Record<string, string> {
+    let headers: Record<string, string> = {
+        [TITLE_HEADER]: encodeURIComponent(metadata.title),
+    };
+
+    if (metadata.description) {
+        headers[DESCRIPTION_HEADER] = encodeURIComponent(metadata.description);
+    }
+
+    return headers;
+}
+
+/** Applies a frame response's page metadata to the live document. */
+export function applyPageMetadata(headers: Headers): void {
+    let title = headers.get(TITLE_HEADER);
+    if (title === null) return;
+
+    document.title = decodeURIComponent(title);
+
+    let description = headers.get(DESCRIPTION_HEADER);
+    let meta = document.head.querySelector<HTMLMetaElement>('meta[name="description"]');
+
+    if (description === null) {
+        meta?.remove();
+        return;
+    }
+
+    if (!meta) {
+        meta = document.createElement("meta");
+        meta.name = "description";
+        document.head.appendChild(meta);
+    }
+
+    meta.content = decodeURIComponent(description);
+}
+```
+
+The browser side is one call inside `resolveFrame` in `app/entry.browser.tsx`, so _every_ frame response gets the treatment without any component opting in:
+
+```tsx
+async resolveFrame(src, options) {
+    let headers = new Headers({ accept: "text/html", "x-remix-frame": "true" });
+    if (options?.target) headers.set("x-remix-target", options.target);
+
+    let response = await fetch(src, {
+        body: options?.formData,
+        headers,
+        method: options?.method ?? "GET",
+        signal: options?.signal,
+    });
+
+    // Rejecting here is what surfaces the failure on the app's `error`
+    // event, which the banner below renders.
+    if (!response.ok) {
+        let body = (await response.text()).trim();
+        throw new Error(body || `${response.status} ${response.statusText}`);
+    }
+
+    applyPageMetadata(response.headers);
+
+    // Return the Response, not its body: the runtime only learns a
+    // submission was redirected from `response.redirected`/`response.url`,
+    // and uses it to re-sync the address bar with the swapped content.
+    return response;
+}
+```
+
+**Why the split — the exact runtime boundary.** The two paths handle `<head>` differently:
+
+- **Full-document navigation:** the runtime parses the response with `DOMParser`, then DOM-diffs the live `document.head` against the response's `head` (and likewise `body`). So the `<title>` and `<meta>` that `Document` renders reconcile natively — an existing title is updated, a description that disappears is removed. Nothing app-level is involved.
+- **Partial / named-frame swap:** frame HTML is parsed as a _fragment_ (`template.innerHTML` on a `<template>`), and the only head handling on that path removes `<head>` elements that have **no child nodes**. A populated nested `<head>` is never hoisted into the document — it is either discarded by fragment parsing or reconciled into the frame's own region, where it does nothing. A `detail`-frame response therefore _cannot_ express its title in markup, which is why it expresses it on the response instead.
+
+**Why percent-encoding:** header values are ASCII byte strings, and contact names are not — `"Ada Lovelace · Remix 3 Contacts"` alone contains a non-ASCII separator. `encodeURIComponent` on the server and `decodeURIComponent` in the browser make arbitrary titles transportable without restricting what a contact may be called.
+
+**Absent header means "leave it alone":** `applyPageMetadata` returns immediately when there is no title header, so JSON responses and frames that don't describe a page never clobber the document's metadata. A present title with an absent description removes a stale description — the same net effect the document diff would have had.
+
+**What's pinned by tests:** `app/utils/page-metadata.test.browser.ts` covers the contract end to end by round-tripping through both functions — the non-ASCII title survives the ASCII-only header, a second page upserts the description instead of duplicating it, a page without a description drops the previous one, and an empty `Headers` leaves the document untouched.
+
+**Scope, stated plainly:** this mechanism handles `<title>` and `<meta name="description">`. It does not handle per-frame `<link>` tags, Open Graph sets, precedence between several frames contributing metadata, or removal keyed to a frame unmounting. None of that is implemented, and there is no collection layer to extend — a page that needs richer head content should be served as a full document, whose `<head>` the runtime reconciles for free.
 
 ---
 
@@ -1757,7 +2268,7 @@ export function PostDetail(handle: Handle<{ post: Post }>) {
 
 ```tsx
 // Client entry module — resolves hydration script + its dependencies
-import clientAssets from "#/entry.browser.ts?assets=client";
+import clientAssets from "#/entry.browser.tsx?assets=client";
 
 // SSR assets — resolves server-rendered module dependencies (CSS, JS preloads)
 import serverAssets from "#/entry.server.tsx?assets=ssr";
@@ -1770,7 +2281,7 @@ import styles from "#/index.css?url";
 
 ```tsx
 import { mergeAssets } from "@pitlane/dev/runtime";
-import clientAssets from "#/entry.browser.ts?assets=client";
+import clientAssets from "#/entry.browser.tsx?assets=client";
 import serverAssets from "#/entry.server.tsx?assets=ssr";
 import styles from "#/index.css?url";
 
@@ -2701,7 +3212,7 @@ router.map(routes.dashboard, {
     middleware: [requireAuth()],
     handler(ctx) {
         let { identity } = ctx.get(Auth) as GoodAuth<User>;
-        return html(await renderDocument(<Dashboard user={identity} />));
+        return ctx.render(<Dashboard user={identity} />);
     },
 });
 ```
@@ -2791,51 +3302,91 @@ auth({
 
 **Decision:** How do I accept, validate, store, and serve user-uploaded files?
 
-**Heuristic:** Use the `formData()` middleware with a custom `uploadHandler` to intercept file fields during form parsing. Store files in a durable backend (R2, filesystem) and return a URL string that replaces the file field in the parsed FormData. Serve uploaded files through a dedicated route.
+**Heuristic:** Use the `formData()` middleware with a custom `uploadHandler` to intercept file fields during form parsing. Store files in a durable backend (R2, filesystem) and return a URL string that replaces the file field in the parsed FormData. Serve uploaded files through a dedicated route. Keep the allow-list, the storage handle, and the handler in one module (`app/utils/uploads.ts`) so middleware, controller, and form all read the same source.
 
-**The upload handler:**
+**The upload module** (`app/utils/uploads.ts`):
 
 ```tsx
 import type { FileUpload } from "remix/form-data-parser";
+
+import { R2FileStorage } from "#/data/adapters/r2-file-storage.ts";
 import { routes } from "#/routes.ts";
+import { env } from "cloudflare:workers";
 
-const ALLOWED_TYPES = [
-    "image/jpeg",
-    "image/png",
-    "image/gif",
-    "image/webp",
-    "image/svg+xml",
-    "image/avif",
-];
-const ALLOWED_TYPE_SET = new Set(ALLOWED_TYPES);
+const ALLOWED_TYPE: Record<string, true> = {
+    "image/avif": true,
+    "image/gif": true,
+    "image/jpeg": true,
+    "image/png": true,
+    "image/svg+xml": true,
+    "image/webp": true,
+};
 
+/** Value for a file input's `accept` attribute. */
+export const ALLOWED_TYPES = Object.keys(ALLOWED_TYPE);
+
+export let uploadStorage = new R2FileStorage(env.FILES);
+
+/**
+ * Thrown while the form body is still streaming, so it cannot be turned into a
+ * response at the throw site. {@link uploadErrors} converts it to a 415.
+ */
+export class UnsupportedMediaTypeError extends Error {
+    constructor(type: string) {
+        super(`Unsupported image format: ${type}`);
+        this.name = "UnsupportedMediaTypeError";
+    }
+}
+
+/** Stores an upload in R2 and returns the URL used as the form field's value. */
 export async function uploadHandler(file: FileUpload): Promise<string | undefined> {
-    // Empty file inputs still produce a multipart part — skip them so the
-    // existing avatar value is preserved by the action.
-    if (file.size === 0) return undefined;
+    // Empty file inputs still produce a multipart part — skip them
+    if (file.size === 0) {
+        return undefined;
+    }
 
-    if (!ALLOWED_TYPE_SET.has(file.type)) {
-        throw new Response(
-            "Unsupported image format. Please upload a JPEG, PNG, GIF, or WebP file.",
-            { status: 415 },
-        );
+    if (!ALLOWED_TYPE[file.type]) {
+        throw new UnsupportedMediaTypeError(file.type);
     }
 
     let ext = file.name.split(".").pop() || "jpg";
     let key = `${file.fieldName}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
 
-    await storage.set(key, file);
+    await uploadStorage.set(key, file);
     return routes.uploads.href({ key });
 }
 ```
 
 **Key details:**
 
-- The handler receives a `FileUpload` object (a `File` with metadata) for every file field in the form
-- Return a **string** to replace the file with a URL, or `undefined` to drop the field entirely (use this for empty file inputs so the existing avatar value is preserved by the action)
-- Build the returned URL via `routes.uploads.href({ key })` so it stays in sync with the route definition (see Recipe 6) — never hardcode `/uploads/${key}`
-- Validate the file type early and throw a `Response` to short-circuit with an appropriate HTTP status. The `rescueResponses()` middleware (Recipe 7) catches it and turns it into the outgoing response
-- Generate unique keys using a combination of field name, timestamp, and random suffix to prevent collisions
+- The handler receives a `FileUpload` object (a `File` with metadata) for every file field in the form.
+- Return a **string** to replace the file with a URL, or `undefined` to drop the field entirely. An empty file input still produces a multipart part, so `file.size === 0` must return `undefined` — otherwise the action would overwrite a saved avatar with `""` on every save that didn't pick a new photo.
+- Build the returned URL via `routes.uploads.href({ key })` so it stays in sync with the route definition (see Recipe 6) — never hardcode `/uploads/${key}`.
+- Generate unique keys from field name + timestamp + random suffix to prevent collisions.
+- `ALLOWED_TYPE` is a `Record<string, true>` because the hot path is a single membership test — `!ALLOWED_TYPE[file.type]` is a property lookup, no `Set` to allocate or `Array.includes` to scan. `ALLOWED_TYPES` is derived from it with `Object.keys()`, so the `accept` attribute and the server check can never disagree.
+
+**Why the handler throws instead of returning a `Response`.** The handler runs _inside_ `formData()`, while the multipart body is still being parsed. There is no `next()` to short-circuit and no response to return from where it stands: it is a callback in the middle of a stream, not a middleware. So it throws a typed error, `formData()` re-throws it, and `uploadErrors()` — installed first in the stack (Recipe 7) — catches it and produces the actual HTTP response:
+
+```tsx
+export function uploadErrors(): Middleware {
+    return async (_ctx, next) => {
+        try {
+            return await next();
+        } catch (error) {
+            if (error instanceof UnsupportedMediaTypeError) {
+                return new Response(
+                    "Unsupported image format. Please upload a JPEG, PNG, GIF, or WebP file.",
+                    { status: 415 },
+                );
+            }
+
+            throw error;
+        }
+    };
+}
+```
+
+Note what this is _not_: it does not catch thrown `Response` objects. Throwing a `Response` and expecting a middleware to unwrap it has no upstream precedent — `fetch-router` never catches thrown Responses. Throw a domain error; let a middleware that understands that error decide the status.
 
 **Wiring the handler into middleware:**
 
@@ -2843,67 +3394,69 @@ export async function uploadHandler(file: FileUpload): Promise<string | undefine
 formData({ uploadHandler }),
 ```
 
-Pass the handler to `formData()` in your middleware stack. Non-file fields are parsed normally; file fields are routed through your handler.
+Non-file fields are parsed normally; file fields are routed through your handler.
 
-**Important timing consideration:** The upload handler runs during form data parsing — before `asyncContext()` and other middleware that follow `formData()` in the stack. This means `getContext()` is not available inside the handler. Access platform bindings (like R2 buckets) directly rather than through request context:
+**Important timing consideration:** `formData()` sits _above_ `asyncContext()` in the stack, so the handler runs before request context exists. `getContext()` is not available inside it. Access platform bindings directly at module scope instead — which is what `uploadStorage` is:
 
 ```tsx
 import { env } from "cloudflare:workers";
-let storage = new R2FileStorage(env.FILES);
+export let uploadStorage = new R2FileStorage(env.FILES);
 ```
+
+Keeping this in `app/utils/uploads.ts` rather than the controller matters for a second reason: the file input's `accept` value comes from the same module. If `ALLOWED_TYPES` lived in the controller, a UI component would have to import from the controller layer, dragging a module-scope Cloudflare binding into the component graph with it.
 
 **Serving uploaded files** — register a `GET /uploads/*key` action that streams from R2:
 
 ```tsx
-import { createFileResponse as sendFile } from "remix/response/file";
-
-// inside createController(routes, { actions: { ... } })
 async uploads(ctx) {
-    let file = await storage.get(ctx.params.key);
-    if (!file) return new Response("File not found", { status: 404 });
+    let file = await uploadStorage.get(ctx.params.key);
+
+    if (!file) {
+        return new Response("File not found", { status: 404 });
+    }
+
     return sendFile(file, ctx.request, {
         cacheControl: "public, max-age=31536000",
     });
 },
 ```
 
-Use `createFileResponse` from `remix/response/file` to serve files with proper headers (content type, range requests, caching). The `cacheControl` option sets a long cache lifetime for immutable uploads.
+Use `createFileResponse` from `remix/response/file` (imported here as `sendFile`) to serve files with proper headers — content type, range requests, caching. The `cacheControl` option sets a long cache lifetime, which is safe because upload keys are unique per write.
 
-**The upload form:**
+**The upload form** — `accept` comes straight from the module that enforces it:
 
 ```tsx
-<RestfulForm
-    action={routes.items.update.href({ id })}
-    enctype="multipart/form-data"
-    method={routes.items.update.method}
->
-    <label>
-        <span>Avatar</span>
-        <div>
-            <img alt="Current avatar" src={item.avatar || PLACEHOLDER_URL} />
-            <label class="avatar-upload">
-                <input accept={ALLOWED_TYPES.join(",")} hidden name="avatar" type="file" />
-                <span>Choose Photo</span>
-            </label>
-        </div>
-    </label>
-    <button type="submit">Save</button>
-</RestfulForm>
+<label>
+    <span>Avatar</span>
+    <div id="contact-form-avatar">
+        <img
+            alt="Current avatar"
+            src={
+                props.contact.avatar ||
+                "https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png"
+            }
+        />
+        <label class="avatar-upload">
+            <input accept={ALLOWED_TYPES.join(",")} hidden name="avatar" type="file" />
+            <span>Choose Photo</span>
+        </label>
+    </div>
+</label>
 ```
 
 **Key rules:**
 
-- Set `enctype="multipart/form-data"` on the form — without this, the browser sends file fields as empty strings
-- Use `accept` on the file input to filter the file picker to allowed types (client-side hint only — always validate server-side too)
-- Use a hidden file input with a styled label for custom upload button appearance
-- In your controller, check whether a new file was uploaded. If no file was provided, preserve the existing value:
+- Set `enctype="multipart/form-data"` on the form — without it, the browser sends file fields as empty strings.
+- `accept` filters the file picker; it is a client-side hint only. The server check in `uploadHandler` is the one that counts.
+- Use a hidden file input with a styled label for a custom upload button appearance.
+- In your controller, check whether a new file arrived. If not, preserve the existing value:
 
 ```tsx
 let updates = s.parse(UpdateSchema, ctx.formData);
 
 // Preserve existing avatar when no new file is uploaded
 if (!updates.avatar) {
-    updates.avatar = existingRecord.avatar ?? "";
+    updates.avatar = contact.avatar ?? "";
 }
 ```
 
@@ -2919,7 +3472,7 @@ This matches paths like `/uploads/avatar/1712345678-abc123.jpg`, with the full p
 
 ### 36. How should I set up import aliases?
 
-**Decision:** How do I avoid deep relative imports like `../../../components/Button.tsx`?
+**Decision:** How do I avoid deep relative imports like `../../../ui/cancel-button.tsx`?
 
 **Heuristic:** Use `package.json#imports` (Node.js subpath imports) instead of `tsconfig.json#paths`. Subpath imports are a runtime standard — they work in Node.js, Vite, Cloudflare Workers, and every bundler without additional configuration or plugins. TypeScript paths, by contrast, are a compile-time-only feature that requires bundler-specific `tsconfigPaths` plugins and can silently diverge between what TypeScript resolves and what your runtime resolves.
 
@@ -2933,16 +3486,33 @@ This matches paths like `/uploads/avatar/1712345678-abc123.jpg`, with the full p
 }
 ```
 
-The `#` prefix is required by the Node.js subpath imports spec. This maps `#/components/Button.tsx` to `./app/components/Button.tsx`.
+The `#` prefix is required by the Node.js subpath imports spec. This maps `#/ui/search-bar.tsx` to `./app/ui/search-bar.tsx`.
 
 **Using aliases in source code:**
 
 ```tsx
-import { SearchBar } from "#/components/SearchBar.tsx";
+import { getContacts } from "#/data/contacts.ts";
+import { database, uploadErrors } from "#/middleware.ts";
 import { routes } from "#/routes.ts";
-import { database } from "#/middleware.ts";
+import { SearchBar } from "#/ui/search-bar.tsx";
+import { frameTarget } from "#/utils/frames.ts";
 import { link } from "#/utils/link.tsx";
+import { uploadHandler } from "#/utils/uploads.ts";
 ```
+
+Include the file extension. The lint config enforces it (`import/extensions` with `ignorePackages`), and it is what makes the same specifier resolve identically in Node, Vite, and Workers.
+
+**When to use a relative import instead.** `#/` is for crossing a directory boundary. For a sibling in the same directory, a relative import is shorter and says something true — that these two files are a unit:
+
+```tsx
+// app/actions/controller.tsx
+import { sidebar } from "./sidebar.tsx";
+
+// app/ui/document.tsx
+import { RestfulForm } from "./restful-form.tsx";
+```
+
+That's the whole rule: `./sibling.tsx` for same-directory, `#/…` for everything else. `../` never appears — if you're reaching for it, use the alias.
 
 **What you don't need:**
 
@@ -2970,10 +3540,17 @@ The `#` prefix is the only one that works everywhere without configuration beyon
         "lib": ["DOM", "DOM.Iterable", "ESNext"],
         "target": "ESNext",
         "module": "ESNext",
+        "types": ["@types/node", "vite-plus/client", "@pitlane/dev/assets"],
         "moduleResolution": "bundler",
         "jsx": "react-jsx",
         "jsxImportSource": "remix/ui",
+        "esModuleInterop": true,
+        "resolveJsonModule": true,
+        "allowImportingTsExtensions": true,
+
+        "checkJs": true,
         "verbatimModuleSyntax": true,
+        "skipLibCheck": true,
         "strict": true,
         "noEmit": true
     }

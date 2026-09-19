@@ -6,12 +6,12 @@ A contacts CRUD app demo, showcasing [Remix 3](https://remix.run) SSR features. 
 
 - **CRUD server routing** – handlers for listing, creating, updating, and deleting contacts
 - [**Frame Navigation primitives**](https://github.com/remix-run/remix/pull/11147) - built-in Remix 3 client-side routing utilizing the [Navigation API](https://developer.mozilla.org/en-US/docs/Web/API/Navigation_API)
-- **RESTful forms** – demonstrates POST/PUT/PATCH/DELETE intercepts
+- **RESTful forms** – POST/PUT/PATCH/DELETE via hidden-field method override
 - **URL-driven search** – filters contacts through query parameters
 
 ## Tech Stack
 
-- **Framework:** [`remix`](https://npmx.dev/package/remix/v/3.0.0-beta.5)
+- **Framework:** [`remix`](https://npmx.dev/package/remix/v/3.0.0-rc.3)
 - **Toolchain:** [Vite+](https://viteplus.dev)
 - **Formatting:** [Oxfmt](https://oxc.rs/docs/guide/usage/formatter) (via `vp fmt`)
 - **Linting:** [Oxlint](https://oxc.rs/docs/guide/usage/linter) (via `vp lint`)

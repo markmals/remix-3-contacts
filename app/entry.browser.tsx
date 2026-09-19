@@ -38,7 +38,10 @@ let app = run({
 
         applyPageMetadata(response.headers);
 
-        return response.body ?? (await response.text());
+        // Return the Response, not its body: the runtime only learns a
+        // submission was redirected from `response.redirected`/`response.url`,
+        // and uses it to re-sync the address bar with the swapped content.
+        return response;
     },
 });
 
