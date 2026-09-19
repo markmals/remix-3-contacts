@@ -145,9 +145,31 @@ Measured effect on the Worker bundle:
 
 Counter-argument worth weighing: bouncing to the list is arguably nicer UX in a two-pane contacts app. But that argues for a _themed_ 404 rendered into the `detail` frame, not for the wrong status code — the two aren't in tension.
 
-### M2 — Uploads: no size limits, and the MIME type is taken on trust · ch11
+### M2 — Uploads: no size limits, and the MIME type is taken on trust · ch11 · **DONE**
 
-`formData({ uploadHandler })` sets none of `maxFileSize` / `maxFiles` / `maxTotalSize` / `maxParts`, so the library defaults apply (≈2 MB per file, 20 files, `maxFileSize * 20 + 1 MiB` total). `uploadHandler` checks `file.type`, which is the client-declared multipart header — trivially forged — and derives the storage key's extension from the unsanitized `file.name`.
+`formData({ uploadHandler })` set none of `maxFileSize` / `maxFiles` / `maxTotalSize` / `maxParts`, so the library defaults applied (≈2 MB per file, 20 files, `maxFileSize * 20 + 1 MiB` total). `uploadHandler` checked `file.type`, the client-declared multipart header, and derived the storage key's extension from the unsanitized `file.name`.
+
+**Fixed** with explicit caps and a two-signal type check:
+
+| Limit          | Value |
+| -------------- | ----- |
+| `maxFileSize`  | 5 MB  |
+| `maxFiles`     | 1     |
+| `maxTotalSize` | 6 MB  |
+| `maxParts`     | 20    |
+
+A breach no longer becomes a 500. `uploadErrors()` now maps the five `Max*ExceededError` types to **413**, and any other `MultipartParseError` / `FormDataParseError` — a malformed body rather than a server fault — to **400**.
+
+**Read this before trusting the type check.** `remix/mime` does **not** sniff content. `detectMimeType(name)` is a pure extension→MIME lookup; nothing in the package reads bytes. So "the real MIME type" is not available from it, and the app still cannot prove what a file contains. What changed is that **two independent client-supplied signals must now agree** — the multipart `Content-Type` and the filename's extension — and both must land in the allowlist. That rejects the mismatch shapes (`evil.svg` declared `image/png`, and the reverse) but a renamed file whose header matches its extension still gets through. Real verification needs magic-byte sniffing, which would be a separate change.
+
+The storage key's extension now comes from the allowlist rather than the filename, so `evil.j/pg` can no longer smuggle a path segment into the key.
+
+Two structural notes:
+
+- The pure decision moved to `app/utils/image-types.ts` (`imageExtension`, `ALLOWED_TYPES`). `app/actions/contacts/form.tsx` had been importing `ALLOWED_TYPES` from `utils/uploads.ts`, which meant a UI component transitively pulled in `cloudflare:workers` and a module-scope `new R2FileStorage(env.FILES)` just to read six strings. The split removes that and makes the security-relevant logic testable despite **M3** — pinned in `app/utils/image-types.test.ts`.
+- **Cost:** bundling `remix/mime` grew the Worker from 388.6 kB to 435.2 kB raw (93.6 → 106.5 kB gzip, **+12.9 kB**) for its generated mime-db table, to resolve six extensions. Hardcoding the reverse map would reclaim that and drop a dependency; using the package is the more conventional choice. Worth revisiting if Worker start-up size ever matters.
+
+Still open from this area: `file.fieldName` is interpolated into the storage key unvalidated. R2 keys are flat so it is not traversal, and `UpdateSchema`'s `UPLOAD_PATH` refine rejects the resulting href, but a forged part name can still write an oddly-keyed orphan object.
 
 ### M3 — Router-level tests are structurally impossible today · ch13
 
@@ -240,7 +262,8 @@ Unlike H1/H2 this **is** covered by tests: `app/data/schemas.ts` imports only `r
 | H2 — `parseSafe` everywhere       | **done**          |
 | H5 — dead `staticFiles()`         | **done**          |
 | M5 — unconstrained `UpdateSchema` | **done**          |
-| H3, H4, M1–M4, M6, L1–L15         | open              |
+| M2 — upload limits and MIME trust | **done**          |
+| H3, H4, M1, M3, M4, M6, L1–L15    | open              |
 
 ## 6. Suggested order for what's left
 

@@ -2,7 +2,7 @@ import contacts from "#/actions/contacts/controller.tsx";
 import controller from "#/actions/controller.tsx";
 import { database, uploadErrors } from "#/middleware.ts";
 import { routes } from "#/routes.ts";
-import { uploadHandler } from "#/utils/uploads.ts";
+import { UPLOAD_LIMITS, uploadHandler } from "#/utils/uploads.ts";
 import { asyncContext } from "remix/middleware/async-context";
 import { formData } from "remix/middleware/form-data";
 import { methodOverride } from "remix/middleware/method-override";
@@ -14,7 +14,7 @@ import { createRouter, type MiddlewareContext } from "remix/router";
 // filesystem to read from here.
 let middleware = [
     uploadErrors(),
-    formData({ uploadHandler }),
+    formData({ ...UPLOAD_LIMITS, uploadHandler }),
     methodOverride(),
     asyncContext(),
     database(),
