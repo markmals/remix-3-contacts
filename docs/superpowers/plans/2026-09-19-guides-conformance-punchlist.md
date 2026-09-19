@@ -45,7 +45,7 @@ So `/contacts/abc` used to redirect home and then threw with nothing catching it
 
 ## 1. High
 
-### H1 — Nothing catches a thrown error, anywhere · ch03:156-163, ch12
+### H1 — Nothing catches a thrown error, anywhere · ch03:156-163, ch12 · **DONE**
 
 `app/entry.server.tsx:35` is `export default router;` — no `fetch` wrapper, no `try`/`catch`. `render()` is called with no `onError`. The only catch in the server is `uploadErrors()`, which matches exactly one error type.
 
@@ -53,7 +53,25 @@ Chapter 3 names this precisely for our runtime: _"Add a `try`/`catch` around `ro
 
 Today an uncaught throw becomes workerd's generic error page. Worse, it round-trips: the client's `resolveFrame` throws on `!response.ok` using the response body as the message, so the platform's error HTML gets rendered verbatim into the app's own error banner.
 
-**Fix:** wrap the export per the guide's Workers snippet, and pass `onError` to `render()`. Small, and it makes every other error item observable.
+**Fixed.** Two changes in `app/entry.server.tsx`:
+
+- `export default router` became the guide's Workers shape — `export default { async fetch(request) { … } } satisfies ExportedHandler` — wrapping `router.fetch()` in a `try`/`catch` that returns a plain `500`. The abort guard is the canonical one from `demos/bookstore/server.ts:11-17`: `if (!(request.signal.aborted && error === request.signal.reason))`, so a client disconnect is treated as cancellation rather than logged as a server failure (ch12, "Treat request aborts as cancellation").
+- `render()` now takes `onError`, per ch12's "Report streaming render failures". The middleware already passes `request.signal` and suppresses `onError` for its own internal frame sub-requests, so it reports once per request rather than once per frame.
+
+The `?assets=ssr` query import in `document.tsx` reads build metadata, not module exports, so the changed default export doesn't affect it; the named `router` export is retained.
+
+Verified by building and reading the emitted Worker — the boundary survives bundling intact and the entry is still a valid Workers handler:
+
+```js
+var worker_entry_default = { async fetch(request) {
+    try {
+        return await router.fetch(request);
+    } catch (error) {
+        if (!(request.signal.aborted && error === request.signal.reason)) console.error(error);
+        return new Response("Internal Server Error", { status: 500 });
+```
+
+Runtime confirmation still needs a real failing request — see the smoke-test note. A regression test remains blocked by **M3**.
 
 ### H2 — `s.parse()` everywhere; `parseSafe()` nowhere · ch01:591-596, ch08 · **DONE**
 
@@ -183,17 +201,17 @@ Unlike M3, `favorite-button.tsx`, `sidebar-item.tsx` and `delete-button.tsx` hav
 
 ## 5. Progress
 
-| Item                          | Status            |
-| ----------------------------- | ----------------- |
-| R1 — unstyled error banner    | **done**          |
-| R2 — malformed id threw       | **done** (via H2) |
-| H2 — `parseSafe` everywhere   | **done**          |
-| H1, H3, H4, H5, M1–M6, L1–L15 | open              |
+| Item                        | Status            |
+| --------------------------- | ----------------- |
+| R1 — unstyled error banner  | **done**          |
+| R2 — malformed id threw     | **done** (via H2) |
+| H1 — no error boundary      | **done**          |
+| H2 — `parseSafe` everywhere | **done**          |
+| H3, H4, H5, M1–M6, L1–L15   | open              |
 
 ## 6. Suggested order for what's left
 
-1. **H1** — still worth doing on its own. `parseSafe` handles _expected_ invalid input; H1 is the net for genuinely unexpected throws (a D1 outage, a bug), which today still surface as workerd's generic error page and round-trip into the app's own banner via `resolveFrame`.
-2. **H3** — smallest real security win available (drop one MIME type).
-3. **H5** — delete two lines after one `curl`.
-4. **H4, M1** — both are "return the right response for the unenhanced request"; natural pair.
-5. **M3** decides whether server testing is on the table at all. Answer it before M4 or L12 — and it is what currently blocks a regression test for H2.
+1. **H3** — smallest real security win available (drop one MIME type).
+2. **H5** — delete two lines after one `curl`.
+3. **H4, M1** — both are "return the right response for the unenhanced request"; natural pair.
+4. **M3** decides whether server testing is on the table at all. Answer it before M4 or L12 — and it is what currently blocks regression tests for both H1 and H2.
