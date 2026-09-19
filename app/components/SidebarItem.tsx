@@ -1,6 +1,5 @@
 import { routes } from "#/routes.ts";
-import { link } from "#/utils/link.tsx";
-import { isServer, navigating } from "#/utils/navigating.ts";
+import { isServer, onDestinationChange, pendingDestination } from "#/utils/pending-navigation.ts";
 import { createMultiMatcher } from "remix/route-pattern/match";
 import { clientEntry, type Handle, type SerializableProps } from "remix/ui";
 
@@ -23,32 +22,32 @@ export namespace SidebarItem {
 }
 
 export let SidebarItem = clientEntry(import.meta.url, (handle: Handle<SidebarItem.Props>) => {
-    navigating.addEventListener("destinationchange", () => handle.update(), {
-        signal: handle.signal,
-    });
+    onDestinationChange(() => handle.update(), { signal: handle.signal });
 
     return () => {
         let { selected, query, contact } = handle.props;
-        // Derive active state from the current URL on the client,
-        // since frame-targeted navigations don't re-render the sidebar
-        // and the server-provided `selected` prop becomes stale.
-        let currentMatch = !isServer ? matcher.match(location.href) : null;
+        // Derive active state from the current URL on the client, since
+        // frame-targeted navigations don't re-render the sidebar and the
+        // server-provided `selected` prop becomes stale.
+        let currentMatch = isServer ? null : matcher.match(location.href);
         let isActive = Number(currentMatch?.params?.id ?? selected) === contact.id;
 
+        let pending = pendingDestination();
+        let destinationMatch = pending ? matcher.match(pending.href) : null;
         // Only show pending for contacts that aren't already active
-        let destination = navigating.to.url ? matcher.match(navigating.to.url.href) : null;
-        let isPathChange = !isServer && navigating.to.url?.pathname !== location.pathname;
-        let isPending = !isActive && isPathChange && Number(destination?.params.id) === contact.id;
+        let isPathChange = !isServer && pending?.pathname !== location.pathname;
+        let isPending =
+            !isActive && isPathChange && Number(destinationMatch?.params.id) === contact.id;
 
         return (
             <li>
                 <a
                     class={isActive ? "active" : isPending ? "pending" : undefined}
+                    data-rmx-target="detail"
                     href={routes.contacts.show.href(
                         { id: contact.id },
                         { searchParams: { q: query } },
                     )}
-                    mix={link({ target: "detail" })}
                 >
                     {contact.first || contact.last ? (
                         <>

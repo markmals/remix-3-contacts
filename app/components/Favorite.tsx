@@ -9,7 +9,7 @@ export let Favorite = clientEntry(
     import.meta.url,
     (handle: Handle<{ contactId: number; favorite: boolean }>) => {
         let submitting = false;
-        let favorite!: boolean;
+        let favorite = handle.props.favorite;
 
         return () => {
             let props = handle.props;

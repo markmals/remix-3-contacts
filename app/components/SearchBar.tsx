@@ -1,43 +1,54 @@
-import { navigating } from "#/utils/navigating.ts";
-import { clientEntry, navigate, on, type Handle } from "remix/ui";
+import { clientEntry, type Handle, navigate, on } from "remix/ui";
 
 export let SearchBar = clientEntry(import.meta.url, (handle: Handle<{ query?: string }>) => {
-    navigating.addEventListener("destinationchange", () => handle.update(), {
-        signal: handle.signal,
-    });
+    // `navigate()` settles when the targeted frame has finished swapping, so
+    // this component can own its own pending state instead of reading a global
+    // navigation bus. Counted, because each keystroke starts another one.
+    let pendingSearches = 0;
+
+    async function search(value: string) {
+        let url = new URL(location.href);
+
+        if (!value.trim()) {
+            url.searchParams.delete("q");
+            try {
+                await navigate(url.toString(), { target: "sidebar" });
+            } catch {
+                // superseded by a later keystroke
+            }
+            return;
+        }
+
+        let isFirstSearch = url.searchParams.get("q") === null;
+        url.searchParams.set("q", value);
+
+        pendingSearches++;
+        handle.update();
+
+        try {
+            await navigate(url.toString(), {
+                history: isFirstSearch ? "replace" : "push",
+                target: "sidebar",
+            });
+        } catch {
+            // superseded by a later keystroke
+        } finally {
+            pendingSearches--;
+            handle.update();
+        }
+    }
 
     return () => {
-        let props = handle.props;
-        let searching = Boolean(navigating.to.url?.searchParams.has("q"));
+        let searching = pendingSearches > 0;
+
         return (
             <form id="search-form" method="GET">
                 <input
                     aria-label="Search contacts"
                     class={searching ? "loading" : ""}
-                    defaultValue={props.query ?? undefined}
+                    defaultValue={handle.props.query ?? undefined}
                     id="q"
-                    mix={on("input", async event => {
-                        try {
-                            let url = new URL(location.href);
-
-                            // Remove empty query params when value is empty
-                            if (!event.currentTarget.value.trim()) {
-                                url.searchParams.delete("q");
-                                await navigate(url.toString(), { target: "sidebar" });
-                                return;
-                            }
-
-                            let isFirstSearch = url.searchParams.get("q") === null;
-
-                            url.searchParams.set("q", event.currentTarget.value);
-                            await navigate(url.toString(), {
-                                target: "sidebar",
-                                history: isFirstSearch ? "replace" : "push",
-                            });
-                        } catch {
-                            // ignore navigation errors caused by abortions during typing
-                        }
-                    })}
+                    mix={on("input", event => search(event.currentTarget.value))}
                     name="q"
                     placeholder="Search"
                     type="search"
