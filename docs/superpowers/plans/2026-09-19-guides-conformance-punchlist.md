@@ -211,9 +211,13 @@ The `@`-stripping in `updateContact()` was deliberately left alone. Moving that 
 
 Unlike H1/H2 this **is** covered by tests: `app/data/schemas.ts` imports only `remix/data-schema`, so it is free of the `cloudflare:workers` coupling that M3 describes. `app/data/schemas.test.ts` pins the boundaries — blank submission, omitted avatar, generated upload path, three rejected avatar shapes, `@handle`, non-handles, and the length caps.
 
-### M6 — Double-submit protection is half-built · ch09
+### M6 — Double-submit protection is half-built · ch09 · **DONE (by Orion, `8e02198`)**
 
-`favorite-button.tsx` maintains a `submitting` flag for optimistic state but never applies `disabled={submitting}` to the button. The toggle is non-idempotent, so a double-click can land two PATCHes.
+`favorite-button.tsx` maintained a `submitting` flag for optimistic state but never applied `disabled={submitting}` to the button. The toggle is non-idempotent, so a double-click could land two PATCHes. The flag is now wired to the button.
+
+### Bonus — `IdSchema` numeric checks · **DONE (by Orion, `921bc8f`)**
+
+`IdSchema` coerced to a number but accepted any numeric value. It now refines to a finite, non-negative integer, so `/contacts/-3` and `/contacts/1.5` join `/contacts/abc` in returning the 400 that H2 introduced, rather than reaching the database as a lookup that can never match.
 
 ---
 
@@ -263,7 +267,9 @@ Unlike H1/H2 this **is** covered by tests: `app/data/schemas.ts` imports only `r
 | H5 — dead `staticFiles()`         | **done**          |
 | M5 — unconstrained `UpdateSchema` | **done**          |
 | M2 — upload limits and MIME trust | **done**          |
-| H3, H4, M1, M3, M4, M6, L1–L15    | open              |
+| M6 — double-submit protection     | **done** (Orion)  |
+| `IdSchema` numeric checks         | **done** (Orion)  |
+| H3, H4, M1, M3, M4, L1–L15        | open              |
 
 ## 6. Suggested order for what's left
 
