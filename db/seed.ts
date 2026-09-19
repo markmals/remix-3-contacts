@@ -1,5 +1,5 @@
-import { createD1Database } from "@pitlane/data-table-d1";
 import { Contacts } from "#/data/contacts.ts";
+import { createD1Database } from "@pitlane/data-table-d1";
 import { getPlatformProxy } from "wrangler";
 
 // Seeds the local D1 with demo contacts. Idempotent: skips when the
