@@ -52,7 +52,14 @@ export let UpdateSchema = f.object({
     notes: f.field(s.defaulted(s.string().pipe(maxLength(MAX_NOTES)), "")),
 });
 
-export let IdSchema = s.object({ id: coerce.number() });
+export let IdSchema = s.object({
+    id: coerce
+        .number()
+        .refine(
+            value => Number.isFinite(value) && Number.isInteger(value) && value >= 0,
+            "Id must be a finite positive integer",
+        ),
+});
 
 /**
  * The `q` search filter from a URL.
