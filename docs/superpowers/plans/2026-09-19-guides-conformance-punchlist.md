@@ -110,7 +110,7 @@ Chapter 9's whole framing is HTML-first: _"Build the mutation as an HTML form an
 
 **Fix:** branch on the frame headers. Return JSON for the `fetch` path, redirect back to the contact for a native submission.
 
-### H5 — Both `staticFiles()` middlewares are dead weight on Workers · ch03:165
+### H5 — Both `staticFiles()` middlewares are dead weight on Workers · ch03:165 · **DONE**
 
 Chapter 3 calls this out by name: _"the current static-file and compression middleware use Node filesystem and compression APIs. On a worker, serve static assets through the platform."_
 
@@ -122,7 +122,18 @@ Verified end to end:
 
 So `staticFiles("./dist/client")` is unreachable in production and `staticFiles("./public")` is redundant with it. Both still cost a middleware hop per request.
 
-**Fix:** delete both calls. Confirm with a `curl` of `/favicon.svg` against a deploy first.
+**Fixed.** Both calls and the `remix/middleware/static` import are gone.
+
+The pre-deploy `curl` turned out to be unnecessary: the build emits the deploy config the platform actually uses, and it settles the question. `dist/ssr/wrangler.json` contains `"assets": { "directory": "../client" }` with **no `run_worker_first`**, so Cloudflare serves matching paths ahead of the Worker — the middleware was unreachable for exactly the paths it existed to serve. `dist/client/.assetsignore` excludes only `wrangler.json` and `.dev.vars`, and all three favicons are present in `dist/client/`, so nothing lost a server.
+
+Measured effect on the Worker bundle:
+
+|      | Before   | After    |
+| ---- | -------- | -------- |
+| Raw  | 458.2 kB | 388.6 kB |
+| gzip | 111.6 kB | 93.6 kB  |
+
+`node:fs/promises` and `node:path` are now absent from the bundle entirely — the Worker has no filesystem dependency left. Note this does **not** make `nodejs_compat` removable: `node:async_hooks` (from `asyncContext()`) and `node:timers/promises` (from `fakeNetwork()` in `app/data/contacts.ts`) both remain.
 
 ---
 
@@ -207,11 +218,11 @@ Unlike M3, `favorite-button.tsx`, `sidebar-item.tsx` and `delete-button.tsx` hav
 | R2 — malformed id threw     | **done** (via H2) |
 | H1 — no error boundary      | **done**          |
 | H2 — `parseSafe` everywhere | **done**          |
-| H3, H4, H5, M1–M6, L1–L15   | open              |
+| H5 — dead `staticFiles()`   | **done**          |
+| H3, H4, M1–M6, L1–L15       | open              |
 
 ## 6. Suggested order for what's left
 
 1. **H3** — smallest real security win available (drop one MIME type).
-2. **H5** — delete two lines after one `curl`.
-3. **H4, M1** — both are "return the right response for the unenhanced request"; natural pair.
-4. **M3** decides whether server testing is on the table at all. Answer it before M4 or L12 — and it is what currently blocks regression tests for both H1 and H2.
+2. **H4, M1** — both are "return the right response for the unenhanced request"; natural pair.
+3. **M3** decides whether server testing is on the table at all. Answer it before M4 or L12 — and it is what currently blocks regression tests for H1 and H2.

@@ -7,13 +7,13 @@ import { asyncContext } from "remix/middleware/async-context";
 import { formData } from "remix/middleware/form-data";
 import { methodOverride } from "remix/middleware/method-override";
 import { render } from "remix/middleware/render";
-import { staticFiles } from "remix/middleware/static";
 import { createRouter, type MiddlewareContext } from "remix/router";
 
+// Static assets are served by Cloudflare's `assets` binding (wrangler.jsonc),
+// which runs ahead of the Worker — `staticFiles()` is Node-fs-based and has no
+// filesystem to read from here.
 let middleware = [
     uploadErrors(),
-    staticFiles("./public"),
-    staticFiles("./dist/client"),
     formData({ uploadHandler }),
     methodOverride(),
     asyncContext(),
