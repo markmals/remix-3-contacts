@@ -10,7 +10,7 @@ const SEED_CONTACTS = [
     {
         first: "Brooks",
         last: "Lybrand",
-        avatar: "https://cdn.bsky.app/img/avatar/plain/did:plc:l7sltcx6yitxew2vgcrn72ge/bafkreibg6v7njo3pxsmzxa262j6ikw4i66umygdawz5iduuu3h4tfyprbm@jpeg",
+        avatar: "https://cdn.bsky.app/img/avatar/plain/did:plc:l7sltcx6yitxew2vgcrn72ge/bafkreihj5npizsg62l37ienf5tgsfxopjcdywg2rzwaqdrcf7t2dtngpxq",
         bsky: "brookslybrand.bsky.social",
     },
     {
