@@ -1,5 +1,7 @@
 import type { Handle, RemixNode } from "remix/ui";
 
+import { unsafeHTML } from "remix/ui";
+
 import type { MetadataElementType, MetadataEntry, MetadataProps } from "./types.ts";
 
 import { createTransportHtml } from "./transport.ts";
@@ -16,6 +18,9 @@ type RemixLikeElement = {
 };
 
 const SUPPORTED_TYPES = new Set<MetadataElementType>(["title", "meta", "link", "style", "script"]);
+
+const TEMPLATE_OPEN_TAG = /^<template\b[^>]*>/i;
+const TEMPLATE_CLOSE_TAG = /<\/template>$/i;
 
 function isElement(value: unknown): value is RemixLikeElement {
     return typeof value === "object" && value !== null && "type" in value;
@@ -106,12 +111,13 @@ export function Head(handle: Handle<HeadProps>) {
         let owner = handle.props.owner ?? handle.id;
         let entries = entriesFromHeadChildren(handle.props.children);
         let html = createTransportHtml({ owner, entries });
+        let inner = html.replace(TEMPLATE_OPEN_TAG, "").replace(TEMPLATE_CLOSE_TAG, "");
 
         return (
             <template
                 data-pitlane-metadata="true"
                 data-pitlane-metadata-owner={owner}
-                innerHTML={html.replace(/^<template\b[^>]*>/i, "").replace(/<\/template>$/i, "")}
+                innerHTML={unsafeHTML(inner)}
             />
         );
     };
