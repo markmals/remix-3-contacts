@@ -1,6 +1,5 @@
 import { ALLOWED_TYPES, imageExtension } from "#/utils/image-types.ts";
-import * as assert from "remix/assert";
-import { describe, it } from "remix/test";
+import { describe, expect, it } from "vitest";
 
 const SAMPLES: Record<string, string> = {
     "image/avif": "photo.avif",
@@ -14,35 +13,35 @@ describe("imageExtension", () => {
     it("accepts every type the file input advertises", () => {
         // Whatever `accept` offers must be storable, or the picker lies.
         for (let type of ALLOWED_TYPES) {
-            assert.notEqual(imageExtension(SAMPLES[type], type), undefined);
+            expect(imageExtension(SAMPLES[type], type)).not.toBe(undefined);
         }
     });
 
     it("normalises the extension rather than echoing the filename's", () => {
-        assert.equal(imageExtension("photo.jpeg", "image/jpeg"), "jpg");
-        assert.equal(imageExtension("PHOTO.JPG", "image/jpeg"), "jpg");
+        expect(imageExtension("photo.jpeg", "image/jpeg")).toBe("jpg");
+        expect(imageExtension("PHOTO.JPG", "image/jpeg")).toBe("jpg");
     });
 
     it("rejects a file whose declared type disagrees with its extension", () => {
         // The stored-XSS shape: an SVG dressed up as a PNG, or the reverse.
-        assert.equal(imageExtension("evil.svg", "image/png"), undefined);
-        assert.equal(imageExtension("evil.png", "image/svg+xml"), undefined);
+        expect(imageExtension("evil.svg", "image/png")).toBe(undefined);
+        expect(imageExtension("evil.png", "image/svg+xml")).toBe(undefined);
     });
 
     it("rejects types outside the allowlist even when they agree", () => {
         // SVG is excluded deliberately: it is script-bearing, and uploads are
         // served inline from this origin.
-        assert.equal(imageExtension("evil.svg", "image/svg+xml"), undefined);
-        assert.equal(imageExtension("doc.pdf", "application/pdf"), undefined);
-        assert.equal(imageExtension("page.html", "text/html"), undefined);
+        expect(imageExtension("evil.svg", "image/svg+xml")).toBe(undefined);
+        expect(imageExtension("doc.pdf", "application/pdf")).toBe(undefined);
+        expect(imageExtension("page.html", "text/html")).toBe(undefined);
     });
 
     it("rejects a filename that would smuggle a path segment into the key", () => {
-        assert.equal(imageExtension("evil.j/pg", "image/jpeg"), undefined);
+        expect(imageExtension("evil.j/pg", "image/jpeg")).toBe(undefined);
     });
 
     it("rejects a file with no usable extension", () => {
-        assert.equal(imageExtension("photo", "image/jpeg"), undefined);
-        assert.equal(imageExtension("", "image/jpeg"), undefined);
+        expect(imageExtension("photo", "image/jpeg")).toBe(undefined);
+        expect(imageExtension("", "image/jpeg")).toBe(undefined);
     });
 });

@@ -194,21 +194,35 @@ Two structural notes:
 
 Still open from this area: `file.fieldName` is interpolated into the storage key unvalidated. R2 keys are flat so it is not traversal, and `UpdateSchema`'s `UPLOAD_PATH` refine rejects the resulting href, but a forged part name can still write an oddly-keyed orphan object.
 
-### M3 — Router-level tests are structurally impossible today · ch13
+### M3 — Router-level tests are structurally impossible today · ch13 · **DONE**
 
-Chapter 13's primary server-test boundary is `router.fetch(...)`. That cannot be reached here. Verified:
+Chapter 13's primary server-test boundary is `router.fetch(...)`, and it could not be reached:
 
 ```
 import('./app/utils/uploads.ts')  -> ERR_UNSUPPORTED_ESM_URL_SCHEME  (protocol 'cloudflare:')
 ```
 
-`app/middleware.ts` and `app/utils/uploads.ts` both bind `cloudflare:workers` `env` at module scope, and `app/entry.server.tsx` builds the router as an eager singleton. `remix test`'s server runner is plain `node:worker_threads`, so the import fails before any test runs. `demos/bookstore` avoids this with a `createBookstoreRouter(options)` factory taking injectable dependencies; this app has no equivalent seam.
+`app/middleware.ts` and `app/utils/uploads.ts` bind `cloudflare:workers` `env` at module scope, and `app/entry.server.tsx` builds the router as an eager singleton. `remix test`'s server runner is plain `node:worker_threads`, so the import failed before any test ran.
 
-**This is the gate on all server-side testing** — worth deciding on before any other test item.
+**Resolved by changing the runner rather than the app.** Rather than adding a `createAppRouter(options)` seam to dodge the Workers runtime, the tests now run _inside_ it: Vitest plus `@cloudflare/vitest-plugin`, which executes the suite in workerd against the real `wrangler.jsonc` bindings. `cloudflare:workers` resolves because it genuinely exists, and no dependency injection is needed — the eager singleton is exercised exactly as deployed.
 
-### M4 — Three client components are testable right now and have no tests · ch13
+What that took:
 
-Unlike M3, `favorite-button.tsx`, `sidebar-item.tsx` and `delete-button.tsx` have no Workers coupling and can be driven through `remix/ui/test` today. The favorite button in particular has real logic worth pinning: optimistic toggle, revert on failure, dual-frame reload.
+- **Two projects.** Workerd has no DOM, so `vitest.config.ts` defines a `worker` project (`@cloudflare/vitest-plugin`) and a `dom` project (`jsdom`) split on the existing `*.test.browser.*` naming.
+- **The app's Vite plugins in both.** `@pitlane/dev`'s `remix()` supplies `clientEntry()`, `?assets=ssr` and `pitlane:dev`; without it the router's module graph will not import. Its component-HMR plugins rewrite modules to reach a dev-server registry that no test runtime provides, so the `dom` project filters those two out.
+- **Real D1.** `readD1Migrations()` reads the generated SQL in Node at config time and passes it as a binding; a setup file applies it with `applyD1Migrations()`, since workerd has no filesystem. `vp run test` now depends on `db:migrations:generate`, so schema and tests cannot drift.
+- **`NODE_ENV=test` as a Miniflare binding.** `fakeNetwork()` sleeps 1–3s per uncached call unless it sees that, and workerd does not set it. Suite time went from **9.1s to 1.6s**.
+- **`remix test` retired.** `remix.json` existed only for its globs and is deleted; assertions moved from `remix/assert` to Vitest's `expect`.
+
+Integration tests now drive the deployed entry through `exports.default.fetch()` from `cloudflare:workers` — the documented replacement for the deprecated `SELF`. `app/router.test.ts` covers the 400/404/redirect/204 contracts that H1, H2, M1 and H4 introduced and which previously had no coverage at all.
+
+One wart: every worker-project run prints `[collectCss] Failed to transform 'cloudflare:workers'`. It is Vite's Node-side CSS scan walking a module graph containing workerd-only imports. Harmless, and not suppressible via `server.deps.external` or `css: false` — both were tried and removed rather than left in as dead config.
+
+### M4 — Three client components are testable right now and have no tests · ch13 · **PARTLY DONE**
+
+`favorite-button.tsx`, `sidebar-item.tsx` and `delete-button.tsx` have no Workers coupling and can be driven through `remix/ui/test`. H4 proved it by adding `favorite-button.test.browser.tsx`, which now runs in the `dom` project; `render()` from `remix/ui/test` works unchanged under jsdom.
+
+Still untested: `sidebar-item.tsx` (active/pending derivation) and `delete-button.tsx` (the confirm gate).
 
 ### M5 — `UpdateSchema` constrains nothing · ch08 · **DONE**
 
@@ -295,10 +309,12 @@ Unlike H1/H2 this **is** covered by tests: `app/data/schemas.ts` imports only `r
 | H4 — no-JS favorite toggle        | **done**          |
 | H3 — SVG stored XSS               | **done** (Orion)  |
 | M1 — missing records 404          | **done**          |
-| M3, M4, L1–L15                    | open              |
+| M3 — router-level tests           | **done**          |
+| M4 — client component tests       | partly done       |
+| L1–L15                            | open              |
 
 ## 6. Suggested order for what's left
 
-1. **M4** is cheap and proven viable — H4's test showed `clientEntry` components render fine under `remix/ui/test`. `sidebar-item.tsx` and `delete-button.tsx` are the two left.
-2. **M3** decides whether _server_ testing is on the table at all. It still blocks regression tests for H1, H2 and M1 — every 404 and 400 path added so far is verified by reading, not by a test.
-3. **L1–L15** are the remainder; none are load-bearing.
+1. **M4's remainder** — `sidebar-item.tsx` and `delete-button.tsx`, now that the `dom` project exists.
+2. **L12** — e2e is newly plausible: with the worker project running the real entry, most of what e2e would have covered is already covered more cheaply.
+3. **L1–L15** otherwise; none are load-bearing.

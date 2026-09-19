@@ -61,7 +61,9 @@ export default defineConfig({
                 cache: false,
             },
             test: {
-                command: "remix test",
+                dependsOn: ["typegen", "db:migrations:generate"],
+                command: "vitest run",
+                cache: false,
             },
             deploy: {
                 command: "wrangler deploy",

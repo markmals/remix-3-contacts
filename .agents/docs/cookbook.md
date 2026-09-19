@@ -50,7 +50,7 @@ db/
   seed.ts                # Idempotent local seed script
   lib/                   # Shared helpers for the db scripts
 vite.config.ts           # Unified config: build, dev, fmt, lint, typecheck, db tasks
-remix.json               # `remix test` config (glob patterns, browser test files)
+vitest.config.ts         # Vitest projects: `worker` (workerd) and `dom` (jsdom)
 wrangler.jsonc           # Cloudflare bindings (D1, R2, assets)
 ```
 
@@ -1904,7 +1904,11 @@ export default defineConfig({
                 command: "vp check --fix",
                 cache: false,
             },
-            test: { command: "remix test" },
+            test: {
+                dependsOn: ["typegen", "db:migrations:generate"],
+                command: "vitest run",
+                cache: false,
+            },
             deploy: { command: "wrangler deploy", cache: false },
         },
     },
@@ -1928,7 +1932,7 @@ export default defineConfig({
 - **`input`:** File-based cache invalidation. `typegen` only reruns when `wrangler.jsonc` changes.
 - **`cache: false`:** Disables caching for tasks that should always run (typecheck, deploy, migrations).
 - **`db:reset`:** Deletes local D1 state for a clean slate during development.
-- **`test`:** Runs the in-tree `remix test` runner (see Recipe 32) against the `test` key of `remix.json`.
+- **`test`:** Runs Vitest (see Recipe 32). Depends on `db:migrations:generate` so the schema the worker tests apply is never stale.
 
 **What `@pitlane/dev`'s `remix()` plugin provides:**
 
@@ -1943,7 +1947,7 @@ export default defineConfig({
 - `vp build` — production build
 - `vp preview` — preview production build locally
 - `vp check` — format + lint + typecheck in one pass
-- `vp run test` — run the `remix test` suite
+- `vp run test` — run the Vitest suite (worker + dom projects)
 - `vp run db:migrations:deploy` — generate SQL + apply to remote D1
 - `vp run deploy` — deploy to Cloudflare Workers
 - `vp run db:reset` — wipe local D1 database
@@ -2846,97 +2850,114 @@ function Icon(props: { name: string; size?: number }) {
 
 ### 32. How do I test components?
 
-**Decision:** How do I write unit tests for Remix components?
+**Decision:** How do I test this app — the router, a controller, a component?
 
-**Heuristic:** Use the built-in `remix test` runner from `remix/test`. It provides `describe`/`it`, hooks, and runs both server-side unit tests and in-browser component tests via Playwright. For component DOM tests, import `render` from `remix/ui/test` (or assert directly against `document` for tests written against the browser pool).
+**Heuristic:** Vitest, with two projects. Server tests run **inside workerd** via `@cloudflare/vitest-plugin`, so `cloudflare:workers`, D1 and R2 are real. DOM tests run under jsdom. Which one a file lands in is decided by the `*.test.browser.*` suffix.
 
-**Configuration** — the `test` key of `remix.json` (`remix-test.config.ts` is no longer discovered, and the standalone `remix-test` binary is gone):
+**Why not `remix test`.** It is a fine runner, but its server pool is plain `node:worker_threads`, and this app binds `cloudflare:workers` at module scope (`middleware.ts`, `utils/uploads.ts`). Importing the router there fails before a single test runs:
 
-```jsonc
-{
-    "$schema": "./node_modules/remix/schema/remix.json",
-    "test": {
-        "files": ["app/**/*.test{,.browser,.e2e}.{ts,tsx}"],
-        "browserFiles": ["app/**/*.test.browser.{ts,tsx}"],
+```
+import('./app/utils/uploads.ts')  -> ERR_UNSUPPORTED_ESM_URL_SCHEME  (protocol 'cloudflare:')
+```
+
+The usual workaround is a `createAppRouter(options)` factory so tests can inject fakes. Running the tests in the actual runtime is better: no seam to maintain, and what you exercise is what deploys.
+
+**Configuration** — `vitest.config.ts`:
+
+```ts
+let migrations = await readD1Migrations("./db/d1-migrations");
+
+export default defineConfig({
+    test: {
+        projects: [
+            {
+                plugins: [
+                    remix({ serverHandler: false }),
+                    cloudflareTest({
+                        miniflare: {
+                            bindings: { NODE_ENV: "test", TEST_MIGRATIONS: migrations },
+                        },
+                        wrangler: { configPath: "./wrangler.jsonc" },
+                    }),
+                ],
+                test: {
+                    include: ["app/**/*.test.ts", "app/**/*.test.tsx"],
+                    name: "worker",
+                    setupFiles: ["./test/apply-migrations.ts"],
+                },
+            },
+            {
+                plugins: [withoutHmr(remix({ serverHandler: false }))],
+                test: {
+                    environment: "jsdom",
+                    include: ["app/**/*.test.browser.ts", "app/**/*.test.browser.tsx"],
+                    name: "dom",
+                },
+            },
+        ],
     },
+});
+```
+
+Four details that are easy to get wrong:
+
+- **The app's Vite plugins belong in both projects.** `@pitlane/dev`'s `remix()` provides `clientEntry()`, `?assets=ssr` and `pitlane:dev`. Without it the module graph will not even import.
+- **Component HMR must be filtered out of the `dom` project.** It rewrites modules to talk to a dev-server registry no test runtime provides, and fails with `Cannot read properties of undefined (reading 'componentNamesByModuleUrl')`. It is a `vite dev` concern.
+- **D1 needs its schema as data.** Workerd has no filesystem, so `readD1Migrations()` reads the generated SQL in Node at config time and a setup file applies it with `applyD1Migrations()`. `vp run test` depends on `db:migrations:generate` so the two cannot drift.
+- **Set `NODE_ENV=test` as a binding.** `fakeNetwork()` sleeps 1–3s per uncached call unless it sees it, and workerd does not set it. Worth 9.1s → 1.6s on this suite.
+
+**Integration test** — drive the deployed entry through `exports.default.fetch()`:
+
+```ts
+import { env, exports } from "cloudflare:workers";
+import { beforeEach, describe, expect, it } from "vitest";
+
+function fetchApp(path: string, init?: RequestInit) {
+    return exports.default.fetch(`https://contacts.test${path}`, init);
 }
-```
 
-Point `playwright.configFile` at a `playwright.config.ts` when you need custom Playwright projects.
+beforeEach(async () => {
+    await env.DB.prepare("delete from contacts").run();
+});
 
-Wire it into a Vite+ task so `vp run test` invokes the runner:
-
-```ts
-test: { command: "remix test" },
-```
-
-**Basic server-side test:**
-
-```ts
-import * as assert from "remix/assert";
-import { describe, it } from "remix/test";
-
-import { entriesFromHeadChildren } from "./head.tsx";
-
-describe("entriesFromHeadChildren", () => {
-    it("collects title and meta entries in order", () => {
-        let entries = entriesFromHeadChildren(
-            <>
-                <title>Hello</title>
-                <meta content="x" name="description" />
-            </>,
-        );
-        assert.equal(entries[0].type, "title");
-        assert.equal(entries[1].type, "meta");
+describe("missing contacts", () => {
+    it("answers 404 rather than redirecting", async () => {
+        expect((await fetchApp("/contacts/99999")).status).toBe(404);
     });
 });
 ```
 
-**Browser/component test** — use a real `document` from the browser runner. Mount markup via DOM APIs rather than direct property writes:
+This runs the whole stack — middleware, method override, router, controller, render middleware, D1. `SELF` from `cloudflare:test` does the same thing and is deprecated in favour of the above.
+
+**Component test** — `render()` from `remix/ui/test` works unchanged under jsdom:
 
 ```tsx
-import * as assert from "remix/assert";
-import { describe, it } from "remix/test";
+import { describe, expect, it, onTestFinished } from "vitest";
+import { render } from "remix/ui/test";
 
-import { MetadataManager } from "./manager.ts";
-import { createTransportHtml } from "./transport.ts";
+describe("FavoriteButton", () => {
+    it("shows the current state but submits the desired one", () => {
+        let result = render(<FavoriteButton contactId={1} favorite={true} />);
+        onTestFinished(result.cleanup);
 
-function setDocument(html: string) {
-    let parser = new DOMParser();
-    let parsed = parser.parseFromString(`<!DOCTYPE html><html>${html}</html>`, "text/html");
-    document.head.replaceChildren(...Array.from(parsed.head.childNodes));
-    document.body.replaceChildren(...Array.from(parsed.body.childNodes));
-}
-
-describe("MetadataManager", () => {
-    it("hydrates templates into document.head", () => {
-        setDocument(
-            `<head></head><body>${createTransportHtml({
-                owner: "page",
-                entries: [{ type: "title", props: {}, children: "Page" }],
-            })}</body>`,
-        );
-
-        let manager = new MetadataManager();
-        manager.hydrate(document);
-
-        assert.equal(document.head.querySelector("title")?.textContent, "Page");
-        manager.dispose();
+        expect(result.$("button")?.getAttribute("value")).toBe("false");
     });
 });
 ```
 
 **High-value testing patterns:**
 
-- **Server-renderable behavior first:** Pure logic (schema parsing, rendering helpers, route matchers) tests cleanly without a DOM — keep it in the `test` glob.
-- **Browser tests for DOM commit semantics:** Anything that depends on the manager, `handle.queueTask`, focus, or event dispatch belongs in the `browser` glob.
-- **Use `remix/assert`:** Avoid external matchers — the built-in `assert.equal`/`assert.deepEqual` keep the test surface tight and match what's used across the project's own tests.
+- **Prefer the router boundary.** A `fetchApp()` assertion covers routing, middleware ordering, validation and rendering in one cheap test. Reach for a unit test when the logic is genuinely standalone — `imageExtension`, `frameTarget`, the schemas.
+- **Pure modules stay pure.** `app/utils/image-types.ts` exists partly so the upload allowlist can be tested without dragging in an R2 binding. That split is worth preserving.
+- **Prove the test fails first.** When a test pins a bug fix, flip the fix back and watch it fail. `favorite-button.test.browser.tsx` was checked against the pre-fix expression.
 
 **What to avoid:**
 
 - Testing implementation-only markers (data attributes, internal class names) unless they're the only stable assertion point
-- Over-mocking framework behavior that can be exercised with real DOM interactions
+- Over-mocking framework behavior that can be exercised with a real request
 - Repeating the same navigation assertion across many paths when one representative flow proves the behavior
+
+**Known wart:** the worker project prints `[collectCss] Failed to transform 'cloudflare:workers'` on every run. It is Vite's Node-side CSS scan walking a graph with workerd-only imports; harmless, and not suppressible via `server.deps.external` or `css: false`.
 
 ---
 
