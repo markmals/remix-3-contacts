@@ -8,6 +8,27 @@
 
 ---
 
+## Status: P1, P2, and P3 — DONE
+
+| Commit    | Scope                                                                            |
+| --------- | -------------------------------------------------------------------------------- |
+| `c68c9ee` | rc.3 upgrade + `unsafeHTML()`                                                    |
+| `81f506d` | P1 — `render()` middleware, metadata teardown, `frameTarget()`, `uploadErrors()` |
+| `61dff01` | P2 — native form navigation, pending-state, `link()` narrowing                   |
+| `3e38856` | P3 — canonical file layout                                                       |
+| `1a4582a` | Cookbook rewrite + `resolveFrame` redirect fix                                   |
+
+Deviations from the plan below, with reasons:
+
+- **P2 #6 (metadata) shrank rather than being deleted, and took a different shape than sketched.** The plan proposed a client helper reading a marker from the swapped DOM. Instead `Document` takes `title`/`description` props (canonical) and the detail frame carries metadata on percent-encoded response headers that `resolveFrame` applies. 16 files and 9 tests became 2 files and 1 test.
+- **P2 #7 (`Navigating`) shrank rather than being deleted.** `SearchBar` moved to local state via `await navigate()`, but sidebar items need a broadcast that frame events cannot provide: when one item becomes active, the item _losing_ active state must also re-render, and it never received the click. `app/utils/pending-navigation.ts` (~55 lines) replaces the 111-line state machine.
+- **P2 #8 (`link.tsx`) kept, narrowed to submit buttons.** Verified that `remix/ui`'s `link()` forces `type="button"` and navigates from a `preventDefault`ed click, and that `ButtonHTMLProps` omits `data-rmx-*` while the runtime still reads it off submitters. Anchors moved to plain typed props.
+- **P1 #5 ordering mattered.** `rescueResponses()` was load-bearing, because `formData()` re-throws whatever `uploadHandler` throws. The throw idiom was fixed first, then the middleware replaced.
+- **`render({ assets })` proved unnecessary.** `@pitlane/dev`'s `clientEntryTransform` rewrites `clientEntry(import.meta.url, X)` to a public chunk URL in server environments, so the entry id is never a `file:` URL.
+- **One bug found and fixed while documenting:** `resolveFrame` returned `response.body`, but the runtime derives `redirectedTo` only from a returned `Response`'s `redirected`/`url`, so POST-then-redirect left the action URL in the address bar.
+
+## **P4 partially done:** README version link and RESTful-forms wording, the stale `resolveFrame` doc signature (died with the subsystem), the `favorite!` non-null assertion, and the formatter's `.claude` → `.agents` ignore path. **Still open:** the 14 `as` casts (8 in `app/data/adapters/r2-file-storage.ts`, plus `as any` and `let r2Options: any`), controller/action test coverage, re-vendoring `.agents/docs/remix/*.md` from rc.3, and `db/seed.ts` format drift.
+
 ## Status: rc.3 upgrade — DONE
 
 Committed as `c68c9ee`. `remix` `3.0.0-rc.1` → `3.0.0-rc.3`.
