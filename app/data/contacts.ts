@@ -20,6 +20,12 @@ export let Contacts = table({
 
 export type Contact = TableRow<typeof Contacts>;
 
+/** Display name for a contact, falling back to a placeholder. */
+export function contactName(contact: Contact): string {
+    let name = `${contact.first ?? ""} ${contact.last ?? ""}`.trim();
+    return name || "No Name";
+}
+
 export async function getContacts(query?: string): Promise<Contact[]> {
     let db = getContext().get(Database);
     await fakeNetwork(`getContacts:${query}`);

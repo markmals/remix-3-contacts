@@ -1,57 +1,12 @@
-import { createMetadataManager, withMetadataFrames } from "#/utils/metadata/index.ts";
-import { createRoot, navigate, on, run, type Handle } from "remix/ui";
+import type { Handle } from "remix/ui";
 
-createMetadataManager().hydrate(document);
-
-// Must be registered before `run` so `event.preventDefault` works properly
-//
-// - Form submissions: GET via soft-navigate, utilizing the button[data-rmx-target] attribute
-// - Form submissions: POST via fetch, then soft-navigate to the redirect URL
-navigation.addEventListener("navigate", async event => {
-    if (!event.canIntercept) return;
-
-    // triggered programatically, handled by built-in listener
-    if (!event.sourceElement) return;
-    // anchors handled by built-in listener
-    if (event.sourceElement.closest("a, area")) return;
-
-    // sourceElement is <button type="submit"> inside of form submissions
-    let target = event.sourceElement.getAttribute("data-rmx-target") ?? undefined;
-    let src = event.sourceElement.getAttribute("data-rmx-src") ?? undefined;
-    let resetScroll = event.sourceElement.hasAttribute("data-rmx-reset-scroll") ?? undefined;
-
-    // Form POST submission — handle out-of-band so the URL only changes on success.
-    if (event.formData) {
-        event.preventDefault();
-
-        let { destination, formData } = event;
-
-        void (async () => {
-            let response = await fetch(destination.url, {
-                method: "POST",
-                body: formData,
-            });
-
-            if (!response.ok) {
-                let body = (await response.text()).trim();
-                let message = body || `${response.status} ${response.statusText}`;
-                let error = Object.assign(new Error(message), { status: response.status });
-                app.dispatchEvent(new ErrorEvent("error", { error, message }));
-                return;
-            }
-
-            navigate(response.url, { target, src, resetScroll });
-        })();
-        return;
-    }
-
-    // Form GET submission
-    event.preventDefault();
-    navigate(event.destination.url, { target, src, resetScroll });
-});
+import { applyPageMetadata } from "#/utils/page-metadata.ts";
+import { createRoot, on, run } from "remix/ui";
 
 let app = run({
     async loadModule(moduleUrl, exportName) {
+        // Runtime-selected by design: the runtime hands us a client-entry URL
+        // resolved from the server-rendered hydration marker.
         let mod = await import(/* @vite-ignore */ moduleUrl);
         let exported = mod[exportName];
 
@@ -63,53 +18,70 @@ let app = run({
 
         return exported;
     },
-    resolveFrame: withMetadataFrames(async (src, options) => {
+    async resolveFrame(src, options) {
         let headers = new Headers({ accept: "text/html", "x-remix-frame": "true" });
         if (options?.target) headers.set("x-remix-target", options.target);
-        let response = await fetch(src, { headers, signal: options?.signal });
+
+        let response = await fetch(src, {
+            body: options?.formData,
+            headers,
+            method: options?.method ?? "GET",
+            signal: options?.signal,
+        });
+
+        // Rejecting here is what surfaces the failure on the app's `error`
+        // event, which the banner below renders.
+        if (!response.ok) {
+            let body = (await response.text()).trim();
+            throw new Error(body || `${response.status} ${response.statusText}`);
+        }
+
+        applyPageMetadata(response.headers);
+
         return response.body ?? (await response.text());
-    }),
+    },
 });
 
-// Global error boundary — renders a dismissible banner for any error
-// dispatched on the app runtime, including failed POST submissions above.
+// Global error boundary — renders a dismissible banner for any error dispatched
+// on the app runtime, including failed frame navigations and submissions.
 let bannerHost = document.createElement("div");
 document.body.insertBefore(bannerHost, document.body.firstChild);
 let bannerRoot = createRoot(bannerHost);
 
 function ErrorBanner(handle: Handle<{ message: string }>) {
     return () => (
-        <div id="app-error-banner" role="alert">
-            <p>{handle.props.message}</p>
+        <div class="error-banner" role="alert">
+            <span>{handle.props.message}</span>
             <button
                 aria-label="Dismiss"
                 mix={on("click", () => bannerRoot.render(null))}
                 type="button"
             >
-                ×
+                {"\u00d7"}
             </button>
         </div>
     );
 }
 
 app.addEventListener("error", event => {
-    let message = event.message || String(event.error) || "Something went wrong.";
+    let error = event.error;
+    let message = error instanceof Error ? error.message : String(error);
     bannerRoot.render(<ErrorBanner message={message} />);
 });
 
 // Must be registered after `run` (last intercept() call wins for focusReset).
+// `remix/ui` never sets focusReset, so preserving focus across an enhanced
+// navigation — the search input keeping focus while results stream in — is
+// still the app's job.
 navigation.addEventListener("navigate", event => {
     if (
         !event.canIntercept ||
         event.defaultPrevented ||
-        // Only set focusReset for non-traverse navigations.
         // Traversals (back/forward) are handled by the built-in listener.
         event.navigationType === "traverse"
     ) {
         return;
     }
 
-    // Set focusReset to prevent browser auto-reset
-    // Important for search bar behavior
     event.intercept({ focusReset: "manual" });
 });

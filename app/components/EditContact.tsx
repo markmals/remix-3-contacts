@@ -1,26 +1,16 @@
 import type { Contact } from "#/data/contacts.ts";
 import type { Handle } from "remix/ui";
 
-import { ALLOWED_TYPES } from "#/actions/controller.tsx";
 import { CancelButton } from "#/components/Buttons.tsx";
-import { SITE } from "#/data/meta.ts";
 import { routes } from "#/routes.ts";
-import { Head } from "#/utils/metadata/index.ts";
+import { ALLOWED_TYPES } from "#/utils/uploads.ts";
 
 import { RestfulForm } from "./RestfulForm.tsx";
-
-function contactName(contact: Contact): string {
-    let name = `${contact.first ?? ""} ${contact.last ?? ""}`.trim();
-    return name || "No Name";
-}
 
 export function EditContact(handle: Handle<{ contact: Contact }>) {
     let props = handle.props;
     return () => (
         <div id="detail">
-            <Head>
-                <title>{`Edit ${contactName(props.contact)} · ${SITE.title}`}</title>
-            </Head>
             <RestfulForm
                 action={routes.contacts.update.href({ id: props.contact.id })}
                 enctype="multipart/form-data"

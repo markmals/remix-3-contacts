@@ -1,3 +1,5 @@
+import type { PageMetadata } from "#/utils/page-metadata.ts";
+import type { RenderFunction } from "remix/middleware/render";
 import type { RemixNode } from "remix/ui";
 
 import { Document } from "#/components/Document.tsx";
@@ -5,53 +7,79 @@ import { EditContact } from "#/components/EditContact.tsx";
 import { ShowContact } from "#/components/ShowContact.tsx";
 import {
     type Contact,
+    contactName,
     createContact,
     deleteContact,
     getContact,
     updateContact,
 } from "#/data/contacts.ts";
+import { SITE } from "#/data/meta.ts";
 import { FavoriteSchema, IdSchema, QuerySchema, UpdateSchema } from "#/data/schemas.ts";
 import { routes } from "#/routes.ts";
-import { render, renderDocument } from "#/utils/render.tsx";
+import { frameTarget } from "#/utils/frames.ts";
+import { pageMetadataHeaders } from "#/utils/page-metadata.ts";
 import * as s from "remix/data-schema";
-import { getContext } from "remix/middleware/async-context";
-import { createHtmlResponse as html } from "remix/response/html";
 import { redirect } from "remix/response/redirect";
 import { createController } from "remix/router";
 
 import { sidebar } from "./sidebar.tsx";
 
-async function contactPage(detail: (contact: Contact) => RemixNode) {
-    try {
-        let ctx = getContext();
-        let target = ctx.headers.get("x-remix-target");
-        let { id } = s.parse(IdSchema, ctx.params);
+/** A contact's detail-frame content plus the page metadata that describes it. */
+type DetailPage = PageMetadata & { node: RemixNode };
 
-        if (target === "sidebar") {
-            return sidebar(id);
-        } else {
-            let contact = await getContact(id);
-            if (!contact) throw contact;
+/** The slice of the request context a contact page needs. */
+type ContactContext = {
+    headers: Headers;
+    params: Record<string, string | undefined>;
+    render: RenderFunction;
+    url: URL;
+};
 
-            if (target === "detail") {
-                return html(render(detail(contact)));
-            }
+/**
+ * Serves whichever of the three shapes the request asked for: the `sidebar`
+ * frame, the `detail` frame, or the whole document.
+ */
+async function contactPage(
+    ctx: ContactContext,
+    detail: (contact: Contact) => DetailPage,
+): Promise<Response> {
+    let { id } = s.parse(IdSchema, ctx.params);
+    let target = frameTarget(ctx.headers);
 
-            return html(await renderDocument(<Document />));
-        }
-    } catch {
+    if (target === "sidebar") {
+        return sidebar(ctx, id);
+    }
+
+    let contact = await getContact(id);
+    if (!contact) {
         return redirect(routes.home.href());
     }
+
+    let page = detail(contact);
+
+    if (target === "detail") {
+        return ctx.render(page.node, { headers: pageMetadataHeaders(page) });
+    }
+
+    return ctx.render(<Document description={page.description} title={page.title} />);
 }
 
 export default createController(routes.contacts, {
     actions: {
         async show(ctx) {
             let { q } = s.parse(QuerySchema, ctx.url.searchParams);
-            return await contactPage(contact => <ShowContact contact={contact} query={q} />);
+
+            return await contactPage(ctx, contact => ({
+                description: contact.notes || (contact.bsky ? `@${contact.bsky}` : undefined),
+                node: <ShowContact contact={contact} query={q} />,
+                title: `${contactName(contact)} · ${SITE.title}`,
+            }));
         },
-        async edit() {
-            return await contactPage(contact => <EditContact contact={contact} />);
+        async edit(ctx) {
+            return await contactPage(ctx, contact => ({
+                node: <EditContact contact={contact} />,
+                title: `Edit ${contactName(contact)} · ${SITE.title}`,
+            }));
         },
         async create() {
             let id = await createContact();

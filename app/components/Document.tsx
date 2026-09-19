@@ -1,3 +1,5 @@
+import type { Handle } from "remix/ui";
+
 import { SearchBar } from "#/components/SearchBar.tsx";
 import { SITE } from "#/data/meta.ts";
 import { QuerySchema } from "#/data/schemas.ts";
@@ -5,7 +7,6 @@ import clientAssets from "#/entry.browser.tsx?assets=client";
 import serverAssets from "#/entry.server.tsx?assets=ssr";
 import styles from "#/index.css?url";
 import { routes } from "#/routes.ts";
-import { Head } from "#/utils/metadata/index.ts";
 import { mergeAssets } from "@pitlane/dev/runtime";
 import { HMR } from "pitlane:dev";
 import * as s from "remix/data-schema";
@@ -14,7 +15,14 @@ import { Frame } from "remix/ui";
 
 import { RestfulForm } from "./RestfulForm.tsx";
 
-export function Document() {
+export namespace Document {
+    export interface Props {
+        description?: string;
+        title?: string;
+    }
+}
+
+export function Document(handle: Handle<Document.Props>) {
     let { url } = getContext();
     let { q } = s.parse(QuerySchema, url.searchParams);
     let { css, js } = mergeAssets(clientAssets, serverAssets);
@@ -24,6 +32,11 @@ export function Document() {
             <head>
                 <meta charSet="utf-8" />
                 <meta content="width=device-width, initial-scale=1" name="viewport" />
+
+                <title>{handle.props.title ?? SITE.title}</title>
+                {handle.props.description ? (
+                    <meta content={handle.props.description} name="description" />
+                ) : null}
 
                 <link href="/favicon.ico" rel="icon" sizes="32x32" />
                 <link href="/favicon.svg" rel="icon" sizes="any" type="image/svg+xml" />
@@ -41,9 +54,6 @@ export function Document() {
             </head>
             <body>
                 <HMR />
-                <Head>
-                    <title>{SITE.title}</title>
-                </Head>
                 <div id="root">
                     <div id="sidebar">
                         <h1>{SITE.title}</h1>
