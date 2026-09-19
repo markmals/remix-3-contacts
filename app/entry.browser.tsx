@@ -53,8 +53,8 @@ let bannerRoot = createRoot(bannerHost);
 
 function ErrorBanner(handle: Handle<{ message: string }>) {
     return () => (
-        <div class="error-banner" role="alert">
-            <span>{handle.props.message}</span>
+        <div id="app-error-banner" role="alert">
+            <p>{handle.props.message}</p>
             <button
                 aria-label="Dismiss"
                 mix={on("click", () => bannerRoot.render(null))}
