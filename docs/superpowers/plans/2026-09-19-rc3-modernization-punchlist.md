@@ -22,7 +22,7 @@ Deviations from the plan below, with reasons:
 
 - **P2 #6 (metadata) shrank rather than being deleted, and took a different shape than sketched.** The plan proposed a client helper reading a marker from the swapped DOM. Instead `Document` takes `title`/`description` props (canonical) and the detail frame carries metadata on percent-encoded response headers that `resolveFrame` applies. 16 files and 9 tests became 2 files and 1 test.
 - **P2 #7 (`Navigating`) shrank rather than being deleted.** `SearchBar` moved to local state via `await navigate()`, but sidebar items need a broadcast that frame events cannot provide: when one item becomes active, the item _losing_ active state must also re-render, and it never received the click. `app/utils/pending-navigation.ts` (~55 lines) replaces the 111-line state machine.
-- **P2 #8 (`link.tsx`) kept, narrowed to submit buttons.** Verified that `remix/ui`'s `link()` forces `type="button"` and navigates from a `preventDefault`ed click, and that `ButtonHTMLProps` omits `data-rmx-*` while the runtime still reads it off submitters. Anchors moved to plain typed props.
+- **P2 #8 (`link.tsx`) deleted outright.** First narrowed to submit buttons on the reasoning that `ButtonHTMLProps` omits `data-rmx-*`. That was solving the wrong problem: the canonical shape puts `data-rmx-target` on the **`<form>`**, not the submitter, and `FormHTMLProps` declares it. Submitter-level attributes only matter when one form's buttons target _different_ frames, which this app never does. The app now owns no link mixin — two plain typed props, one anchor and one form.
 - **P1 #5 ordering mattered.** `rescueResponses()` was load-bearing, because `formData()` re-throws whatever `uploadHandler` throws. The throw idiom was fixed first, then the middleware replaced.
 - **`render({ assets })` proved unnecessary.** `@pitlane/dev`'s `clientEntryTransform` rewrites `clientEntry(import.meta.url, X)` to a public chunk URL in server environments, so the entry id is never a `file:` URL.
 - **One bug found and fixed while documenting:** `resolveFrame` returned `response.body`, but the runtime derives `redirectedTo` only from a returned `Response`'s `redirected`/`url`, so POST-then-redirect left the action URL in the address bar.
@@ -155,13 +155,15 @@ Migrate `SearchBar.tsx:2` and `SidebarItem.tsx:3,38-42`, then delete the file. `
 
 **Accept one real loss:** `reloadStart`/`reloadComplete` are bare `Event`s. Nothing upstream distinguishes a GET load from a POST submission mid-flight, so `navigating.to.state` (`idle`/`loading`/`submitting`) and `navigating.to.formData` have no canonical equivalent. Confirm neither call site depends on that distinction before deleting; if one does, track it locally at the triggering call site.
 
-### 8. Trim `app/utils/link.tsx` to the submit-button case only — keep the file
+### 8. Delete `app/utils/link.tsx`
 
-The comment at `link.tsx:5-6` ("Only created instead of `remix/ui.link()` to support button elements") is **stale in its reasoning but correct in its conclusion.** `remix/ui`'s `link()` does handle button hosts now — but with _link_ semantics that would break a submit button: it forces `type="button"` (`link-mixin.ts:51-53`) and `preventDefault()`s the click to call `navigate()` instead (`:81-87`). Our usage at `ShowContact.tsx:80` is `<button mix={link({ target: "detail" })} type="submit">` inside a `RestfulForm` — a submitter-attribute override, closer to `formaction` than to a link. `link()` cannot serve it.
+The comment at `link.tsx:5-6` ("Only created instead of `remix/ui.link()` to support button elements") is stale. `remix/ui`'s `link()` does handle button hosts now — but with _link_ semantics that would break a submit button: it forces `type="button"` (`link-mixin.ts:51-53`) and `preventDefault()`s the click to call `navigate()` (`:81-87`). So `link()` genuinely cannot serve our call site.
 
-There is a second, independent reason to keep it: `ButtonHTMLProps` (`packages/ui/src/runtime/dom.ts:2003-2069`) does **not** declare `data-rmx-*`, while `AnchorHTMLProps` (`:1790-1799`) and `FormHTMLProps` (`:2303-2312`) do — even though the runtime _does_ read those attributes off submitters (`form-navigation.ts:159-170`, tested at `packages/ui/src/test/frame.test.tsx:1288`). So the mixin is also a typing workaround. Worth reporting upstream as a typing gap.
+That is not a reason to keep a mixin, though — it is a reason not to put frame targeting on the button at all. The canonical shape is `data-rmx-target` on the **`<form>`** ([guides, "Navigate a frame with a form"](https://guides.remix.run/streaming-ui-with-frames/#navigate-a-frame-with-a-form)), and `FormHTMLProps` (`dom.ts:2303-2312`) declares the attributes, so it is a plain typed prop. `RestfulForm` spreads extra props onto its `<form>`, so it needs no change.
 
-Do change: drop the mixin from the **anchor** in `SidebarItem.tsx:43` and pass `data-rmx-target` / `data-rmx-src` as plain typed props, matching `demos/frame-navigation/app/ui/nav-link.tsx:19-23`. And correct the comment.
+Submitter-level attributes exist — the runtime checks the submitter before the form (`form-navigation.ts:159-170`, tested at `frame.test.tsx:1288`) — but they only matter when one form's buttons target _different_ frames. This app has one button per form. `ButtonHTMLProps` (`dom.ts:2003-2069`) omitting `data-rmx-*` is then a non-issue rather than a typing gap to work around.
+
+Do: move `data-rmx-target="detail"` onto the `RestfulForm` in `show-page.tsx`, pass it as a plain prop on the anchor in `sidebar-item.tsx` (matching `demos/frame-navigation/app/ui/nav-link.tsx:19-23`), and delete the file.
 
 ---
 

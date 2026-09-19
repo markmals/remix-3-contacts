@@ -38,7 +38,6 @@ app/
   utils/
     frames.ts            # `frameTarget(headers)` — guarded frame-target detection
     frames.test.ts
-    link.tsx             # `link()` mixin: frame targeting for submit buttons
     page-metadata.ts     # Per-page title/description carried across frame swaps
     page-metadata.test.browser.ts
     pending-navigation.ts  # The single app-level navigation subscription
@@ -83,6 +82,7 @@ A resource starts as a single file (`app/actions/posts.tsx`). Once its controlle
 - Local state that changes without a full page navigation
 - Access to browser APIs (`window`, `navigation`, `localStorage`)
 - Optimistic updates or loading states
+- Imports and uses another component which satisfies the above
 
 **Server-only component** (no hydration, zero client JS):
 
@@ -590,7 +590,7 @@ async home(ctx) {
 
 **One `ctx.render()`, two output shapes.** There is no document response helper and no fragment response helper: the same call serves both. The renderer decides structurally — it flips to document mode when it walks an `<html>` tag in the tree. So the action doesn't pick a _response type_, it picks _what to build_: a tree rooted at `<Document />` (which renders `<html>`) yields a full page; a tree rooted at a `<nav>` or a `<div id="detail">` yields a fragment for one frame. Recipe 16 shows the three-way branch.
 
-If you want a typed union of valid frame names, declare it once and use it on the client side (the `link()` mixin in Recipe 15) — the server can stay loose, since `frameTarget()` returns a plain `string | null`.
+If you want a typed union of valid frame names, declare it once and use it wherever you set `data-rmx-target` (Recipe 15) — the server can stay loose, since `frameTarget()` returns a plain `string | null`.
 
 **Factor shared frames into a helper.** `app/actions/sidebar.tsx` renders the `sidebar` frame for both the root and contacts controllers, taking only the slice of context it needs:
 
@@ -773,7 +773,6 @@ It also owns everything awkward about resolving a frame's `src` on the server: i
 | Per-page title/description                     | **`utils/page-metadata.ts`**      | Server headers + browser applier, kept in one pair |
 | In-flight navigation destination               | **`utils/pending-navigation.ts`** | The one thing frame events can't express           |
 | Upload validation + storage                    | **`utils/uploads.ts`**            | Shared by middleware, controller, and the form     |
-| Frame targeting for submit buttons             | **`utils/link.tsx`**              | `ButtonHTMLProps` can't express `data-rmx-*`       |
 | Platform adapters (D1, R2)                     | **`data/adapters/`**              | Swappable implementations                          |
 
 A few of those rows deserve their reasoning spelled out, because the obvious alternative is wrong:
@@ -781,7 +780,6 @@ A few of those rows deserve their reasoning spelled out, because the obvious alt
 - **`utils/frames.ts`** exists so no controller reads `x-remix-target` by hand. `frameTarget()` returns the target only when `x-remix-frame: true` is _also_ present — a stray target header on a top-level navigation must get a whole document, not a fragment.
 - **`utils/page-metadata.ts`** pairs a server function and a browser function that have to agree on an encoding. Splitting them across layers is how they drift.
 - **`utils/pending-navigation.ts`** is the only app-level navigation subscription, and it is deliberately narrow. Per-region pending UI belongs in the region: `app/ui/search-bar.tsx` just `await`s `navigate()` and counts its own in-flight searches. See Recipe 21 for the one case that needs more.
-- **`utils/link.tsx`** is a mixin for `<button type="submit">` and nothing else. Anchors and forms take `data-rmx-target` / `data-rmx-src` as plain typed JSX props, because `AnchorHTMLProps` and `FormHTMLProps` declare them. `ButtonHTMLProps` does not, even though the runtime reads those attributes off a submitter — hence the mixin. See Recipe 15.
 
 **Actions** are grouped per resource and constructed with `createController(route, definition)`. The route argument anchors the type system so each action receives a `ctx` with `ctx.params` matched to the route's pattern and `ctx.formData` typed from the form-data middleware:
 
@@ -1321,9 +1319,9 @@ This is the islands architecture pattern: the server renders the full page, but 
 
 **Decision:** How do I make a link or a form update a specific frame instead of the whole page?
 
-**Heuristic:** Set `data-rmx-target` on the element. On anchors and forms that is a plain typed JSX prop — no mixin, no client entry. Only a `<button type="submit">` needs the `link()` mixin from `app/utils/link.tsx`, and only because its prop type doesn't declare the attributes.
+**Heuristic:** Set `data-rmx-target` on the `<a>` or the `<form>` that navigates. Both prop types declare the `data-rmx-*` attributes, so it is a plain typed JSX prop — no mixin, no client entry, no submit handler.
 
-**On anchors — plain props.** `AnchorHTMLProps` (via `PartialAnchorHTMLProps`) and `FormHTMLProps` both declare the `data-rmx-*` attributes, so they type-check directly. From `app/actions/contacts/public/sidebar-item.tsx`:
+**On anchors.** From `app/actions/contacts/public/sidebar-item.tsx`:
 
 ```tsx
 <a
@@ -1338,36 +1336,7 @@ This is the islands architecture pattern: the server renders the full page, but 
 
 The runtime's anchor path reads the attributes straight off the closest `a`/`area`, so this needs no JavaScript of its own.
 
-**On submit buttons — the `link()` mixin.** `app/utils/link.tsx` in full:
-
-```tsx
-import { createMixin } from "remix/ui";
-
-/**
- * Frame-targeting attributes for a form's submit button.
- *
- * Anchors and forms take `data-rmx-target`/`data-rmx-src` as plain typed props,
- * so they need no mixin. A submit *button* does need one, for two reasons:
- *
- * - `remix/ui`'s own `link()` gives non-anchor hosts link semantics — it forces
- *   `type="button"` and calls `navigate()` from a `preventDefault`ed click,
- *   which would stop the enclosing form from submitting at all.
- * - `ButtonHTMLProps` doesn't declare the `data-rmx-*` attributes even though
- *   the runtime reads them off a submitter, so they can't be passed directly.
- *
- * The runtime prefers the submitter's attributes over the form's, making this
- * the frame-targeting equivalent of `formaction`.
- */
-export let link = createMixin<HTMLButtonElement, [{ target?: string; src?: URL }]>(handle => {
-    return props => (
-        <handle.element data-rmx-src={props.src?.toString()} data-rmx-target={props.target} />
-    );
-});
-```
-
-Both reasons are worth internalizing. `remix/ui`'s `link(href, options)` is a _link_ mixin: on a non-anchor host it sets `role="link"`, defaults a button's `type` to `"button"`, and installs click/keydown handlers that `preventDefault()` and call `navigate(href)` — which would cancel the form submission entirely. And `ButtonHTMLProps` simply has no `data-rmx-*` members, even though the runtime reads those attributes off a submitter. So the app mixin is deliberately _not_ a link: it renders two attributes and nothing else.
-
-Used once, in `app/actions/contacts/show-page.tsx`:
+**On forms — the attribute goes on the `<form>`, not the button.** This is the canonical shape: once `run({ resolveFrame })` starts, an eligible same-origin form follows the same frame-navigation path as a link. From `app/actions/contacts/show-page.tsx`:
 
 ```tsx
 <RestfulForm
@@ -1375,15 +1344,18 @@ Used once, in `app/actions/contacts/show-page.tsx`:
         { id: props.contact.id },
         { searchParams: { q: props.query } },
     )}
+    data-rmx-target="detail"
     method={routes.contacts.edit.method}
 >
-    <button mix={link({ target: "detail" })} type="submit">
-        Edit
-    </button>
+    <button type="submit">Edit</button>
 </RestfulForm>
 ```
 
-**Submitter attributes beat form attributes.** For every attribute in the vocabulary, the runtime checks the submitter first and falls back to the `<form>`. That makes `data-rmx-target` on a button the frame-targeting analogue of `formaction`: one form, several submit buttons, each free to land its response in a different frame. Put the attribute on the `<form>` when every submitter should agree.
+`RestfulForm` spreads its extra props onto the underlying `<form>`, so `data-rmx-target` lands where the runtime looks for it.
+
+**Submitter attributes beat form attributes.** The runtime checks the submitter first and falls back to the `<form>` for every attribute in the vocabulary — the frame-targeting analogue of `formaction`. That only matters for one form with several submit buttons that should land their responses in _different_ frames. Reach for it then, and be aware of the cost: `ButtonHTMLProps` does not declare the `data-rmx-*` attributes (only `AnchorHTMLProps` and `FormHTMLProps` do), so a button-level override needs a small `createMixin` wrapper to set them. Put the attribute on the `<form>` whenever every submitter agrees, which is almost always.
+
+Do **not** reach for `remix/ui`'s own `link()` mixin here. On a non-anchor host it applies _link_ semantics: it sets `role="link"`, forces a button's `type` to `"button"`, and navigates from a `preventDefault`ed click — which cancels the form submission entirely.
 
 **The attribute vocabulary the runtime reads:**
 
@@ -2034,7 +2006,7 @@ export let SidebarItem = clientEntry(import.meta.url, (handle: Handle<SidebarIte
 });
 ```
 
-**The anchor needs no mixin.** `data-rmx-target="detail"` is a plain typed JSX prop — `AnchorHTMLProps` declares the `data-rmx-*` attributes, and the runtime reads them off the source element when it intercepts the click. Only `<button type="submit">` still needs `link()` from `#/utils/link.tsx`, because `ButtonHTMLProps` doesn't declare those attributes (see Recipe 15).
+**The anchor needs no mixin.** `data-rmx-target="detail"` is a plain typed JSX prop — `AnchorHTMLProps` declares the `data-rmx-*` attributes, and the runtime reads them off the source element when it intercepts the click. The same is true of the `<form>` that the Edit button submits (see Recipe 15). The app owns no link mixin at all.
 
 **Why this is the one place a shared subscription survives.** Recipe 10's decision order rules out both cheaper options here:
 
@@ -2514,7 +2486,7 @@ import { animateLayout, spring } from "remix/ui/animation";
 
 **Decision:** I need keyboard shortcuts, key-specific handlers, or unified pointer+keyboard press behavior.
 
-**Heuristic:** Use the built-in interaction helpers from `remix/ui` instead of writing your own keyboard/pointer normalization. For frame-targeted navigation on anchors and buttons, use the `link()` mixin (see Recipe 15) — it provides type-safe frame names.
+**Heuristic:** Use the built-in interaction helpers from `remix/ui` instead of writing your own keyboard/pointer normalization. Frame-targeted navigation needs no helper at all — it is a plain `data-rmx-target` attribute (see Recipe 15).
 
 **`keysEvents()` — key-specific host events:**
 
@@ -2569,19 +2541,17 @@ import { pressEvents } from "remix/ui";
 
 Use `pressEvents()` when a non-button element needs to behave like an interactive control across both pointer and keyboard input. It normalizes click, touch, and Enter/Space into a single interaction model.
 
-**`link()` — frame targeting on anchors and buttons:**
+**Frame targeting needs no mixin.**
 
-The `link()` mixin (defined in `app/utils/link.tsx` — see Recipe 15) is the standard way to target frames from `<a>` and `<button>` elements:
+Set `data-rmx-target` directly on the `<a>` or `<form>` that navigates — both prop types declare the `data-rmx-*` attributes, and the runtime reads them off the source element when it intercepts:
 
 ```tsx
-import { link } from "#/utils/link.tsx";
-
-<a href={routes.contacts.show.href({ id })} mix={link({ target: "detail" })}>
+<a data-rmx-target="detail" href={routes.contacts.show.href({ id })}>
     View
-</a>;
+</a>
 ```
 
-Prefer real `<a>` tags and `<form><button type="submit"></button></form>` tags with the `link()` mixin — they're accessible and work without JavaScript. The generic `link()` from `remix/ui` can make any element behave like a navigation link, but reserve that for cases where an anchor or button tag isn't practical (e.g., a complex interactive card that needs to navigate on click).
+Prefer real `<a>` tags and `<form><button type="submit">` pairs — they're accessible and work without JavaScript. `remix/ui` also exports a `link()` mixin that makes any element behave like a navigation link, but it is a _link_ mixin: on a non-anchor host it sets `role="link"` and navigates from a `preventDefault`ed click. Reserve it for cases where an anchor isn't practical, and never put it on a submit button — it would cancel the submission.
 
 ---
 
@@ -3490,7 +3460,7 @@ import { database, uploadErrors } from "#/middleware.ts";
 import { routes } from "#/routes.ts";
 import { SearchBar } from "#/ui/search-bar.tsx";
 import { frameTarget } from "#/utils/frames.ts";
-import { link } from "#/utils/link.tsx";
+import { pendingDestination } from "#/utils/pending-navigation.ts";
 import { uploadHandler } from "#/utils/uploads.ts";
 ```
 

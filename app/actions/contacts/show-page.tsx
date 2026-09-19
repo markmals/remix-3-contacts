@@ -5,7 +5,6 @@ import { DeleteButton } from "#/actions/contacts/public/delete-button.tsx";
 import { FavoriteButton } from "#/actions/contacts/public/favorite-button.tsx";
 import { routes } from "#/routes.ts";
 import { RestfulForm } from "#/ui/restful-form.tsx";
-import { link } from "#/utils/link.tsx";
 
 const AVATAR_PLACEHOLDER =
     "https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png";
@@ -60,11 +59,10 @@ export function ShowContact(handle: Handle<{ contact: Contact; query?: string }>
                                     { id: props.contact.id },
                                     { searchParams: { q: props.query } },
                                 )}
+                                data-rmx-target="detail"
                                 method={routes.contacts.edit.method}
                             >
-                                <button mix={link({ target: "detail" })} type="submit">
-                                    Edit
-                                </button>
+                                <button type="submit">Edit</button>
                             </RestfulForm>
                             <DeleteButton contactId={props.contact.id} />
                         </div>
