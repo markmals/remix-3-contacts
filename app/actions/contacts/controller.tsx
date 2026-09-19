@@ -14,7 +14,7 @@ import {
     updateContact,
 } from "#/data/contacts.ts";
 import { SITE } from "#/data/meta.ts";
-import { FavoriteSchema, IdSchema, QuerySchema, UpdateSchema } from "#/data/schemas.ts";
+import { FavoriteSchema, IdSchema, searchQuery, UpdateSchema } from "#/data/schemas.ts";
 import { routes } from "#/routes.ts";
 import { Document } from "#/ui/document.tsx";
 import { frameTarget } from "#/utils/frames.ts";
@@ -35,6 +35,19 @@ type ContactContext = {
 };
 
 /**
+ * The parsed `:id`, or a 400 when the path segment is not a contact id.
+ *
+ * `/contacts/:id` matches any segment, so a malformed id is ordinary invalid
+ * input from the client — an expected outcome that gets a response, not a
+ * thrown error.
+ */
+function contactId(params: ContactContext["params"]): number | Response {
+    let result = s.parseSafe(IdSchema, params);
+    if (!result.success) return new Response("Invalid contact id", { status: 400 });
+    return result.value.id;
+}
+
+/**
  * Serves whichever of the three shapes the request asked for: the `sidebar`
  * frame, the `detail` frame, or the whole document.
  */
@@ -42,7 +55,9 @@ async function contactPage(
     ctx: ContactContext,
     detail: (contact: Contact) => DetailPage,
 ): Promise<Response> {
-    let { id } = s.parse(IdSchema, ctx.params);
+    let id = contactId(ctx.params);
+    if (id instanceof Response) return id;
+
     let target = frameTarget(ctx.headers);
 
     if (target === "sidebar") {
@@ -66,7 +81,7 @@ async function contactPage(
 export default createController(routes.contacts, {
     actions: {
         async show(ctx) {
-            let { q } = s.parse(QuerySchema, ctx.url.searchParams);
+            let q = searchQuery(ctx.url);
 
             return await contactPage(ctx, contact => ({
                 description: contact.notes || (contact.bsky ? `@${contact.bsky}` : undefined),
@@ -85,27 +100,39 @@ export default createController(routes.contacts, {
             return redirect(routes.contacts.edit.href({ id }));
         },
         async destroy(ctx) {
-            let { id } = s.parse(IdSchema, ctx.params);
+            let id = contactId(ctx.params);
+            if (id instanceof Response) return id;
+
             await deleteContact(id);
             return redirect(routes.home.href());
         },
         async favorite(ctx) {
-            let { favorite } = s.parse(FavoriteSchema, ctx.formData);
-            let { id } = s.parse(IdSchema, ctx.params);
-            let update = await updateContact(id, {
-                favorite,
-            });
+            let id = contactId(ctx.params);
+            if (id instanceof Response) return id;
+
+            let parsed = s.parseSafe(FavoriteSchema, ctx.formData);
+            if (!parsed.success) {
+                return new Response("Invalid favorite value", { status: 400 });
+            }
+
+            let update = await updateContact(id, { favorite: parsed.value.favorite });
             return Response.json(update);
         },
         async update(ctx) {
-            let { id } = s.parse(IdSchema, ctx.params);
-            let contact = await getContact(id);
+            let id = contactId(ctx.params);
+            if (id instanceof Response) return id;
 
+            let parsed = s.parseSafe(UpdateSchema, ctx.formData);
+            if (!parsed.success) {
+                return new Response("Invalid contact details", { status: 400 });
+            }
+
+            let contact = await getContact(id);
             if (!contact) {
                 return redirect(routes.home.href());
             }
 
-            let updates = s.parse(UpdateSchema, ctx.formData);
+            let updates = parsed.value;
 
             // Preserve existing avatar when no new file is uploaded
             if (!updates.avatar) {
@@ -114,7 +141,7 @@ export default createController(routes.contacts, {
 
             await updateContact(id, updates);
 
-            return redirect(routes.contacts.show.href({ id: ctx.params.id }));
+            return redirect(routes.contacts.show.href({ id }));
         },
     },
 });

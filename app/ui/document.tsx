@@ -1,7 +1,7 @@
 import type { Handle } from "remix/ui";
 
 import { SITE } from "#/data/meta.ts";
-import { QuerySchema } from "#/data/schemas.ts";
+import { searchQuery } from "#/data/schemas.ts";
 import clientAssets from "#/entry.browser.tsx?assets=client";
 import serverAssets from "#/entry.server.tsx?assets=ssr";
 import styles from "#/index.css?url";
@@ -9,7 +9,6 @@ import { routes } from "#/routes.ts";
 import { SearchBar } from "#/ui/search-bar.tsx";
 import { mergeAssets } from "@pitlane/dev/runtime";
 import { HMR } from "pitlane:dev";
-import * as s from "remix/data-schema";
 import { getContext } from "remix/middleware/async-context";
 import { Frame } from "remix/ui";
 
@@ -24,7 +23,7 @@ export namespace Document {
 
 export function Document(handle: Handle<Document.Props>) {
     let { url } = getContext();
-    let { q } = s.parse(QuerySchema, url.searchParams);
+    let q = searchQuery(url);
     let { css, js } = mergeAssets(clientAssets, serverAssets);
 
     return () => (
