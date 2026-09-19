@@ -56,6 +56,7 @@ export let FavoriteButton = clientEntry(
                 >
                     <button
                         aria-label={favorite ? "Remove from favorites" : "Add to favorites"}
+                        disabled={submitting}
                         name="favorite"
                         type="submit"
                         value={favorite ? "true" : "false"}
