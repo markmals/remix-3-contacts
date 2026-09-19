@@ -165,9 +165,29 @@ import('./app/utils/uploads.ts')  -> ERR_UNSUPPORTED_ESM_URL_SCHEME  (protocol '
 
 Unlike M3, `favorite-button.tsx`, `sidebar-item.tsx` and `delete-button.tsx` have no Workers coupling and can be driven through `remix/ui/test` today. The favorite button in particular has real logic worth pinning: optimistic toggle, revert on failure, dual-frame reload.
 
-### M5 — `UpdateSchema` constrains nothing · ch08
+### M5 — `UpdateSchema` constrains nothing · ch08 · **DONE**
 
-`first`/`last`/`bsky`/`notes` are defaulted strings with no length or format checks; `avatar` is an arbitrary string. A 10 MB `notes` value or a garbage `bsky` handle is accepted silently. Chapter 8 prescribes `.pipe(...)` checks and `.refine(...)` predicates for exactly this.
+`first`/`last`/`bsky`/`notes` were defaulted strings with no length or format checks; `avatar` was an arbitrary string. A 10 MB `notes` value or a garbage `bsky` handle was accepted silently. Chapter 8 prescribes `.pipe(...)` checks and `.refine(...)` predicates for exactly this.
+
+**Fixed** in `app/data/schemas.ts`:
+
+| Field           | Constraint                                                                                   |
+| --------------- | -------------------------------------------------------------------------------------------- |
+| `first`, `last` | `maxLength(100)`                                                                             |
+| `notes`         | `maxLength(10_000)`                                                                          |
+| `bsky`          | `maxLength(253)` plus a DNS-label handle pattern; `""` and a pasted leading `@` both allowed |
+| `avatar`        | must be an `/uploads/<dir>/<file>` path this app generated, or absent                        |
+
+The `avatar` constraint is the one with teeth. It was an arbitrary string rendered straight into `<img src>`, so a hand-crafted submission could point every viewer's browser at someone else's server. Offsite URLs, protocol-relative URLs and traversal attempts are now all rejected.
+
+Two behaviours were checked at the source rather than assumed, because either would have made this a breaking change:
+
+- **Editing without choosing a photo still works.** `uploadHandler` returns `undefined` for an empty file part, and `parseFormData` does `if (value != null) formData.append(…)` (`packages/form-data-parser/src/lib/form-data.ts:294-297`) — the field is omitted entirely rather than stringified, so the refine sees `undefined` and passes.
+- **Seeded contacts keep their remote avatars.** Seeds use `https://cdn.bsky.app/…` URLs, but they are written by `db.create` in `db/seed.ts`, never through this schema; and `update` re-assigns `contact.avatar` _after_ parsing when no new file arrives.
+
+The `@`-stripping in `updateContact()` was deliberately left alone. Moving that normalisation into a `.transform()` is reasonable and arguably belongs with the schema, but it is a separate change — the schema simply tolerates the `@` the data layer already strips.
+
+Unlike H1/H2 this **is** covered by tests: `app/data/schemas.ts` imports only `remix/data-schema`, so it is free of the `cloudflare:workers` coupling that M3 describes. `app/data/schemas.test.ts` pins the boundaries — blank submission, omitted avatar, generated upload path, three rejected avatar shapes, `@handle`, non-handles, and the length caps.
 
 ### M6 — Double-submit protection is half-built · ch09
 
@@ -212,14 +232,15 @@ Unlike M3, `favorite-button.tsx`, `sidebar-item.tsx` and `delete-button.tsx` hav
 
 ## 5. Progress
 
-| Item                        | Status            |
-| --------------------------- | ----------------- |
-| R1 — unstyled error banner  | **done**          |
-| R2 — malformed id threw     | **done** (via H2) |
-| H1 — no error boundary      | **done**          |
-| H2 — `parseSafe` everywhere | **done**          |
-| H5 — dead `staticFiles()`   | **done**          |
-| H3, H4, M1–M6, L1–L15       | open              |
+| Item                              | Status            |
+| --------------------------------- | ----------------- |
+| R1 — unstyled error banner        | **done**          |
+| R2 — malformed id threw           | **done** (via H2) |
+| H1 — no error boundary            | **done**          |
+| H2 — `parseSafe` everywhere       | **done**          |
+| H5 — dead `staticFiles()`         | **done**          |
+| M5 — unconstrained `UpdateSchema` | **done**          |
+| H3, H4, M1–M4, M6, L1–L15         | open              |
 
 ## 6. Suggested order for what's left
 
