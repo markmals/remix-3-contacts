@@ -1,12 +1,11 @@
 import type { Contact } from "#/data/contacts.ts";
 import type { Handle } from "remix/ui";
 
-import { DeleteButton } from "#/components/Buttons.tsx";
-import { Favorite } from "#/components/Favorite.tsx";
+import { DeleteButton } from "#/actions/contacts/public/delete-button.tsx";
+import { FavoriteButton } from "#/actions/contacts/public/favorite-button.tsx";
 import { routes } from "#/routes.ts";
+import { RestfulForm } from "#/ui/restful-form.tsx";
 import { link } from "#/utils/link.tsx";
-
-import { RestfulForm } from "./RestfulForm.tsx";
 
 const AVATAR_PLACEHOLDER =
     "https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png";
@@ -35,7 +34,7 @@ export function ShowContact(handle: Handle<{ contact: Contact; query?: string }>
                             ) : (
                                 <i>No Name</i>
                             )}{" "}
-                            <Favorite
+                            <FavoriteButton
                                 contactId={props.contact.id}
                                 favorite={props.contact.favorite ?? false}
                             />

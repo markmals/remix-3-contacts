@@ -2,9 +2,9 @@ import type { PageMetadata } from "#/utils/page-metadata.ts";
 import type { RenderFunction } from "remix/middleware/render";
 import type { RemixNode } from "remix/ui";
 
-import { Document } from "#/components/Document.tsx";
-import { EditContact } from "#/components/EditContact.tsx";
-import { ShowContact } from "#/components/ShowContact.tsx";
+import { EditContact } from "#/actions/contacts/form.tsx";
+import { ShowContact } from "#/actions/contacts/show-page.tsx";
+import { sidebar } from "#/actions/sidebar.tsx";
 import {
     type Contact,
     contactName,
@@ -16,13 +16,12 @@ import {
 import { SITE } from "#/data/meta.ts";
 import { FavoriteSchema, IdSchema, QuerySchema, UpdateSchema } from "#/data/schemas.ts";
 import { routes } from "#/routes.ts";
+import { Document } from "#/ui/document.tsx";
 import { frameTarget } from "#/utils/frames.ts";
 import { pageMetadataHeaders } from "#/utils/page-metadata.ts";
 import * as s from "remix/data-schema";
 import { redirect } from "remix/response/redirect";
 import { createController } from "remix/router";
-
-import { sidebar } from "./sidebar.tsx";
 
 /** A contact's detail-frame content plus the page metadata that describes it. */
 type DetailPage = PageMetadata & { node: RemixNode };

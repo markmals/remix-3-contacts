@@ -1,4 +1,4 @@
-import contacts from "#/actions/contacts.tsx";
+import contacts from "#/actions/contacts/controller.tsx";
 import controller from "#/actions/controller.tsx";
 import { database, uploadErrors } from "#/middleware.ts";
 import { routes } from "#/routes.ts";

@@ -1,19 +1,19 @@
 import type { Handle } from "remix/ui";
 
-import { SearchBar } from "#/components/SearchBar.tsx";
 import { SITE } from "#/data/meta.ts";
 import { QuerySchema } from "#/data/schemas.ts";
 import clientAssets from "#/entry.browser.tsx?assets=client";
 import serverAssets from "#/entry.server.tsx?assets=ssr";
 import styles from "#/index.css?url";
 import { routes } from "#/routes.ts";
+import { SearchBar } from "#/ui/search-bar.tsx";
 import { mergeAssets } from "@pitlane/dev/runtime";
 import { HMR } from "pitlane:dev";
 import * as s from "remix/data-schema";
 import { getContext } from "remix/middleware/async-context";
 import { Frame } from "remix/ui";
 
-import { RestfulForm } from "./RestfulForm.tsx";
+import { RestfulForm } from "./restful-form.tsx";
 
 export namespace Document {
     export interface Props {

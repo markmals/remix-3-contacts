@@ -1,11 +1,10 @@
 import type { Contact } from "#/data/contacts.ts";
 import type { Handle } from "remix/ui";
 
-import { CancelButton } from "#/components/Buttons.tsx";
 import { routes } from "#/routes.ts";
+import { CancelButton } from "#/ui/cancel-button.tsx";
+import { RestfulForm } from "#/ui/restful-form.tsx";
 import { ALLOWED_TYPES } from "#/utils/uploads.ts";
-
-import { RestfulForm } from "./RestfulForm.tsx";
 
 export function EditContact(handle: Handle<{ contact: Contact }>) {
     let props = handle.props;

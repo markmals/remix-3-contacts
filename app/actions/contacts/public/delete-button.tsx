@@ -1,22 +1,8 @@
 import type { Handle } from "remix/ui";
 
 import { routes } from "#/routes.ts";
+import { RestfulForm } from "#/ui/restful-form.tsx";
 import { clientEntry, on } from "remix/ui";
-
-import { RestfulForm } from "./RestfulForm.tsx";
-
-export let CancelButton = clientEntry(import.meta.url, () => {
-    return () => (
-        <button
-            mix={on("click", () => {
-                navigation.back();
-            })}
-            type="button"
-        >
-            Cancel
-        </button>
-    );
-});
 
 export let DeleteButton = clientEntry(import.meta.url, (handle: Handle<{ contactId: number }>) => {
     return () => (

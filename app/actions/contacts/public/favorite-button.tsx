@@ -1,11 +1,10 @@
 import type { Handle } from "remix/ui";
 
 import { routes } from "#/routes.ts";
+import { RestfulForm } from "#/ui/restful-form.tsx";
 import { clientEntry, navigate, on } from "remix/ui";
 
-import { RestfulForm } from "./RestfulForm.tsx";
-
-export let Favorite = clientEntry(
+export let FavoriteButton = clientEntry(
     import.meta.url,
     (handle: Handle<{ contactId: number; favorite: boolean }>) => {
         let submitting = false;
