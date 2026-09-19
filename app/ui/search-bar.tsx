@@ -42,7 +42,7 @@ export let SearchBar = clientEntry(import.meta.url, (handle: Handle<{ query?: st
         let searching = pendingSearches > 0;
 
         return (
-            <form id="search-form" method="GET">
+            <form data-rmx-target="sidebar" id="search-form" method="GET">
                 <input
                     aria-label="Search contacts"
                     class={searching ? "loading" : ""}

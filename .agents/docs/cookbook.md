@@ -224,12 +224,12 @@ export let FavoriteButton = clientEntry(
                 <RestfulForm
                     action={routes.contacts.favorite.href({ id: props.contactId })}
                     method={routes.contacts.favorite.method}
-                    mix={on("submit", async event => {
+                    mix={on("submit", async (event, signal) => {
                         event.preventDefault();
 
                         favorite = !favorite;
                         submitting = true;
-                        let signal = await handle.update();
+                        await handle.update();
 
                         try {
                             let response = await fetch(event.currentTarget.action, {
@@ -242,13 +242,20 @@ export let FavoriteButton = clientEntry(
                                 throw response;
                             }
 
-                            submitting = false;
-                            navigate(location.href, { history: "replace" });
+                            // The star renders in this frame and in the sidebar
+                            // list, so refresh both rather than navigating: a
+                            // navigation would touch history and reset scroll.
+                            await Promise.all([
+                                handle.frame.reload(),
+                                handle.frames.get("sidebar")?.reload(),
+                            ]);
                         } catch {
                             favorite = !favorite;
-                            submitting = false;
-                            handle.update();
                         }
+
+                        if (signal.aborted) return;
+                        submitting = false;
+                        handle.update();
                     })}
                 >
                     <button
@@ -266,7 +273,9 @@ export let FavoriteButton = clientEntry(
 );
 ```
 
-This is **not** how ordinary POSTs work anymore — it is the optimism escape hatch. The trade is explicit: because you `preventDefault()`, you own the request, the abort signal, the failure path, the revert, and the follow-up `navigate()` that re-syncs the rest of the page. Reach for it only when the UI must change before the server answers (Recipe 3). The `favorite` action returns JSON rather than HTML precisely because nothing swaps a frame here.
+This is **not** how ordinary POSTs work anymore — it is the optimism escape hatch. The trade is explicit: because you `preventDefault()`, you own the request, the abort signal, the failure path, and the revert. Reach for it only when the UI must change before the server answers (Recipe 3). The `favorite` action returns JSON rather than HTML precisely because nothing swaps a frame automatically here.
+
+**Re-sync with `reload()`, not `navigate()`.** After the write lands, refresh the regions whose server-rendered content is now stale by reloading those frames — `handle.frame` for the containing one, `handle.frames.get(name)` for another on the page. This is the canonical shape (the guides' "Name and reload frames"). Re-navigating to the current URL with `navigate(location.href, { history: "replace" })` is worse on three counts: it re-renders the whole document rather than the two stale regions, it runs a full Navigation API transition that rewrites the current history entry, and `resetScroll` defaults to `true` — so favoriting a contact would jump the page to the top. A reload changes no destination and does none of that.
 
 **Method override for PUT/PATCH/DELETE:** HTML forms only support GET and POST. For other HTTP methods, use a hidden `_method` field with the `methodOverride()` middleware. `app/ui/restful-form.tsx` wraps the pattern so no form repeats the boilerplate:
 
@@ -366,12 +375,12 @@ export let FavoriteButton = clientEntry(
                 <RestfulForm
                     action={routes.contacts.favorite.href({ id: props.contactId })}
                     method={routes.contacts.favorite.method}
-                    mix={on("submit", async event => {
+                    mix={on("submit", async (event, signal) => {
                         event.preventDefault();
 
                         favorite = !favorite;
                         submitting = true;
-                        let signal = await handle.update();
+                        await handle.update();
 
                         try {
                             let response = await fetch(event.currentTarget.action, {
@@ -384,13 +393,20 @@ export let FavoriteButton = clientEntry(
                                 throw response;
                             }
 
-                            submitting = false;
-                            navigate(location.href, { history: "replace" });
+                            // The star renders in this frame and in the sidebar
+                            // list, so refresh both rather than navigating: a
+                            // navigation would touch history and reset scroll.
+                            await Promise.all([
+                                handle.frame.reload(),
+                                handle.frames.get("sidebar")?.reload(),
+                            ]);
                         } catch {
                             favorite = !favorite;
-                            submitting = false;
-                            handle.update();
                         }
+
+                        if (signal.aborted) return;
+                        submitting = false;
+                        handle.update();
                     })}
                 >
                     <button
@@ -412,8 +428,8 @@ export let FavoriteButton = clientEntry(
 
 - `let favorite = handle.props.favorite` seeds the setup-scope state from the first server-rendered props, so no definite-assignment assertion is needed — the value exists before the first render runs
 - `if (!submitting) favorite = props.favorite` lets later server renders win, but only while no submission is in flight; that guard is what stops a stale prop from snapping the toggle back mid-request
-- `handle.update()` returns an `AbortSignal` you can pass to `fetch` — if the component disconnects or re-renders before the fetch completes, the request is cancelled
-- `navigate(location.href, { history: "replace" })` triggers a soft reload that re-syncs the frames with server state without adding a history entry
+- The `on()` handler's second argument is an `AbortSignal` scoped to the interaction — pass it to `fetch` so a disconnected or superseded component cancels its request, and check `signal.aborted` before touching state afterwards
+- `await Promise.all([handle.frame.reload(), handle.frames.get("sidebar")?.reload()])` re-syncs exactly the two regions whose server HTML went stale. Prefer this to `navigate(location.href, …)`, which re-renders the whole document, runs a history-rewriting transition, and resets scroll by default
 - `RestfulForm` renders `method="POST"` plus a hidden `_method` input, and `methodOverride()` in the middleware stack turns that into the `PATCH` the `favorite` route declares. `new FormData(event.currentTarget, event.submitter)` carries both `_method` and the submitter's `favorite` value, so the manual fetch hits exactly the same action as the unenhanced submission would
 
 ---
@@ -471,7 +487,7 @@ export let SearchBar = clientEntry(import.meta.url, (handle: Handle<{ query?: st
         let searching = pendingSearches > 0;
 
         return (
-            <form id="search-form" method="GET">
+            <form data-rmx-target="sidebar" id="search-form" method="GET">
                 <input
                     aria-label="Search contacts"
                     class={searching ? "loading" : ""}
@@ -499,6 +515,8 @@ export let SearchBar = clientEntry(import.meta.url, (handle: Handle<{ query?: st
 **The empty-value branch:** when the input is cleared, `search()` deletes `q`, navigates immediately, and returns _before_ touching the counter. It skips the `isFirstSearch` logic (there is no new query to record) and skips the spinner (there is no query to report progress on) — the sidebar just goes back to the unfiltered list.
 
 **Why `target: "sidebar"`:** the results live in the `sidebar` frame. Targeting it leaves the detail pane and the search input itself untouched while results stream in. Without frames, omit `target` and the top frame navigates.
+
+**Why `data-rmx-target="sidebar"` on the `<form>` too:** the `on("input")` handler covers typing, but pressing Enter still submits the form. Without the attribute that submission is a full document navigation, which is a visibly different result from the same query typed a moment earlier. With it, both paths land in the same frame — and the form still degrades to a plain document navigation before the runtime starts.
 
 **Why `try/catch` around every `navigate`:** rapid typing means each call aborts the previous one, and the aborted transition rejects. Catching keeps those expected rejections from surfacing as unhandled rejections — and, in this app, from reaching the global `error` banner wired up in `app/entry.browser.tsx`.
 
@@ -918,7 +936,7 @@ let profile = s.parse(ProfileSchema, ctx.formData);
 
 `navigate(href, options)` resolves when the Navigation API transition finishes, which — for an intercepted, frame-aware navigation — is after the targeted frame has swapped. So the call site is already the best-informed place in the app. Increment a counter or set a flag around the `await`, call `handle.update()`, and you are done. `app/ui/search-bar.tsx` is the worked example; see Recipe 4 for why it counts instead of using a boolean.
 
-The same trick applies to a reload you trigger yourself: `await handle.frame.reload()` (or `await handle.frames.get(name)?.reload()`) settles once that region has finished updating.
+The same trick applies to a reload you trigger yourself: `await handle.frame.reload()` (or `await handle.frames.get(name)?.reload()`) settles once that region has finished updating. `app/actions/contacts/public/favorite-button.tsx` is the worked example — it writes with `fetch()`, then awaits a reload of both frames whose server HTML the write invalidated. Prefer this to re-navigating to the current URL: a reload changes no destination, so it adds no history entry and does not reset scroll.
 
 **2. Per-region pending UI → the frame's own events.**
 
@@ -950,7 +968,7 @@ export let ReloadIndicator = clientEntry(import.meta.url, (handle: Handle) => {
 });
 ```
 
-This app doesn't currently need that shape — search owns its own state and the sidebar uses the subscription below — but it is the canonical pattern for "this region is refreshing" when something _else_ triggered the reload. Registering in setup is safe during SSR: the server supplies a real frame handle, but nothing ever reloads server-side so the listener never fires, and `handle.signal` is an inert stub that discards the registration. Note that `handle.update()` **throws** during SSR, so it must only ever be reached from an event handler, never from setup itself.
+No component in this app currently _listens_ for these events — search owns its own state, the favorite button awaits the reloads it triggers, and the sidebar uses the subscription below — but this is the canonical pattern for "this region is refreshing" when something _else_ triggered the reload. Registering in setup is safe during SSR: the server supplies a real frame handle, but nothing ever reloads server-side so the listener never fires, and `handle.signal` is an inert stub that discards the registration. Note that `handle.update()` **throws** during SSR, so it must only ever be reached from an event handler, never from setup itself.
 
 `reloadStart` and `reloadComplete` are **bare `Event`s with no payload** — no destination, no form data, no previous URL. When you need the destination, read `frame.src`, which is the source the frame loads (and reloads) from. When you need the submitted values, you already have them at the call site that submitted them.
 
@@ -1089,15 +1107,15 @@ navigation.addEventListener("navigate", event => {
 
 **Heuristic:**
 
-| Scenario                                              | History mode       | Why                                                               |
-| ----------------------------------------------------- | ------------------ | ----------------------------------------------------------------- |
-| User clicks a link to a new page                      | **push** (default) | Back should return to the previous page                           |
-| Search-as-you-type, after the first keystroke         | **push**           | Back navigates between meaningful search states                   |
-| First search keystroke                                | **replace**        | Overwrite the pre-search entry instead of stacking `?q=s` onto it |
-| Clearing the search input                             | **push** (default) | The unfiltered list is its own destination                        |
-| Optimistic-update sync (`navigate(location.href, …)`) | **replace**        | Re-requesting the current URL is not a new destination            |
-| Non-GET form submission back to the current URL       | **replace**        | Runtime default: a mutation that re-renders in place              |
-| GET submission, or any submission to a different URL  | **push**           | Runtime default: a new destination                                |
+| Scenario                                             | History mode          | Why                                                                    |
+| ---------------------------------------------------- | --------------------- | ---------------------------------------------------------------------- |
+| User clicks a link to a new page                     | **push** (default)    | Back should return to the previous page                                |
+| Search-as-you-type, after the first keystroke        | **push**              | Back navigates between meaningful search states                        |
+| First search keystroke                               | **replace**           | Overwrite the pre-search entry instead of stacking `?q=s` onto it      |
+| Clearing the search input                            | **push** (default)    | The unfiltered list is its own destination                             |
+| Re-syncing after an optimistic write                 | **no history at all** | Use `frame.reload()`, not `navigate()` — the destination never changed |
+| Non-GET form submission back to the current URL      | **replace**           | Runtime default: a mutation that re-renders in place                   |
+| GET submission, or any submission to a different URL | **push**              | Runtime default: a new destination                                     |
 
 **From JavaScript** — `navigate()` takes a `history` option (`"push" | "replace"`), alongside `target`, `src`, and `resetScroll`:
 
@@ -1111,8 +1129,9 @@ await navigate(url.toString(), {
     target: "sidebar",
 });
 
-// Replace (overwrite the current entry), as in `favorite-button.tsx`
-navigate(location.href, { history: "replace" });
+// Re-syncing after a write is NOT a navigation — reload the stale frames
+// instead, as `favorite-button.tsx` does:
+await handle.frame.reload();
 ```
 
 When the Navigation API isn't interceptable, `navigate()` degrades to `location.replace(href)` for `"replace"` and `location.assign(href)` otherwise — so the history semantics hold either way.

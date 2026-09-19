@@ -2,7 +2,7 @@ import type { Handle } from "remix/ui";
 
 import { routes } from "#/routes.ts";
 import { RestfulForm } from "#/ui/restful-form.tsx";
-import { clientEntry, navigate, on } from "remix/ui";
+import { clientEntry, on } from "remix/ui";
 
 export let FavoriteButton = clientEntry(
     import.meta.url,
@@ -20,12 +20,12 @@ export let FavoriteButton = clientEntry(
                 <RestfulForm
                     action={routes.contacts.favorite.href({ id: props.contactId })}
                     method={routes.contacts.favorite.method}
-                    mix={on("submit", async event => {
+                    mix={on("submit", async (event, signal) => {
                         event.preventDefault();
 
                         favorite = !favorite;
                         submitting = true;
-                        let signal = await handle.update();
+                        await handle.update();
 
                         try {
                             let response = await fetch(event.currentTarget.action, {
@@ -38,13 +38,20 @@ export let FavoriteButton = clientEntry(
                                 throw response;
                             }
 
-                            submitting = false;
-                            navigate(location.href, { history: "replace" });
+                            // The star renders in this frame and in the sidebar
+                            // list, so refresh both rather than navigating: a
+                            // navigation would touch history and reset scroll.
+                            await Promise.all([
+                                handle.frame.reload(),
+                                handle.frames.get("sidebar")?.reload(),
+                            ]);
                         } catch {
                             favorite = !favorite;
-                            submitting = false;
-                            handle.update();
                         }
+
+                        if (signal.aborted) return;
+                        submitting = false;
+                        handle.update();
                     })}
                 >
                     <button
