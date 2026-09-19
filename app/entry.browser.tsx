@@ -29,9 +29,12 @@ let app = run({
             signal: options?.signal,
         });
 
-        // Rejecting here is what surfaces the failure on the app's `error`
-        // event, which the banner below renders.
-        if (!response.ok) {
+        // Same policy as the runtime's default resolver: 2xx, and 4xx that
+        // carry HTML, are content — a 404 contact renders its own page in the
+        // frame. Everything else is a failure, and rejecting here is what
+        // surfaces it on the app's `error` event for the banner below.
+        let isHtml = response.headers.get("content-type")?.startsWith("text/html") ?? false;
+        if (!response.ok && !(isHtml && response.status < 500)) {
             let body = (await response.text()).trim();
             throw new Error(body || `${response.status} ${response.statusText}`);
         }

@@ -153,11 +153,20 @@ Measured effect on the Worker bundle:
 
 ## 2. Medium
 
-### M1 — Missing records redirect home instead of returning 404 · ch01:297,311-313; ch02:229
+### M1 — Missing records redirect home instead of returning 404 · ch01:297,311-313; ch02:229 · **DONE**
 
-`contactPage()` and `update` both `redirect(routes.home.href())` when a contact is absent. Every equivalent branch in `demos/bookstore` returns a 404. A stale bookmark currently yields a `200` after the redirect, which misleads crawlers, link checkers and non-browser clients.
+`contactPage()` and `update` both `redirect(routes.home.href())` when a contact was absent. Every equivalent branch in `demos/bookstore` returns a 404. A stale bookmark yielded a `200` after the redirect, misleading crawlers, link checkers and non-browser clients.
 
-Counter-argument worth weighing: bouncing to the list is arguably nicer UX in a two-pane contacts app. But that argues for a _themed_ 404 rendered into the `detail` frame, not for the wrong status code — the two aren't in tension.
+**Fixed.** A `contactNotFound(ctx)` helper returns the 404 in whichever shape was asked for — the `ContactNotFound` fragment for a `detail` frame request, otherwise a whole `<Document>` at `status: 404`. Used by `show`, `edit` and `update`.
+
+The two shapes compose rather than duplicating: the document-level 404 renders `<Document>`, whose `detail` frame sub-requests the same URL with `x-remix-frame: true` and comes back with the fragment. No recursion, because the sub-requests always take the fragment branch. The `sidebar` sub-request is unaffected and still returns its list at 200 — the collection exists even when one member doesn't.
+
+Two supporting changes were needed to make a 404 _render_ rather than blow up:
+
+- **`render()` middleware already cooperates.** `render-ui.ts:108-116` streams a non-OK frame response's body as content and only throws when the body is null, so an application 404 page survives frame embedding.
+- **The browser resolver did not.** `entry.browser.tsx` rejected every non-`ok` response, so a client-side navigation to a deleted contact would have hit the error banner instead of showing the page. It now follows the documented policy of the runtime's own default resolver (`component.ts:150-157`) — _"accepts 2xx responses and 3xx or 4xx HTML responses. It rejects other 3xx or 4xx responses and all 5xx"_. Plain-text failures (400/413/415) still reach the banner; HTML pages render.
+
+`favorite` returns a bare `404` instead of a page: both of its callers read only the status, so rendering a document there would be waste. `destroy` still redirects home — deleting something already gone and landing on the list is the right outcome, not an error.
 
 ### M2 — Uploads: no size limits, and the MIME type is taken on trust · ch11 · **DONE**
 
@@ -285,10 +294,11 @@ Unlike H1/H2 this **is** covered by tests: `app/data/schemas.ts` imports only `r
 | `IdSchema` numeric checks         | **done** (Orion)  |
 | H4 — no-JS favorite toggle        | **done**          |
 | H3 — SVG stored XSS               | **done** (Orion)  |
-| M1, M3, M4, L1–L15                | open              |
+| M1 — missing records 404          | **done**          |
+| M3, M4, L1–L15                    | open              |
 
 ## 6. Suggested order for what's left
 
-1. **M1** — the other half of "return the right response": missing records should 404 rather than redirect home.
-2. **M4** is now cheap and proven viable — H4's test showed `clientEntry` components render fine under `remix/ui/test`. `sidebar-item.tsx` and `delete-button.tsx` are the two left.
-3. **M3** decides whether _server_ testing is on the table at all. It still blocks regression tests for H1 and H2.
+1. **M4** is cheap and proven viable — H4's test showed `clientEntry` components render fine under `remix/ui/test`. `sidebar-item.tsx` and `delete-button.tsx` are the two left.
+2. **M3** decides whether _server_ testing is on the table at all. It still blocks regression tests for H1, H2 and M1 — every 404 and 400 path added so far is verified by reading, not by a test.
+3. **L1–L15** are the remainder; none are load-bearing.

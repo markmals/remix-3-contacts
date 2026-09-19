@@ -3,6 +3,7 @@ import type { RenderFunction } from "remix/middleware/render";
 import type { RemixNode } from "remix/ui";
 
 import { EditContact } from "#/actions/contacts/form.tsx";
+import { ContactNotFound } from "#/actions/contacts/not-found-page.tsx";
 import { ShowContact } from "#/actions/contacts/show-page.tsx";
 import { sidebar } from "#/actions/sidebar.tsx";
 import {
@@ -48,6 +49,20 @@ function contactId(params: ContactContext["params"]): number | Response {
 }
 
 /**
+ * A 404 in whichever shape the request asked for: the detail fragment for a
+ * frame request, otherwise a whole document whose detail frame renders it.
+ */
+function contactNotFound(ctx: ContactContext): Response {
+    let page = { node: <ContactNotFound />, title: `Not found · ${SITE.title}` };
+
+    if (frameTarget(ctx.headers) === "detail") {
+        return ctx.render(page.node, { headers: pageMetadataHeaders(page), status: 404 });
+    }
+
+    return ctx.render(<Document title={page.title} />, { status: 404 });
+}
+
+/**
  * Serves whichever of the three shapes the request asked for: the `sidebar`
  * frame, the `detail` frame, or the whole document.
  */
@@ -66,7 +81,7 @@ async function contactPage(
 
     let contact = await getContact(id);
     if (!contact) {
-        return redirect(routes.home.href());
+        return contactNotFound(ctx);
     }
 
     let page = detail(contact);
@@ -116,8 +131,9 @@ export default createController(routes.contacts, {
             }
 
             let contact = await getContact(id);
+            // Both callers read only the status here, so a page would be waste.
             if (!contact) {
-                return redirect(routes.home.href());
+                return new Response("Contact not found", { status: 404 });
             }
 
             await updateContact(id, { favorite: parsed.value.favorite });
@@ -143,7 +159,7 @@ export default createController(routes.contacts, {
 
             let contact = await getContact(id);
             if (!contact) {
-                return redirect(routes.home.href());
+                return contactNotFound(ctx);
             }
 
             let updates = parsed.value;
