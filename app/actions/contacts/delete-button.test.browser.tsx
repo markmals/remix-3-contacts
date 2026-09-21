@@ -1,4 +1,4 @@
-import { DeleteButton } from "#/actions/contacts/public/delete-button.tsx";
+import { DeleteButton } from "#/actions/contacts/delete-button.tsx";
 import { render } from "remix/ui/test";
 import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 

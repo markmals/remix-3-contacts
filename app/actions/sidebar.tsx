@@ -1,6 +1,6 @@
 import type { RenderFunction } from "remix/middleware/render";
 
-import { SidebarItem } from "#/actions/contacts/public/sidebar-item.tsx";
+import { SidebarItem } from "#/actions/contacts/sidebar-item.tsx";
 import { getContacts } from "#/data/contacts.ts";
 import { searchQuery } from "#/data/schemas.ts";
 

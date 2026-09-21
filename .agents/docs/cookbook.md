@@ -21,10 +21,10 @@ app/
       controller.tsx     # `show`, `edit`, `create`, `destroy`, `favorite`, `update`
       show-page.tsx      # Read-only detail view (server-only)
       form.tsx           # Create/edit form (server-only)
-      public/            # This feature's `clientEntry()` components — the ones that hydrate
-        delete-button.tsx
-        favorite-button.tsx
-        sidebar-item.tsx
+      not-found-page.tsx # 404 content for the `detail` frame
+      delete-button.tsx  # Hydrated: confirm-then-submit
+      favorite-button.tsx # Hydrated: optimistic star
+      sidebar-item.tsx   # Hydrated: active/pending link state
   ui/                    # Components used by more than one route
     document.tsx         # Document shell: real <head>, sidebar chrome, both <Frame>s
     restful-form.tsx     # <form> that emits the `_method` override field
@@ -58,7 +58,7 @@ wrangler.jsonc           # Cloudflare bindings (D1, R2, assets)
 
 **Colocation:** a component lives next to the controller that renders it until a second controller needs it, at which point it moves to `app/ui/`. `ShowContact` and `EditContact` are only ever rendered by `app/actions/contacts/controller.tsx`, so they sit beside it as `show-page.tsx` and `form.tsx`. `RestfulForm` is used by the document shell, the contacts form, and the delete button, so it lives in `app/ui/`. `app/actions/sidebar.tsx` stays at the top level of `actions/` for the same reason: both the root and contacts controllers call it.
 
-`app/actions/contacts/public/` collects that feature's `clientEntry()` components — the subset of its UI that ships to the browser and hydrates. The directory name is an app convention, not a build convention; nothing in `vite.config.ts` treats it specially. It exists so you can tell at a glance which components cross the network boundary.
+**No `public/` directories inside `app/`.** (The repo root still has one — Vite's static directory, copied into `dist/client` at build time. Different thing.) Upstream colocates `clientEntry()` components under `app/**/public/**`, but that is not a stylistic convention: it is the allowlist `remix/assets`' asset server matches when deciding which source files it may compile and serve. The guides call `allowFiles` "a security boundary, not merely compilation configuration". This app bundles with Vite, which resolves the browser module graph from the `clientEntry()` calls themselves, so such a directory would allowlist nothing and buy nothing. Hydrated components sit beside their server-only siblings, and `clientEntry()` in the source is the marker that a component crosses the network boundary.
 
 **Why `entry.server.tsx` and not `router.ts`:** upstream names the server module `router.ts`. This app can't, for two reasons. It is the value of `main` in `wrangler.jsonc` (`"./app/entry.server.tsx"`), so it is the Cloudflare Workers module entry, and `app/ui/document.tsx` imports `#/entry.server.tsx?assets=ssr` to collect the SSR asset graph. The name is load-bearing in both places.
 
@@ -183,7 +183,7 @@ And the "Edit" form in `app/actions/contacts/show-page.tsx`, which additionally 
 
 Neither form has a submit handler. With JavaScript disabled both work as browser form submissions; with it enabled, `run()` turns them into frame swaps. `ShowContact` is not even a client entry — a server-only component can drive a frame-targeted submission.
 
-**Pattern B — guard only.** `app/actions/contacts/public/delete-button.tsx`:
+**Pattern B — guard only.** `app/actions/contacts/delete-button.tsx`:
 
 ```tsx
 export let DeleteButton = clientEntry(import.meta.url, (handle: Handle<{ contactId: number }>) => {
@@ -205,7 +205,7 @@ export let DeleteButton = clientEntry(import.meta.url, (handle: Handle<{ contact
 
 The handler's entire job is to cancel. It never calls `fetch` or `navigate` — if the submission is not prevented, the runtime picks it up exactly as in Pattern A. This is the only reason this component is a `clientEntry` at all.
 
-**Pattern C — hand-driven submit, for optimistic UI only.** `app/actions/contacts/public/favorite-button.tsx`:
+**Pattern C — hand-driven submit, for optimistic UI only.** `app/actions/contacts/favorite-button.tsx`:
 
 ```tsx
 export let FavoriteButton = clientEntry(
@@ -326,7 +326,7 @@ The `methodOverride()` middleware in your server entry reads `_method` from the 
 - The action is unlikely to fail
 - Instant feedback significantly improves perceived performance
 
-**First check whether you need one at all.** An ordinary submission needs no JavaScript and no manual `fetch()`. Once `run()` starts, the runtime intercepts eligible same-origin forms itself and submits them through `resolveFrame` — honoring `data-rmx-target`, `data-rmx-src`, submitter `formmethod`/`formenctype` overrides, POST redirects, and history defaults. A client entry only has to exist when you want to add behavior _around_ that submission. `app/actions/contacts/public/delete-button.tsx` is the whole non-optimistic shape — it adds a confirmation dialog and otherwise lets the runtime drive the POST:
+**First check whether you need one at all.** An ordinary submission needs no JavaScript and no manual `fetch()`. Once `run()` starts, the runtime intercepts eligible same-origin forms itself and submits them through `resolveFrame` — honoring `data-rmx-target`, `data-rmx-src`, submitter `formmethod`/`formenctype` overrides, POST redirects, and history defaults. A client entry only has to exist when you want to add behavior _around_ that submission. `app/actions/contacts/delete-button.tsx` is the whole non-optimistic shape — it adds a confirmation dialog and otherwise lets the runtime drive the POST:
 
 ```tsx
 export let DeleteButton = clientEntry(import.meta.url, (handle: Handle<{ contactId: number }>) => {
@@ -356,7 +356,7 @@ A hand-written `fetch()` is for the case the runtime deliberately does not cover
 4. On success: trigger a soft navigation to sync server state
 5. On failure: revert local state, call `handle.update()` again
 
-`app/actions/contacts/public/favorite-button.tsx`:
+`app/actions/contacts/favorite-button.tsx`:
 
 ```tsx
 export let FavoriteButton = clientEntry(
@@ -703,23 +703,24 @@ import contacts from "#/actions/contacts/controller.tsx";
 import controller from "#/actions/controller.tsx";
 import { database, uploadErrors } from "#/middleware.ts";
 import { routes } from "#/routes.ts";
-import { uploadHandler } from "#/utils/uploads.ts";
+import { UPLOAD_LIMITS, uploadHandler } from "#/utils/uploads.ts";
 import { asyncContext } from "remix/middleware/async-context";
 import { formData } from "remix/middleware/form-data";
 import { methodOverride } from "remix/middleware/method-override";
 import { render } from "remix/middleware/render";
-import { staticFiles } from "remix/middleware/static";
 import { createRouter, type MiddlewareContext } from "remix/router";
 
 let middleware = [
     uploadErrors(),
-    staticFiles("./public"),
-    staticFiles("./dist/client"),
-    formData({ uploadHandler }),
+    formData({ ...UPLOAD_LIMITS, uploadHandler }),
     methodOverride(),
     asyncContext(),
     database(),
-    render(),
+    render({
+        onError(error) {
+            console.error(error);
+        },
+    }),
 ] as const;
 
 declare module "remix/router" {
@@ -733,20 +734,32 @@ export let router = createRouter({ middleware });
 router.map(routes, controller);
 router.map(routes.contacts, contacts);
 
-export default router;
+export default {
+    async fetch(request) {
+        try {
+            return await router.fetch(request);
+        } catch (error) {
+            // An abort is the client leaving, not a server failure.
+            if (!(request.signal.aborted && error === request.signal.reason)) {
+                console.error(error);
+            }
 
-if (import.meta.hot) {
-    import.meta.hot.accept();
-}
+            return new Response("Internal Server Error", { status: 500 });
+        }
+    },
+} satisfies ExportedHandler;
 ```
 
 **Why this order matters:**
 
-1. **`uploadErrors()` first.** It is the only middleware that needs to see errors from everything below it. It catches exactly one type — `UnsupportedMediaTypeError`, raised by `uploadHandler` while the multipart body is still streaming — and returns a 415. See Recipe 35.
-2. **`staticFiles()` next, before anything expensive.** Most requests for CSS/JS/images should short-circuit here without parsing a body or constructing a database handle. `./public` holds authored static files; `./dist/client` holds the built client bundle.
-3. **`formData()` before `methodOverride()`.** `methodOverride()` rewrites the request method from a `_method` form field, which means it has to read the _parsed_ form data. Invert these two and the override silently never fires. Pass `uploadHandler` to `formData()` if your app handles file uploads.
-4. **`asyncContext()` before `database()`.** `database()` calls `ctx.set(Database, db)`, and that store has to exist before anything writes to it. `asyncContext()` also makes the request context reachable from helpers that never received `ctx` — see Recipe 13.
-5. **`render()` last.** It installs `ctx.render` and, when a frame in the tree needs filling, issues the sub-request back through `context.router.fetch()`. That re-entrant request must traverse the _whole_ stack — static files, form parsing, database — so the renderer has to be the innermost middleware. Anything installed after it would be skipped on frame sub-requests.
+1. **`uploadErrors()` first.** It is the only middleware that needs to see errors from everything below it. It translates the failures raised while `formData()` is still streaming the body — a rejected MIME type into a 415, a breached size cap into a 413, a malformed body into a 400 — none of which any action can answer for. See Recipe 35.
+2. **`formData()` before `methodOverride()`.** `methodOverride()` rewrites the request method from a `_method` form field, which means it has to read the _parsed_ form data. Invert these two and the override silently never fires.
+3. **`asyncContext()` before `database()`.** `database()` calls `ctx.set(Database, db)`, and that store has to exist before anything writes to it. `asyncContext()` also makes the request context reachable from helpers that never received `ctx` — see Recipe 13.
+4. **`render()` last.** It installs `ctx.render` and, when a frame in the tree needs filling, issues the sub-request back through `context.router.fetch()`. That re-entrant request must traverse the _whole_ stack — form parsing, database — so the renderer has to be the innermost middleware. Anything installed after it would be skipped on frame sub-requests.
+
+**No `staticFiles()`.** Upstream's stack starts with it, and this app deliberately omits it. It is built on `node:fs`, and a deployed Worker has no filesystem to read; meanwhile `wrangler.jsonc` already declares `assets: { directory: "dist/client" }`, which Cloudflare serves _ahead_ of the Worker. The middleware was unreachable for exactly the paths it existed to serve. Chapter 3 says so directly: "On a worker, serve static assets through the platform."
+
+**The `fetch` wrapper is the error boundary.** `router.fetch()` rejects when an action or middleware throws, and nothing downstream catches it. Without this wrapper an uncaught error becomes workerd's generic error page — which the browser's `resolveFrame` would then render verbatim into the app's own error banner. The abort guard matters too: a client disconnect is cancellation, not a server failure, so it is not logged.
 
 **What `render()` gives you:** a single `ctx.render(node, init?)` that returns an HTML `Response`. There is no separate "document response" helper and "frame response" helper; the renderer decides the output shape structurally, flipping to document mode when it walks an `<html>` tag in the tree. Your action doesn't pick a response _type_ — it picks what to build:
 
@@ -936,7 +949,7 @@ let profile = s.parse(ProfileSchema, ctx.formData);
 
 `navigate(href, options)` resolves when the Navigation API transition finishes, which — for an intercepted, frame-aware navigation — is after the targeted frame has swapped. So the call site is already the best-informed place in the app. Increment a counter or set a flag around the `await`, call `handle.update()`, and you are done. `app/ui/search-bar.tsx` is the worked example; see Recipe 4 for why it counts instead of using a boolean.
 
-The same trick applies to a reload you trigger yourself: `await handle.frame.reload()` (or `await handle.frames.get(name)?.reload()`) settles once that region has finished updating. `app/actions/contacts/public/favorite-button.tsx` is the worked example — it writes with `fetch()`, then awaits a reload of both frames whose server HTML the write invalidated. Prefer this to re-navigating to the current URL: a reload changes no destination, so it adds no history entry and does not reset scroll.
+The same trick applies to a reload you trigger yourself: `await handle.frame.reload()` (or `await handle.frames.get(name)?.reload()`) settles once that region has finished updating. `app/actions/contacts/favorite-button.tsx` is the worked example — it writes with `fetch()`, then awaits a reload of both frames whose server HTML the write invalidated. Prefer this to re-navigating to the current URL: a reload changes no destination, so it adds no history entry and does not reset scroll.
 
 **2. Per-region pending UI → the frame's own events.**
 
@@ -1281,7 +1294,7 @@ export function RestfulForm(
 
 For server-only components the setup phase is usually empty — there's no persistent state to hold, and every derived value belongs in the render function where it sees current props. The factory shape is still required.
 
-**Hydrated component:** setup is where you register listeners once, and where mutable state lives so it survives re-renders. `app/actions/contacts/public/sidebar-item.tsx`, trimmed:
+**Hydrated component:** setup is where you register listeners once, and where mutable state lives so it survives re-renders. `app/actions/contacts/sidebar-item.tsx`, trimmed:
 
 ```tsx
 export let SidebarItem = clientEntry(import.meta.url, (handle: Handle<SidebarItem.Props>) => {
@@ -1340,7 +1353,7 @@ This is the islands architecture pattern: the server renders the full page, but 
 
 **Heuristic:** Set `data-rmx-target` on the `<a>` or the `<form>` that navigates. Both prop types declare the `data-rmx-*` attributes, so it is a plain typed JSX prop — no mixin, no client entry, no submit handler.
 
-**On anchors.** From `app/actions/contacts/public/sidebar-item.tsx`:
+**On anchors.** From `app/actions/contacts/sidebar-item.tsx`:
 
 ```tsx
 <a
@@ -1960,7 +1973,7 @@ export default defineConfig({
 
 **Heuristic:** Match route patterns against the current URL (for active) and against the in-flight navigation's destination (for pending). Both have to be derived on the client, because a frame-targeted navigation re-renders only the targeted frame — components in _other_ frames keep their original server-provided props.
 
-`app/actions/contacts/public/sidebar-item.tsx`, in full:
+`app/actions/contacts/sidebar-item.tsx`, in full:
 
 ```tsx
 import { routes } from "#/routes.ts";

@@ -122,7 +122,7 @@ It worked under JavaScript only by accident of render ordering: the handler flip
 
 The action also gained the missing `getContact` existence check. `updateContact` throws `Error("Contact with id N not found")` for a missing id, which since H1 is a clean 500 but should be a redirect.
 
-Covered by `app/actions/contacts/public/favorite-button.test.browser.tsx` — the first component test in the repo, and proof that **M4** is actionable today: these `clientEntry` components have no `cloudflare:workers` coupling and render fine under `remix/ui/test`. The test was checked against the pre-fix expression and fails on it.
+Covered by `app/actions/contacts/favorite-button.test.browser.tsx` — the first component test in the repo, and proof that **M4** is actionable today: these `clientEntry` components have no `cloudflare:workers` coupling and render fine under `remix/ui/test`. The test was checked against the pre-fix expression and fails on it.
 
 ### H5 — Both `staticFiles()` middlewares are dead weight on Workers · ch03:165 · **DONE**
 

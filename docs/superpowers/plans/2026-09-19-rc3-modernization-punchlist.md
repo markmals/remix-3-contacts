@@ -174,19 +174,21 @@ Canonical layout (`docs/guides/…/02-routing-and-controllers.md:307-324`): _"Ke
 
 Our flat, PascalCase `app/components/` mixes all three categories:
 
-| Current                      | Canonical destination                                                        | Note                                                                     |
-| ---------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `components/Document.tsx`    | `ui/document.tsx`                                                            | Document/Layout split optional — everything renders through named Frames |
-| `components/RestfulForm.tsx` | `ui/restful-form.tsx`                                                        |                                                                          |
-| `components/SearchBar.tsx`   | `ui/search-bar.tsx`                                                          | Coupled to Document, not to a feature                                    |
-| `components/ShowContact.tsx` | `actions/contacts/show-page.tsx`                                             |                                                                          |
-| `components/EditContact.tsx` | `actions/contacts/form.tsx`                                                  |                                                                          |
-| `components/ZeroState.tsx`   | `actions/zero-state.tsx`                                                     | Root-controller-owned                                                    |
-| `components/SidebarItem.tsx` | `actions/contacts/public/sidebar-item.tsx`                                   | `clientEntry` widget                                                     |
-| `components/Favorite.tsx`    | `actions/contacts/public/favorite-button.tsx`                                | `clientEntry` widget                                                     |
-| `components/Buttons.tsx`     | split → `actions/contacts/public/delete-button.tsx` + `ui/cancel-button.tsx` | Canonical never bundles unrelated components                             |
-| `actions/contacts.tsx`       | `actions/contacts/controller.tsx`                                            |                                                                          |
-| `actions/sidebar.tsx`        | `actions/contacts/sidebar-frame.tsx`                                         | Keep the shared-helper shape; only relocate                              |
+| Current                      | Canonical destination                                                 | Note                                                                     |
+| ---------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `components/Document.tsx`    | `ui/document.tsx`                                                     | Document/Layout split optional — everything renders through named Frames |
+| `components/RestfulForm.tsx` | `ui/restful-form.tsx`                                                 |                                                                          |
+| `components/SearchBar.tsx`   | `ui/search-bar.tsx`                                                   | Coupled to Document, not to a feature                                    |
+| `components/ShowContact.tsx` | `actions/contacts/show-page.tsx`                                      |                                                                          |
+| `components/EditContact.tsx` | `actions/contacts/form.tsx`                                           |                                                                          |
+| `components/ZeroState.tsx`   | `actions/zero-state.tsx`                                              | Root-controller-owned                                                    |
+| `components/SidebarItem.tsx` | `actions/contacts/sidebar-item.tsx`                                   | `clientEntry` widget                                                     |
+| `components/Favorite.tsx`    | `actions/contacts/favorite-button.tsx`                                | `clientEntry` widget                                                     |
+| `components/Buttons.tsx`     | split → `actions/contacts/delete-button.tsx` + `ui/cancel-button.tsx` | Canonical never bundles unrelated components                             |
+| `actions/contacts.tsx`       | `actions/contacts/controller.tsx`                                     |                                                                          |
+| `actions/sidebar.tsx`        | `actions/contacts/sidebar-frame.tsx`                                  | Keep the shared-helper shape; only relocate                              |
+
+> **Amended later.** These three originally landed in `actions/contacts/public/`, mirroring upstream. That directory was then dropped: `app/**/public/**` is the allowlist `remix/assets`' asset server matches, not a layout convention, and this app bundles with Vite. The paths above reflect where they now live.
 
 **Do not rename `app/entry.server.tsx` to `app/router.ts`** despite it being the canonical name. It is the Workers module entry (`wrangler.jsonc:4` `main`) and the target of `?assets=ssr` query imports. If the canonical name is wanted, add `app/router.ts` with the composition and leave `entry.server.tsx` as a thin re-export.
 

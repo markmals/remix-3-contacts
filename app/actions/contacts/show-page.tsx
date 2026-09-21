@@ -1,8 +1,8 @@
 import type { Contact } from "#/data/contacts.ts";
 import type { Handle } from "remix/ui";
 
-import { DeleteButton } from "#/actions/contacts/public/delete-button.tsx";
-import { FavoriteButton } from "#/actions/contacts/public/favorite-button.tsx";
+import { DeleteButton } from "#/actions/contacts/delete-button.tsx";
+import { FavoriteButton } from "#/actions/contacts/favorite-button.tsx";
 import { routes } from "#/routes.ts";
 import { RestfulForm } from "#/ui/restful-form.tsx";
 

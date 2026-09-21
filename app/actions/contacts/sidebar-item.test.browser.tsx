@@ -1,4 +1,4 @@
-import { SidebarItem } from "#/actions/contacts/public/sidebar-item.tsx";
+import { SidebarItem } from "#/actions/contacts/sidebar-item.tsx";
 import { render } from "remix/ui/test";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
