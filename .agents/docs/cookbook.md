@@ -133,6 +133,18 @@ export let LikeButton = clientEntry(
 
 **Important:** All props passed to a `clientEntry` component must be serializable (strings, numbers, booleans, plain objects, arrays). The server serializes them as JSON for the client to hydrate. You cannot pass functions, class instances, or DOM nodes as props to hydrated components.
 
+**Why `import.meta.url`, and why you must not simplify it away.** Upstream passes it so its asset server can map a `file:` URL to a compiled, served module — `clientEntry`'s documented default is really `"/js/module.js#ExportName"` (`ui/src/runtime/client-entries.ts:56`). Here it is a _transform marker_: `@pitlane/dev` matches the literal `clientEntry(import.meta.url, …)` call shape and rewrites the argument at transform time. The compiled SSR bundle shows what it becomes:
+
+```js
+clientEntry(mergeAssets(__assets_manifest["client"]["app/actions/contacts/favorite-button.tsx"]).entry + "#FavoriteButton", …)
+```
+
+So the renderer never sees a `file:` entry ID and never consults an asset server. Replace the argument with a string and the transform stops matching.
+
+**A failed hydration is silent.** `frame.ts:1323-1325` catches every client-entry load failure, logs `[createFrame] Failed to load module`, and returns `undefined` — it does not dispatch the runtime `error` event and does not reject `ready()`, so the app's error banner never fires. A broken island therefore degrades to its server-rendered markup. That is the right default, but it only helps if the markup works on its own, which is the real argument for Recipe 21's no-JS favorite toggle: an island that hydrates into behavior the HTML cannot express fails invisibly.
+
+**Deliberately omitted.** Every upstream demo's browser entry also installs `processClientEntryPreloads` and routes `loadModule` through `remix/multiple-import-maps-polyfill`. Both exist solely to cope with import maps added after the initial document — the demos use the hook for nothing but `detectMultipleImportMapSupport()`. A Vite bundle has no import maps at all, so this app uses plain `import()` and sets no hook. The demos' `app.ready().catch(…)` is skipped too: `run()` already dispatches the error itself (`run.ts:167-170`), and the only rejection paths are sub-frame and pending-template failures, which cannot occur in a document where `render()` fills both frames server-side.
+
 ---
 
 ### 2. How should I handle form submissions?
